@@ -1,0 +1,129 @@
+const { body, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
+};
+
+const validateCitizenRegistration = [
+  body('firstName')
+    .trim()
+    .notEmpty()
+    .withMessage('First name is required.')
+    .matches(/^[A-Z]/)
+    .withMessage('First name must start with an uppercase letter.'),
+  body('lastName')
+    .trim()
+    .notEmpty()
+    .withMessage('Last name is required.')
+    .matches(/^[A-Z]/)
+    .withMessage('Last name must start with an uppercase letter.'),
+  body('middleInitial')
+    .optional()
+    .isLength({ max: 1 })
+    .withMessage('Middle initial must be a single character.')
+    .matches(/^[A-Z]?$/)
+    .withMessage('Middle initial must be uppercase.'),
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email address.')
+    .custom((value) => value.endsWith('@gmail.com'))
+    .withMessage('Only @gmail.com email addresses are allowed.'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long.')
+    .matches(/[A-Z]/)
+    .withMessage('Password must contain at least one uppercase letter.')
+    .matches(/[0-9]/)
+    .withMessage('Password must contain at least one number.')
+    .matches(/[\W_]/)
+    .withMessage('Password must contain at least one special character.'),
+  body('phoneNumber')
+    .notEmpty()
+    .withMessage('Phone number is required.')
+    .matches(/^(09|\+639)\d{9}$/)
+    .withMessage('Please provide a valid Philippine mobile number (e.g., 09123456789 or +639123456789).'),
+  body('address')
+    .notEmpty()
+    .withMessage('Address object is required.'),
+  body('address.barangay')
+    .notEmpty()
+    .withMessage('Barangay address is required.'),
+  body('address.municipalityOrCity')
+    .notEmpty()
+    .withMessage('Municipality or city address is required.'),
+  validate
+];
+
+const validatePersonnelRegistration = [
+  body('firstName')
+    .trim()
+    .notEmpty()
+    .withMessage('First name is required.')
+    .matches(/^[A-Z]/)
+    .withMessage('First name must start with an uppercase letter.'),
+  body('lastName')
+    .trim()
+    .notEmpty()
+    .withMessage('Last name is required.')
+    .matches(/^[A-Z]/)
+    .withMessage('Last name must start with an uppercase letter.'),
+  body('middleInitial')
+    .optional()
+    .isLength({ max: 1 })
+    .withMessage('Middle initial must be a single character.')
+    .matches(/^[A-Z]?$/)
+    .withMessage('Middle initial must be uppercase.'),
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email address.')
+    .custom((value) => value.endsWith('@gmail.com'))
+    .withMessage('Only @gmail.com email addresses are allowed.'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long.')
+    .matches(/[A-Z]/)
+    .withMessage('Password must contain at least one uppercase letter.')
+    .matches(/[0-9]/)
+    .withMessage('Password must contain at least one number.')
+    .matches(/[\W_]/)
+    .withMessage('Password must contain at least one special character.'),
+  body('role')
+    .isIn(['barangay_personnel', 'lgu_personnel', 'police_personnel'])
+    .withMessage('Invalid personnel role specified.'),
+  body('phoneNumber')
+    .notEmpty()
+    .withMessage('Phone number is required.')
+    .matches(/^(09|\+639)\d{9}$/)
+    .withMessage('Please provide a valid Philippine mobile number.'),
+  body('jurisdiction')
+    .notEmpty()
+    .withMessage('Jurisdiction object is required.'),
+  body('jurisdiction.barangay')
+    .if(body('role').equals('barangay_personnel'))
+    .notEmpty()
+    .withMessage('Barangay jurisdiction is required for barangay personnel.'),
+  body('jurisdiction.municipalityOrCity')
+    .notEmpty()
+    .withMessage('Municipality or city jurisdiction is required.'),
+  validate
+];
+
+const validateLogin = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email address.')
+    .custom((value) => value.endsWith('@gmail.com'))
+    .withMessage('Only @gmail.com email addresses are allowed.'),
+  body('password').notEmpty().withMessage('Password is required.'),
+  validate
+];
+
+module.exports = {
+  validateCitizenRegistration,
+  validatePersonnelRegistration,
+  validateLogin
+};
