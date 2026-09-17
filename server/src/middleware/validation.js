@@ -1,4 +1,4 @@
-const { body, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -122,8 +122,86 @@ const validateLogin = [
   validate
 ];
 
+// Validation for submitting an incident report
+const validateIncidentCreation = [
+  body('incidentType')
+    .notEmpty().withMessage('Incident type is required.')
+    .isIn([
+      'Suspicious activities',
+      'Missing or vulnerable persons',
+      'Harassment or unsafe encounters',
+      'Dangerous road incidents',
+      'People requiring assistance',
+      'Public fire or smoke incidents',
+      'People needing assistance during flooding'
+    ])
+    .withMessage('Invalid incident type selected.'),
+  body('description')
+    .trim()
+    .notEmpty().withMessage('Description is required.')
+    .isLength({ min: 10 }).withMessage('Description must be at least 10 characters long.'),
+  body('location.address')
+    .notEmpty().withMessage('Location address is required.'),
+  body('location.address.barangay')
+    .trim()
+    .notEmpty().withMessage('Barangay is required.'),
+  body('location.address.municipalityOrCity')
+    .trim()
+    .notEmpty().withMessage('Municipality or city is required.'),
+  body('location.latitude')
+    .isNumeric().withMessage('Valid latitude is required.'),
+  body('location.longitude')
+    .isNumeric().withMessage('Valid longitude is required.'),
+  validate
+];
+
+// Validation for processing/updating an incident (Personnel/Admin)
+const validateIncidentProcessing = [
+  param('id')
+    .isMongoId().withMessage('Invalid incident ID format.'),
+  body('status')
+    .optional()
+    .isIn(['Submitted', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'])
+    .withMessage('Invalid status value.'),
+  body('severity')
+    .optional()
+    .isIn(['Low', 'Medium', 'High', 'Critical'])
+    .withMessage('Invalid severity level.'),
+  body('assignedAgency')
+    .optional()
+    .isIn(['Barangay', 'LGU', 'Police', 'Unassigned'])
+    .withMessage('Invalid assigned agency.'),
+  body('assignedPersonnel')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid assigned personnel user ID format.'),
+  validate // <-- Added this here
+];
+
+const validateForgotPassword = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email address.'),
+  validate
+];
+
+const validateResetPassword = [
+  param('token')
+    .notEmpty().withMessage('Reset token is required.'),
+  body('password')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long.')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter.')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number.')
+    .matches(/[\W_]/).withMessage('Password must contain at least one special character.'),
+  validate
+];
+
 module.exports = {
   validateCitizenRegistration,
   validatePersonnelRegistration,
-  validateLogin
+  validateLogin,
+  validateIncidentCreation,
+  validateIncidentProcessing,
+  validateForgotPassword,
+  validateResetPassword
 };
