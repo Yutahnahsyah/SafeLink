@@ -77,6 +77,11 @@ const IncidentSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  possibleDuplicateOf: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Incident',
+    default: null
+  },
   responseHistory: [ResponseHistorySchema],
   createdAt: {
     type: Date,
@@ -86,6 +91,8 @@ const IncidentSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
-});
+}, { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } });
+
+IncidentSchema.index({ incidentType: 1, 'location.address.barangay': 1, 'location.address.municipalityOrCity': 1, createdAt: -1 });
 
 module.exports = mongoose.model('Incident', IncidentSchema);

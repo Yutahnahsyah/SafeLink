@@ -8,7 +8,7 @@ const incidentRoutes = require('./routes/incidentRoutes');
 const app = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(cors());
 
 // Mount Routes

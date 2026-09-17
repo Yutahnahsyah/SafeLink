@@ -139,7 +139,7 @@ const validateIncidentCreation = [
   body('description')
     .trim()
     .notEmpty().withMessage('Description is required.')
-    .isLength({ min: 10 }).withMessage('Description must be at least 10 characters long.'),
+    .isLength({ min: 10, max: 5000 }).withMessage('Description must be between 10 and 5000 characters long.'),
   body('location.address')
     .notEmpty().withMessage('Location address is required.'),
   body('location.address.barangay')
@@ -149,9 +149,16 @@ const validateIncidentCreation = [
     .trim()
     .notEmpty().withMessage('Municipality or city is required.'),
   body('location.latitude')
-    .isNumeric().withMessage('Valid latitude is required.'),
+    .isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90.'),
   body('location.longitude')
-    .isNumeric().withMessage('Valid longitude is required.'),
+    .isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180.'),
+  body('mediaEvidence')
+    .optional()
+    .isArray({ max: 5 }).withMessage('Media evidence must contain no more than 5 URLs.'),
+  body('mediaEvidence.*')
+    .optional()
+    .isURL({ protocols: ['http', 'https'], require_protocol: true })
+    .withMessage('Each media evidence item must be an HTTP(S) URL.'),
   validate
 ];
 
@@ -175,6 +182,11 @@ const validateIncidentProcessing = [
     .optional()
     .isMongoId()
     .withMessage('Invalid assigned personnel user ID format.'),
+  body('remarks')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 2000 })
+    .withMessage('Remarks must be between 1 and 2000 characters long.'),
   validate // <-- Added this here
 ];
 
