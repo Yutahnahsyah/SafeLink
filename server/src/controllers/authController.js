@@ -5,6 +5,17 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
 // Configure Nodemailer transporter with Gmail
+const appUrl = process.env.APP_URL || 'http://localhost:5000';
+
+const sameCity = (first, second) => (
+  Boolean(first && second) && first.trim().toLowerCase() === second.trim().toLowerCase()
+);
+
+const canLGUManagePersonnel = (requester, personnel) => (
+  personnel.role === 'barangay_personnel'
+  && sameCity(requester.jurisdiction?.municipalityOrCity, personnel.jurisdiction?.municipalityOrCity)
+);
+
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -18,7 +29,8 @@ const transporter = nodemailer.createTransport({
 const registerCitizen = async (req, res) => {
   try {
     // 1. Destructure 'address' alongside your other fields
-    const { firstName, lastName, middleInitial, email, password, phoneNumber, address } = req.body;
+    const { firstName, lastName, middleInitial, password, phoneNumber, address } = req.body;
+    const email = req.body.email.toLowerCase().trim();
 
     let user = await User.findOne({ email });
     if (user) {
@@ -49,7 +61,7 @@ const registerCitizen = async (req, res) => {
     await user.save();
 
     // Create verification link URL
-    const verifyUrl = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
+    const verifyUrl = `${appUrl}/api/auth/verify-email/${verificationToken}`;
 
     // Compose email message
     const mailOptions = {
@@ -75,11 +87,12 @@ const registerCitizen = async (req, res) => {
   }
 };
 
-// @desc    Verify Citizen Email
+// @desc    Verify a citizen's email address via emailed token
 // @route   GET /api/auth/verify-email/:token
 const verifyEmail = async (req, res) => {
   try {
-    const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+    const { token } = req.params;
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const user = await User.findOne({
       emailVerificationToken: hashedToken,
@@ -106,11 +119,18 @@ const verifyEmail = async (req, res) => {
 // @route   POST /api/auth/register-personnel
 const registerPersonnel = async (req, res) => {
   try {
-    const { firstName, lastName, middleInitial, email, password, role, jurisdiction, phoneNumber } = req.body;
+    const { firstName, lastName, middleInitial, password, role, jurisdiction, phoneNumber } = req.body;
+    const email = req.body.email.toLowerCase().trim();
 
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ message: 'Account already exists with this email.' });
+    }
+
+    if (req.user.role === 'lgu_personnel' && !canLGUManagePersonnel(req.user, { role, jurisdiction })) {
+      return res.status(403).json({
+        message: 'LGU personnel can register barangay personnel only within their municipality or city.'
+      });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -125,7 +145,8 @@ const registerPersonnel = async (req, res) => {
       role,
       jurisdiction,
       phoneNumber,
-      isVerified: false // Requires admin approval
+      isVerified: false, // Requires admin approval
+      status: 'pending'
     });
 
     await user.save();
@@ -144,7 +165,8 @@ const registerPersonnel = async (req, res) => {
 // @route   POST /api/auth/login
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = req.body.email.toLowerCase().trim();
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -175,11 +197,7 @@ const loginUser = async (req, res) => {
     }
 
     const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-        jurisdiction: user.jurisdiction
-      },
+      { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
@@ -206,10 +224,13 @@ const loginUser = async (req, res) => {
 // @route   GET /api/auth/pending-personnel
 const getPendingPersonnel = async (req, res) => {
   try {
-    const pendingUsers = await User.find({
-      isVerified: false,
-      role: { $ne: 'citizen' }
-    }).select('-password');
+    const query = { isVerified: false, role: { $ne: 'citizen' } };
+    if (req.user.role === 'lgu_personnel') {
+      query.role = 'barangay_personnel';
+      query['jurisdiction.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
+    }
+
+    const pendingUsers = await User.find(query).select('-password');
 
     res.json(pendingUsers);
   } catch (err) {
@@ -227,8 +248,20 @@ const approvePersonnel = async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
     }
 
+    if (user.role === 'citizen') {
+      return res.status(400).json({ message: 'Citizen accounts must be verified through their email link.' });
+    }
+
+    if (req.user.role === 'lgu_personnel' && !canLGUManagePersonnel(req.user, user)) {
+      return res.status(403).json({ message: 'LGU personnel can approve barangay personnel only within their municipality or city.' });
+    }
+
+    if (user.isVerified && user.status === 'active') {
+      return res.status(400).json({ message: 'Personnel account is already approved.' });
+    }
+
     user.isVerified = true;
-    user.status = 'active'; // Ensure status changes from pending to active
+    user.status = 'active';
     await user.save();
 
     res.json({ message: `Account for ${user.firstName} ${user.lastName} has been approved successfully.` });
@@ -242,7 +275,7 @@ const approvePersonnel = async (req, res) => {
 // @route   POST /api/auth/forgot-password
 const forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = req.body.email.toLowerCase().trim();
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -259,7 +292,7 @@ const forgotPassword = async (req, res) => {
     await user.save();
 
     // Create frontend/API reset link URL
-    const resetUrl = `http://localhost:5000/api/auth/reset-password/${resetToken}`;
+    const resetUrl = `${appUrl}/api/auth/reset-password/${resetToken}`;
 
     // Compose email message
     const mailOptions = {
@@ -285,33 +318,33 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-// @desc    Reset password using token
+// @desc    Reset a user's password using the emailed token
 // @route   POST /api/auth/reset-password/:token
 const resetPassword = async (req, res) => {
   try {
-    const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() } // Check if token hasn't expired
+      resetPasswordExpires: { $gt: Date.now() }
     });
 
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired password reset token.' });
     }
 
-    // Hash new password
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(req.body.password, salt);
-
-    // Clear reset token fields
+    user.password = await bcrypt.hash(password, salt);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    res.status(200).json({ message: 'Password has been successfully reset. You can now log in.' });
+    res.status(200).json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
   } catch (err) {
-    console.error(err.message);
+    console.error('Password reset error:', err.message);
     res.status(500).json({ message: 'Server error during password reset.' });
   }
 };
@@ -339,29 +372,13 @@ const updateUserStatus = async (req, res) => {
       // Admins have absolute power and can modify any account tier
     }
     else if (requester.role === 'lgu_personnel') {
-      // Rule A: LGU personnel can only modify citizens or barangay personnel
-      const allowedTargetRoles = ['citizen', 'barangay_personnel'];
-      if (!allowedTargetRoles.includes(targetUser.role)) {
-        return res.status(403).json({
-          message: 'Permission denied: LGU personnel cannot suspend or modify other LGU staff, police, or admins.'
-        });
-      }
-
-      // Rule B: Enforce geographical jurisdiction matching
-      const requesterCity = requester.jurisdiction?.municipalityOrCity;
-
-      // Determine target city depending on their role
-      let targetCity = null;
       if (targetUser.role === 'citizen') {
-        targetCity = targetUser.address?.municipalityOrCity;
-      } else if (targetUser.role === 'barangay_personnel') {
-        targetCity = targetUser.jurisdiction?.municipalityOrCity;
-      }
-
-      // Strict check: Target MUST have a city, and it MUST match the LGU's city
-      if (!targetCity || !requesterCity || requesterCity.trim().toLowerCase() !== targetCity.trim().toLowerCase()) {
+        if (!sameCity(requester.jurisdiction?.municipalityOrCity, targetUser.address?.municipalityOrCity)) {
+          return res.status(403).json({ message: 'Permission denied: You can only manage citizens in your municipality or city.' });
+        }
+      } else if (!canLGUManagePersonnel(requester, targetUser)) {
         return res.status(403).json({
-          message: 'Permission denied: You can only manage accounts within your specific municipality or city.'
+          message: 'Permission denied: LGU personnel can manage barangay personnel only within their municipality or city.'
         });
       }
     }
@@ -406,6 +423,16 @@ const deleteUser = async (req, res) => {
 
     if (user.role === 'admin' && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Only admins can delete admin accounts.' });
+    }
+
+    if (req.user.role === 'lgu_personnel') {
+      const managesCitizen = user.role === 'citizen'
+        && sameCity(req.user.jurisdiction?.municipalityOrCity, user.address?.municipalityOrCity);
+      if (!managesCitizen && !canLGUManagePersonnel(req.user, user)) {
+        return res.status(403).json({
+          message: 'Access denied: LGU personnel can delete citizens or barangay personnel only within their municipality or city.'
+        });
+      }
     }
 
     await User.findByIdAndDelete(req.params.id);

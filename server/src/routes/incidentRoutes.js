@@ -19,6 +19,7 @@ const requireRole = (...roles) => (req, res, next) => {
   next();
 };
 
+// POST Submit Incident Report (Citizen)
 router.post(
   '/',
   verifyToken,
@@ -27,8 +28,10 @@ router.post(
   createIncident
 );
 
+// GET View Incidents (Citizen, Barangay, LGU, Police, Admin)
 router.get('/', verifyToken, getIncidents);
 
+// PATCH Process & Refer Incident (Barangay, LGU, Police, Admin)
 router.patch(
   '/:id/process',
   verifyToken,
