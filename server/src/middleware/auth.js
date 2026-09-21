@@ -42,4 +42,13 @@ const verifyAdminOrLGU = (req, res, next) => {
   });
 };
 
-module.exports = { verifyToken, verifyAdminOrLGU };
+const verifyAdmin = (req, res, next) => {
+  verifyToken(req, res, () => {
+    if (req.user.role === 'admin') {
+      return next();
+    }
+    return res.status(403).json({ message: 'Access forbidden: Requires Admin clearance.' });
+  });
+};
+
+module.exports = { verifyToken, verifyAdminOrLGU, verifyAdmin };

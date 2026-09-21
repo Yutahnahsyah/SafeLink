@@ -1,6 +1,20 @@
 const mongoose = require('mongoose');
 
 const ResponseHistorySchema = new mongoose.Schema({
+  eventType: {
+    type: String,
+    enum: [
+      'submitted',
+      'status_changed',
+      'severity_changed',
+      'personnel_assigned',
+      'personnel_reassigned',
+      'agency_referred',
+      'agency_unassigned',
+      'note_added'
+    ],
+    default: 'note_added'
+  },
   status: {
     type: String,
     required: true
@@ -13,6 +27,22 @@ const ResponseHistorySchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  previousStatus: { type: String, default: null },
+  newStatus: { type: String, default: null },
+  previousSeverity: { type: String, default: null },
+  newSeverity: { type: String, default: null },
+  previousAssignedAgency: { type: String, default: null },
+  newAssignedAgency: { type: String, default: null },
+  previousAssignedPersonnel: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  newAssignedPersonnel: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
   timestamp: {
     type: Date,
@@ -76,6 +106,22 @@ const IncidentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null
+  },
+  referral: {
+    agency: {
+      type: String,
+      enum: ['Barangay', 'LGU', 'Police'],
+      default: null
+    },
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    referredAt: {
+      type: Date,
+      default: null
+    }
   },
   possibleDuplicateOf: {
     type: mongoose.Schema.Types.ObjectId,

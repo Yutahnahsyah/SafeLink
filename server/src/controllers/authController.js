@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
 
 // Configure Nodemailer transporter with Gmail
 const appUrl = process.env.APP_URL || 'http://localhost:5000';
@@ -78,6 +79,13 @@ const registerCitizen = async (req, res) => {
 
     await transporter.sendMail(mailOptions);
 
+    await recordAuditEvent({
+      req,
+      targetUser: user._id,
+      action: 'AUTH_CITIZEN_REGISTERED',
+      outcome: 'success'
+    });
+
     res.status(201).json({
       message: 'Citizen account created successfully. Please check your email to verify your account before logging in.'
     });
@@ -107,6 +115,14 @@ const verifyEmail = async (req, res) => {
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
     await user.save();
+
+    await recordAuditEvent({
+      req,
+      actor: user._id,
+      targetUser: user._id,
+      action: 'AUTH_EMAIL_VERIFIED',
+      outcome: 'success'
+    });
 
     res.status(200).json({ message: 'Email verified successfully! You can now log in to your account.' });
   } catch (err) {
@@ -151,6 +167,14 @@ const registerPersonnel = async (req, res) => {
 
     await user.save();
 
+    await recordAuditEvent({
+      req,
+      targetUser: user._id,
+      action: 'PERSONNEL_REGISTRATION_SUBMITTED',
+      outcome: 'success',
+      details: { role: user.role }
+    });
+
     res.status(201).json({
       message: 'Personnel registration submitted successfully. Awaiting administrator approval.',
       user: { id: user._id, email: user.email, role: user.role }
@@ -170,11 +194,27 @@ const loginUser = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
+      await recordAuditEvent({
+        req,
+        action: 'AUTH_LOGIN',
+        outcome: 'failure',
+        details: {
+          reason: 'invalid_credentials',
+          attemptedEmailHash: hashIdentifier(email)
+        }
+      });
       return res.status(400).json({ message: 'Invalid credentials.' });
     }
 
     // 1. Check if the account is verified (covers unverified citizens and pending personnel)
     if (!user.isVerified) {
+      await recordAuditEvent({
+        req,
+        targetUser: user._id,
+        action: 'AUTH_LOGIN',
+        outcome: 'failure',
+        details: { reason: 'account_not_verified' }
+      });
       if (user.role === 'citizen') {
         return res.status(403).json({
           message: 'Please check your email and verify your account before logging in.'
@@ -188,11 +228,25 @@ const loginUser = async (req, res) => {
 
     // 2. Check account status (e.g., if suspended)
     if (user.status === 'suspended') {
+      await recordAuditEvent({
+        req,
+        targetUser: user._id,
+        action: 'AUTH_LOGIN',
+        outcome: 'failure',
+        details: { reason: 'account_suspended' }
+      });
       return res.status(403).json({ message: 'Access denied. Your account has been suspended due to a violation.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      await recordAuditEvent({
+        req,
+        targetUser: user._id,
+        action: 'AUTH_LOGIN',
+        outcome: 'failure',
+        details: { reason: 'invalid_credentials' }
+      });
       return res.status(400).json({ message: 'Invalid credentials.' });
     }
 
@@ -201,6 +255,14 @@ const loginUser = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
+
+    await recordAuditEvent({
+      req,
+      actor: user._id,
+      targetUser: user._id,
+      action: 'AUTH_LOGIN',
+      outcome: 'success'
+    });
 
     res.json({
       message: 'Logged in successfully.',
@@ -263,6 +325,14 @@ const approvePersonnel = async (req, res) => {
     user.isVerified = true;
     user.status = 'active';
     await user.save();
+
+    await recordAuditEvent({
+      req,
+      targetUser: user._id,
+      action: 'PERSONNEL_APPROVED',
+      outcome: 'success',
+      details: { role: user.role }
+    });
 
     res.json({ message: `Account for ${user.firstName} ${user.lastName} has been approved successfully.` });
   } catch (err) {
@@ -342,6 +412,14 @@ const resetPassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
     await user.save();
 
+    await recordAuditEvent({
+      req,
+      actor: user._id,
+      targetUser: user._id,
+      action: 'AUTH_PASSWORD_RESET_COMPLETED',
+      outcome: 'success'
+    });
+
     res.status(200).json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
   } catch (err) {
     console.error('Password reset error:', err.message);
@@ -390,8 +468,17 @@ const updateUserStatus = async (req, res) => {
     }
 
     // 4. Apply status update if checks pass
+    const previousStatus = targetUser.status;
     targetUser.status = status;
     await targetUser.save();
+
+    await recordAuditEvent({
+      req,
+      targetUser: targetUser._id,
+      action: 'USER_STATUS_CHANGED',
+      outcome: 'success',
+      details: { previousStatus, newStatus: status }
+    });
 
     res.status(200).json({
       message: `User account (${targetUser.email}) has been successfully set to ${status}.`,
@@ -436,6 +523,14 @@ const deleteUser = async (req, res) => {
     }
 
     await User.findByIdAndDelete(req.params.id);
+
+    await recordAuditEvent({
+      req,
+      targetUser: user._id,
+      action: 'USER_DELETED',
+      outcome: 'success',
+      details: { deletedRole: user.role }
+    });
 
     res.status(200).json({
       message: `User account (${user.email}) has been successfully deleted.`,
