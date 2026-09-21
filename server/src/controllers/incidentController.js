@@ -27,7 +27,7 @@ const distanceInMeters = (first, second) => {
   return earthRadiusInMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const canAccessIncident = (user, incident) => {
+const canCoverIncidentLocation = (user, incident) => {
   if (user.role === 'admin') return true;
   if (user.role === 'barangay_personnel') {
     return samePlace(incident.location.address.barangay, user.jurisdiction?.barangay)
@@ -38,6 +38,25 @@ const canAccessIncident = (user, incident) => {
   }
   return false;
 };
+
+const isAssignedPersonnel = (user, incident) => (
+  Boolean(incident.assignedPersonnel)
+  && incident.assignedPersonnel.toString() === user.id.toString()
+);
+
+const canAccessIncident = (user, incident) => {
+  // Administrators can oversee all reports. LGU personnel are supervisors for
+  // reports within their city. All other field personnel may work only on a
+  // report explicitly assigned to their account.
+  if (user.role === 'admin') return true;
+  if (user.role === 'lgu_personnel') return canCoverIncidentLocation(user, incident);
+  return isAssignedPersonnel(user, incident);
+};
+
+const canManageAssignment = (user, incident) => (
+  user.role === 'admin'
+  || (user.role === 'lgu_personnel' && canCoverIncidentLocation(user, incident))
+);
 
 // @desc    Citizen submits a new safety incident report
 // @route   POST /api/incidents
@@ -91,14 +110,12 @@ const getIncidents = async (req, res) => {
   try {
     let query;
     if (req.user.role === 'citizen') query = { citizen: req.user.id };
-    else if (req.user.role === 'barangay_personnel') {
-      query = {
-        'location.address.barangay': req.user.jurisdiction?.barangay,
-        'location.address.municipalityOrCity': req.user.jurisdiction?.municipalityOrCity
-      };
-    } else if (['lgu_personnel', 'police_personnel'].includes(req.user.role)) {
+    else if (req.user.role === 'lgu_personnel') {
       query = { 'location.address.municipalityOrCity': req.user.jurisdiction?.municipalityOrCity };
     } else if (req.user.role === 'admin') query = {};
+    else if (['barangay_personnel', 'police_personnel'].includes(req.user.role)) {
+      query = { assignedPersonnel: req.user.id };
+    }
     else return res.status(403).json({ message: 'Access denied: unrecognized role.' });
 
     const incidents = await Incident.find(query)
@@ -130,12 +147,18 @@ const processIncident = async (req, res) => {
       });
     }
 
+    if (assignedPersonnel && !canManageAssignment(req.user, incident)) {
+      return res.status(403).json({
+        message: 'Access denied: only an administrator or the responsible LGU can assign or reassign personnel.'
+      });
+    }
+
     if (assignedPersonnel) {
       const personnelUser = await User.findById(assignedPersonnel);
       if (!personnelUser || personnelUser.role === 'citizen' || !personnelUser.isVerified || personnelUser.status !== 'active') {
         return res.status(400).json({ message: 'Selected personnel must be an active, verified personnel account.' });
       }
-      if (!canAccessIncident({ role: personnelUser.role, jurisdiction: personnelUser.jurisdiction }, incident)) {
+      if (!canCoverIncidentLocation({ role: personnelUser.role, jurisdiction: personnelUser.jurisdiction }, incident)) {
         return res.status(400).json({ message: 'Selected personnel does not cover this incident location.' });
       }
     }
@@ -144,7 +167,6 @@ const processIncident = async (req, res) => {
     if (severity) incident.severity = severity;
     if (assignedAgency) incident.assignedAgency = assignedAgency;
     if (assignedPersonnel) incident.assignedPersonnel = assignedPersonnel;
-    else if (!incident.assignedPersonnel && req.user.role !== 'admin') incident.assignedPersonnel = req.user.id;
 
     incident.responseHistory.push({
       status: incident.status,

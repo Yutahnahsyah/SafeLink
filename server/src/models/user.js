@@ -52,7 +52,7 @@ const UserSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'active', 'suspended'],
     default: function defaultStatus() {
-      return this.role === 'citizen' ? 'active' : 'pending';
+      return ['citizen', 'admin'].includes(this.role) ? 'active' : 'pending';
     }
   },
   isVerified: {
