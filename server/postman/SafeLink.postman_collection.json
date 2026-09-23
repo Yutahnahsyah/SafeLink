@@ -1,0 +1,98 @@
+{
+  "info": {
+    "_postman_id": "f92020ad-217e-4fd8-a98e-3dbe240bdd60",
+    "name": "SafeLink Server API",
+    "description": "Select the SafeLink Local environment, fill credentials, then run folders in order. Every protected request uses a role-specific saved token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 Authentication",
+      "item": [
+        {
+          "name": "Register Citizen",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Dela Cruz\",\n  \"middleInitial\": \"S\",\n  \"email\": \"{{citizenEmail}}\",\n  \"password\": \"{{citizenPassword}}\",\n  \"phoneNumber\": \"09171234567\",\n  \"address\": { \"barangay\": \"Poblacion\", \"municipalityOrCity\": \"Lingayen\" }\n}" }, "url": "{{baseUrl}}/api/auth/register-citizen" },
+          "response": []
+        },
+        {
+          "name": "Verify Citizen Email",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/verify-email/{{verificationToken}}" },
+          "response": []
+        },
+        {
+          "name": "Login Admin",
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('Admin login succeeds', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('adminToken', body.token);"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{adminEmail}}\", \"password\": \"{{adminPassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" },
+          "response": []
+        },
+        {
+          "name": "Login Citizen",
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('Citizen login succeeds', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('citizenToken', body.token);"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{citizenEmail}}\", \"password\": \"{{citizenPassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" },
+          "response": []
+        },
+        {
+          "name": "Login LGU",
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('LGU login succeeds', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('lguToken', body.token);"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{lguEmail}}\", \"password\": \"{{lguPassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" },
+          "response": []
+        },
+        {
+          "name": "Login Personnel",
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('Personnel login succeeds', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('personnelToken', body.token);", "pm.environment.set('personnelId', body.user.id);"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{personnelEmail}}\", \"password\": \"{{personnelPassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" },
+          "response": []
+        },
+        { "name": "Forgot Password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{citizenEmail}}\" }" }, "url": "{{baseUrl}}/api/auth/forgot-password" }, "response": [] },
+        { "name": "Reset Password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"password\": \"NewPassword1!\" }" }, "url": "{{baseUrl}}/api/auth/reset-password/{{resetToken}}" }, "response": [] }
+      ]
+    },
+    {
+      "name": "02 Personnel Administration",
+      "item": [
+        { "name": "Register Barangay Personnel as Admin", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"firstName\": \"Maria\", \"lastName\": \"Santos\", \"email\": \"{{personnelEmail}}\", \"password\": \"{{personnelPassword}}\", \"role\": \"barangay_personnel\", \"phoneNumber\": \"09171234568\", \"jurisdiction\": { \"barangay\": \"Poblacion\", \"municipalityOrCity\": \"Lingayen\" } }" }, "url": "{{baseUrl}}/api/auth/register-personnel" }, "response": [] },
+        { "name": "Get Pending Personnel", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.length) pm.environment.set('pendingPersonnelId', body[0]._id);"] } }], "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/auth/pending-personnel" }, "response": [] },
+        { "name": "Approve Personnel", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/auth/approve-personnel/{{pendingPersonnelId}}" }, "response": [] },
+        { "name": "List Active Personnel", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.length) pm.environment.set('personnelId', body[0]._id);"] } }], "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/users/personnel" }, "response": [] },
+        { "name": "Set User Status", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"active\" }" }, "url": "{{baseUrl}}/api/auth/users/{{personnelId}}/status" }, "response": [] }
+      ]
+    },
+    {
+      "name": "03 Incidents and Evidence",
+      "item": [
+        { "name": "Submit Incident as Citizen", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('Incident is created', () => pm.expect(pm.response.code).to.equal(201));", "pm.environment.set('incidentId', body.incident._id);"] } }], "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"incidentType\": \"Suspicious activities\",\n  \"description\": \"A test report with enough details for validation.\",\n  \"location\": {\n    \"address\": { \"barangay\": \"Poblacion\", \"municipalityOrCity\": \"Lingayen\" },\n    \"latitude\": 16.021,\n    \"longitude\": 120.233\n  }\n}" }, "url": "{{baseUrl}}/api/incidents" }, "response": [] },
+        { "name": "List Incidents", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "url": "{{baseUrl}}/api/incidents" }, "response": [] },
+        { "name": "Upload Evidence", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.evidence && body.evidence.length) pm.environment.set('evidenceId', body.evidence[0].id);"] } }], "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "body": { "mode": "formdata", "formdata": [{ "key": "evidence", "type": "file", "src": "{{evidenceFile}}" }] }, "url": "{{baseUrl}}/api/incidents/{{incidentId}}/evidence" }, "response": [] },
+        { "name": "Download Evidence", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "url": "{{baseUrl}}/api/incidents/{{incidentId}}/evidence/{{evidenceId}}" }, "response": [] },
+        { "name": "Move to Under Validation", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"Under Validation\", \"remarks\": \"Review started.\" }" }, "url": "{{baseUrl}}/api/incidents/{{incidentId}}/process" }, "response": [] },
+        { "name": "Verify Incident", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"Verified\", \"severity\": \"High\", \"remarks\": \"Validated by authorized personnel.\" }" }, "url": "{{baseUrl}}/api/incidents/{{incidentId}}/process" }, "response": [] },
+        { "name": "Assign and Refer to Barangay", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"assignedAgency\": \"Barangay\", \"assignedPersonnel\": \"{{personnelId}}\", \"remarks\": \"Assigned for response.\" }" }, "url": "{{baseUrl}}/api/incidents/{{incidentId}}/process" }, "response": [] },
+        { "name": "Safety Map Markers", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "url": "{{baseUrl}}/api/incidents/map?status=Verified,In%20Progress&severity=High,Critical" }, "response": [] },
+        { "name": "Pangasinan Map Boundary", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "url": "{{baseUrl}}/api/incidents/map/boundary" }, "response": [] }
+      ]
+    },
+    {
+      "name": "04 Notifications",
+      "item": [
+        { "name": "List Unread Notifications", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.data && body.data.length) pm.environment.set('notificationId', body.data[0]._id);"] } }], "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "url": "{{baseUrl}}/api/notifications?read=false&page=1&limit=25" }, "response": [] },
+        { "name": "Mark One Notification Read", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read" }, "response": [] },
+        { "name": "Mark All Notifications Read", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "url": "{{baseUrl}}/api/notifications/read-all" }, "response": [] }
+      ]
+    },
+    {
+      "name": "05 Audit Logs and Analytics",
+      "item": [
+        { "name": "Filter Audit Logs", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/audit-logs?action=INCIDENT_REFERRED&outcome=success&page=1&limit=25" }, "response": [] },
+        { "name": "Analytics Overview as Admin", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/analytics/overview?from=2026-01-01T00:00:00.000Z&to=2026-12-31T23:59:59.999Z" }, "response": [] },
+        { "name": "Analytics Overview as LGU", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{lguToken}}" }], "url": "{{baseUrl}}/api/analytics/overview" }, "response": [] },
+        { "name": "Community Analytics as Citizen", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{citizenToken}}" }], "url": "{{baseUrl}}/api/analytics/overview" }, "response": [] }
+      ]
+    },
+    {
+      "name": "06 Destructive Cleanup (Run Last)",
+      "item": [
+        { "name": "Delete Test User", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/auth/users/{{personnelId}}" }, "response": [] }
+      ]
+    }
+  ]
+}
