@@ -105,7 +105,7 @@ const IncidentSchema = new mongoose.Schema({
     }
   },
   mediaEvidence: [{
-    type: String // URLs or file paths for photos/videos
+    type: String
   }],
   evidenceFiles: {
     type: [EvidenceFileSchema],

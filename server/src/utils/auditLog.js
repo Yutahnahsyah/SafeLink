@@ -27,8 +27,6 @@ const recordAuditEvent = async ({
       userAgent: req?.get?.('user-agent') || null
     });
   } catch (error) {
-    // Audit logging must not turn a successful user action into a failed one.
-    // The server error is still visible to operators for investigation.
     console.error('Audit log write failed:', error.message);
   }
 };

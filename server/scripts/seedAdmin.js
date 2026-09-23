@@ -8,8 +8,6 @@ const seedAdmin = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('Database connected for admin seeding...');
 
-    // Seed one known initial administrator. Matching by email keeps the command
-    // idempotent without preventing an organization from having other admins.
     const adminEmail = process.env.INITIAL_ADMIN_EMAIL.toLowerCase().trim();
     const existingAdmin = await User.findOne({ email: adminEmail });
     if (existingAdmin) {
@@ -18,16 +16,12 @@ const seedAdmin = async () => {
         process.exit(1);
       }
 
-      // Repair accounts created by the earlier seed implementation, which used
-      // the non-citizen default status of "pending".
       if (existingAdmin.status === 'pending') {
         existingAdmin.isVerified = true;
         existingAdmin.status = 'active';
         await existingAdmin.save();
         console.log(`Initial Admin account activated successfully: ${existingAdmin.email}`);
       } else if (existingAdmin.status === 'suspended') {
-        // A suspension is a deliberate administrator action and must not be
-        // undone merely by running the seed script again.
         console.log('Initial Admin account is suspended. Its status was not changed.');
       } else {
         console.log('Initial Admin account already exists and is active. Skipping seed.');

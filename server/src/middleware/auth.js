@@ -20,8 +20,6 @@ const verifyToken = async (req, res, next) => {
       return res.status(401).json({ message: 'Access denied. Your account is no longer active.' });
     }
 
-    // Read current authorization data from the database so suspended users and role
-    // changes take effect immediately instead of waiting for JWT expiration.
     req.user = {
       id: user._id.toString(),
       role: user.role,

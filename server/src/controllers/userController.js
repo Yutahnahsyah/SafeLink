@@ -6,15 +6,12 @@ const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // @route   GET /api/users/personnel
 const getPersonnelList = async (req, res) => {
   try {
-    // Find users with personnel roles who are verified and active
     const query = {
       role: { $in: ['barangay_personnel', 'lgu_personnel', 'police_personnel'] },
       isVerified: true,
       status: 'active'
     };
 
-    // Admins may choose from all active personnel. An LGU may only see
-    // personnel whose jurisdiction belongs to the LGU's own municipality/city.
     if (req.user.role === 'lgu_personnel') {
       const municipalityOrCity = req.user.jurisdiction?.municipalityOrCity?.trim();
       if (!municipalityOrCity) {

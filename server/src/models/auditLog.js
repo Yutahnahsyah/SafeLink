@@ -26,8 +26,6 @@ const AuditLogSchema = new mongoose.Schema({
     enum: ['success', 'failure'],
     required: true
   },
-  // Contains non-sensitive operational context only. Passwords, tokens, and
-  // raw credentials must never be written to this field.
   details: {
     type: mongoose.Schema.Types.Mixed,
     default: {}

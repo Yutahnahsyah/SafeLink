@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
 
-// Configure Nodemailer transporter with Gmail
 const appUrl = process.env.APP_URL || 'http://localhost:5000';
 
 const sameCity = (first, second) => (
@@ -29,7 +28,6 @@ const transporter = nodemailer.createTransport({
 // @route   POST /api/auth/register-citizen
 const registerCitizen = async (req, res) => {
   try {
-    // 1. Destructure 'address' alongside your other fields
     const { firstName, lastName, middleInitial, password, phoneNumber, address } = req.body;
     const email = req.body.email.toLowerCase().trim();
 
@@ -41,7 +39,6 @@ const registerCitizen = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Generate email verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
@@ -52,19 +49,17 @@ const registerCitizen = async (req, res) => {
       email,
       password: hashedPassword,
       phoneNumber,
-      address, // 2. Save the address object here
+      address,
       role: 'citizen',
-      isVerified: false, // Set to false until email is verified
+      isVerified: false,
       emailVerificationToken: hashedToken,
-      emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+      emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000
     });
 
     await user.save();
 
-    // Create verification link URL
     const verifyUrl = `${appUrl}/api/auth/verify-email/${verificationToken}`;
 
-    // Compose email message
     const mailOptions = {
       from: `"SafeLink System" <${process.env.EMAIL_USER}>`,
       to: user.email,
@@ -206,7 +201,6 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials.' });
     }
 
-    // 1. Check if the account is verified (covers unverified citizens and pending personnel)
     if (!user.isVerified) {
       await recordAuditEvent({
         req,
@@ -226,7 +220,6 @@ const loginUser = async (req, res) => {
       }
     }
 
-    // 2. Check account status (e.g., if suspended)
     if (user.status === 'suspended') {
       await recordAuditEvent({
         req,
@@ -349,22 +342,17 @@ const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      // Security measure: Do not reveal if email exists or not
       return res.status(200).json({ message: 'If that email exists, a password reset link has been sent.' });
     }
 
-    // Generate secure random token
     const resetToken = crypto.randomBytes(32).toString('hex');
 
-    // Hash token and save to database with 15-minute expiration
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    // Create frontend/API reset link URL
     const resetUrl = `${appUrl}/api/auth/reset-password/${resetToken}`;
 
-    // Compose email message
     const mailOptions = {
       from: `"SafeLink System" <${process.env.EMAIL_USER}>`,
       to: user.email,
@@ -378,7 +366,6 @@ const forgotPassword = async (req, res) => {
       `
     };
 
-    // Send the email
     await transporter.sendMail(mailOptions);
 
     res.status(200).json({ message: 'Password reset instructions sent to your email.' });
@@ -434,20 +421,16 @@ const updateUserStatus = async (req, res) => {
     const { status } = req.body; // Expects 'active', 'suspended', or 'pending'
     const requester = req.user;   // Extracted from JWT middleware
 
-    // 1. Validate status input
     if (!['active', 'suspended', 'pending'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status value provided.' });
     }
 
-    // 2. Find the target user being modified
     const targetUser = await User.findById(req.params.id);
     if (!targetUser) {
       return res.status(404).json({ message: 'Target user not found.' });
     }
 
-    // 3. Enforce Hierarchy & Jurisdiction Rules
     if (requester.role === 'admin') {
-      // Admins have absolute power and can modify any account tier
     }
     else if (requester.role === 'lgu_personnel') {
       if (targetUser.role === 'citizen') {
@@ -461,13 +444,11 @@ const updateUserStatus = async (req, res) => {
       }
     }
     else {
-      // Citizens, Barangay staff, and Police cannot change account statuses
       return res.status(403).json({
         message: 'Access forbidden: You do not have administrative privileges.'
       });
     }
 
-    // 4. Apply status update if checks pass
     const previousStatus = targetUser.status;
     targetUser.status = status;
     await targetUser.save();

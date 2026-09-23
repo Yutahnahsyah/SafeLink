@@ -80,8 +80,6 @@ const createIncident = async (req, res) => {
       createdAt: { $gte: submittedAfter }
     }).select('_id location');
 
-    // Keep the citizen's report and evidence, but flag likely duplicates for personnel
-    // rather than silently discarding potentially useful corroborating information.
     const duplicate = nearbyReports.find((report) => distanceInMeters(location, report.location) <= 200);
     const incident = new Incident({
       citizen: req.user.id,

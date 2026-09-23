@@ -123,7 +123,6 @@ const validateLogin = [
   validate
 ];
 
-// Validation for submitting an incident report
 const validateIncidentCreation = [
   body('incidentType')
     .notEmpty().withMessage('Incident type is required.')
@@ -169,7 +168,6 @@ const validateIncidentCreation = [
   validate
 ];
 
-// Validation for processing/updating an incident (Personnel/Admin)
 const validateIncidentProcessing = [
   param('id')
     .isMongoId().withMessage('Invalid incident ID format.'),
@@ -194,7 +192,7 @@ const validateIncidentProcessing = [
     .trim()
     .isLength({ min: 1, max: 2000 })
     .withMessage('Remarks must be between 1 and 2000 characters long.'),
-  validate // <-- Added this here
+  validate
 ];
 
 const validateForgotPassword = [

@@ -4,6 +4,7 @@ const { verifyAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// GET View Audit Logs (Admin)
 router.get('/audit-logs', verifyAdmin, getAuditLogs);
 
 module.exports = router;

@@ -43,7 +43,6 @@ const UserSchema = new mongoose.Schema({
     municipalityOrCity: { type: String, default: null },
     zipCode: { type: String, default: null }
   },
-  // Specific to personnel for routing and authorization scope
   jurisdiction: {
     barangay: { type: String, default: null },
     municipalityOrCity: { type: String, default: null }
@@ -57,9 +56,8 @@ const UserSchema = new mongoose.Schema({
   },
   isVerified: {
     type: Boolean,
-    default: false // Can be used to verify official personnel accounts
+    default: false
   },
-  // Add these fields inside your existing UserSchema in src/models/user.js
   resetPasswordToken: {
     type: String,
     default: null

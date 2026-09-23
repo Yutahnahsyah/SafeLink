@@ -1,8 +1,3 @@
-// Simplified mainland outline derived from the Philippine DENR Forest Management
-// Bureau Provincial Boundary Feature Service (Pangasinan, PSGC 105500000).
-// It is intentionally bundled so validation does not depend on a remote service.
-// Source: https://fmbfsd.denr.gov.ph/server/rest/services/Hosted/Provincial_Boundary/FeatureServer/0
-// Coordinates use GeoJSON order: [longitude, latitude].
 const PANGASINAN_MAINLAND_BOUNDARY = [
   [119.75013, 15.96632], [119.76417, 15.93883], [119.79801, 15.92065],
   [119.84657, 15.96370], [119.89160, 15.89216], [119.90512, 15.86627],

@@ -5,7 +5,6 @@ const app = require('./app');
 
 const PORT = process.env.PORT || 5000;
 
-// Database Connection & Server Startup
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('MongoDB Connected successfully for SafeLink');
