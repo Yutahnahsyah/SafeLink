@@ -1,0 +1,127 @@
+{
+  "info": {
+    "_postman_id": "ec2cb3d0-2e2c-48df-ab43-5554c79e0d28",
+    "name": "SafeLink API — Role-Based Test Matrix",
+    "description": "Complete role-based test collection. Select the SafeLink Local environment, enter credentials and IDs, then run folders from top to bottom. Requests use inherited folder authentication. The destructive cleanup folder must run last.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 Public setup and sessions",
+      "item": [
+        { "name": "POST Register citizen", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Juan\", \"lastName\": \"Dela Cruz\", \"middleInitial\": \"S\",\n  \"email\": \"{{citizenEmail}}\", \"password\": \"{{citizenPassword}}\", \"phoneNumber\": \"09171234567\",\n  \"address\": { \"barangay\": \"Poblacion\", \"municipalityOrCity\": \"Lingayen\" }\n}" }, "url": "{{baseUrl}}/api/auth/register-citizen" }, "response": [] },
+        { "name": "GET Verify citizen email", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/verify-email/{{verificationToken}}" }, "response": [] },
+        { "name": "POST Request password reset email", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{citizenEmail}}\" }" }, "url": "{{baseUrl}}/api/auth/forgot-password" }, "response": [] },
+        { "name": "POST Reset password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"password\": \"NewPassword1!\" }" }, "url": "{{baseUrl}}/api/auth/reset-password/{{resetToken}}" }, "response": [] },
+        { "name": "POST Login Admin", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('200 Admin login', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('adminToken', body.token);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{adminEmail}}\", \"password\": \"{{adminPassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" }, "response": [] },
+        { "name": "POST Login LGU", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('200 LGU login', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('lguToken', body.token);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{lguEmail}}\", \"password\": \"{{lguPassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" }, "response": [] },
+        { "name": "POST Login Barangay", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('200 Barangay login', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('barangayToken', body.token);", "pm.environment.set('barangayId', body.user.id);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{barangayEmail}}\", \"password\": \"{{barangayPassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" }, "response": [] },
+        { "name": "POST Login Police", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('200 Police login', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('policeToken', body.token);", "pm.environment.set('policeId', body.user.id);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{policeEmail}}\", \"password\": \"{{policePassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" }, "response": [] },
+        { "name": "POST Login Citizen", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('200 Citizen login', () => pm.expect(pm.response.code).to.equal(200));", "pm.environment.set('citizenToken', body.token);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{citizenEmail}}\", \"password\": \"{{citizenPassword}}\" }" }, "url": "{{baseUrl}}/api/auth/login" }, "response": [] }
+      ]
+    },
+    {
+      "name": "01 Admin — global oversight",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+      "item": [
+        { "name": "POST Create Barangay personnel", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"firstName\": \"Maria\", \"lastName\": \"Santos\", \"email\": \"{{barangayEmail}}\", \"password\": \"{{barangayPassword}}\", \"role\": \"barangay_personnel\", \"phoneNumber\": \"09171234568\", \"jurisdiction\": { \"barangay\": \"Poblacion\", \"municipalityOrCity\": \"Lingayen\" } }" }, "url": "{{baseUrl}}/api/auth/register-personnel" }, "response": [] },
+        { "name": "POST Create LGU personnel", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"firstName\": \"Liza\", \"lastName\": \"Garcia\", \"email\": \"{{lguEmail}}\", \"password\": \"{{lguPassword}}\", \"role\": \"lgu_personnel\", \"phoneNumber\": \"09171234569\", \"jurisdiction\": { \"municipalityOrCity\": \"Lingayen\" } }" }, "url": "{{baseUrl}}/api/auth/register-personnel" }, "response": [] },
+        { "name": "POST Create Police personnel", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"firstName\": \"Pedro\", \"lastName\": \"Reyes\", \"email\": \"{{policeEmail}}\", \"password\": \"{{policePassword}}\", \"role\": \"police_personnel\", \"phoneNumber\": \"09171234570\", \"jurisdiction\": { \"municipalityOrCity\": \"Lingayen\" } }" }, "url": "{{baseUrl}}/api/auth/register-personnel" }, "response": [] },
+        { "name": "GET Pending personnel", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/pending-personnel" }, "response": [] },
+        { "name": "PUT Approve pending personnel", "request": { "method": "PUT", "url": "{{baseUrl}}/api/auth/approve-personnel/{{pendingPersonnelId}}" }, "response": [] },
+        { "name": "GET Available personnel", "request": { "method": "GET", "url": "{{baseUrl}}/api/users/personnel" }, "response": [] },
+        { "name": "PATCH Set user status", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"active\" }" }, "url": "{{baseUrl}}/api/auth/users/{{personnelId}}/status" }, "response": [] },
+        { "name": "GET View all incidents", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents" }, "response": [] },
+        { "name": "PATCH Process incident", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"Under Validation\", \"remarks\": \"Admin validation started.\" }" }, "url": "{{baseUrl}}/api/incidents/{{adminIncidentId}}/process" }, "response": [] },
+        { "name": "PATCH Assign/referral to Police", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"assignedAgency\": \"Police\", \"assignedPersonnel\": \"{{policeId}}\", \"remarks\": \"Verified report referred to Police.\" }" }, "url": "{{baseUrl}}/api/incidents/{{policeIncidentId}}/process" }, "response": [] },
+        { "name": "POST Upload evidence", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "evidence", "type": "file", "src": "{{evidenceFile}}" }] }, "url": "{{baseUrl}}/api/incidents/{{adminIncidentId}}/evidence" }, "response": [] },
+        { "name": "GET Download evidence", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/{{adminIncidentId}}/evidence/{{evidenceId}}" }, "response": [] },
+        { "name": "GET Safety map", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map" }, "response": [] },
+        { "name": "GET Pangasinan boundary", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map/boundary" }, "response": [] },
+        { "name": "GET Notifications", "request": { "method": "GET", "url": "{{baseUrl}}/api/notifications" }, "response": [] },
+        { "name": "PATCH Mark notification read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read" }, "response": [] },
+        { "name": "PATCH Mark all notifications read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/read-all" }, "response": [] },
+        { "name": "GET Audit logs", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/audit-logs?action=AUTH_LOGIN&outcome=success&page=1&limit=25" }, "response": [] },
+        { "name": "GET Analytics overview", "request": { "method": "GET", "url": "{{baseUrl}}/api/analytics/overview" }, "response": [] }
+      ]
+    },
+    {
+      "name": "02 LGU — municipality oversight",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{lguToken}}", "type": "string" }] },
+      "item": [
+        { "name": "POST Create own-city Barangay personnel", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"firstName\": \"Ana\", \"lastName\": \"Cruz\", \"email\": \"new.barangay@example.com\", \"password\": \"Password1!\", \"role\": \"barangay_personnel\", \"phoneNumber\": \"09171234571\", \"jurisdiction\": { \"barangay\": \"Poblacion\", \"municipalityOrCity\": \"Lingayen\" } }" }, "url": "{{baseUrl}}/api/auth/register-personnel" }, "response": [] },
+        { "name": "GET Pending own-city Barangay personnel", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/pending-personnel" }, "response": [] },
+        { "name": "PUT Approve own-city Barangay personnel", "request": { "method": "PUT", "url": "{{baseUrl}}/api/auth/approve-personnel/{{pendingPersonnelId}}" }, "response": [] },
+        { "name": "GET Available own-city personnel", "request": { "method": "GET", "url": "{{baseUrl}}/api/users/personnel" }, "response": [] },
+        { "name": "PATCH Set own-city user status", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"active\" }" }, "url": "{{baseUrl}}/api/auth/users/{{personnelId}}/status" }, "response": [] },
+        { "name": "GET View municipality incidents", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents" }, "response": [] },
+        { "name": "PATCH Process municipality incident", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"Under Validation\", \"remarks\": \"LGU review started.\" }" }, "url": "{{baseUrl}}/api/incidents/{{lguIncidentId}}/process" }, "response": [] },
+        { "name": "PATCH Assign/referral to Barangay", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"assignedAgency\": \"Barangay\", \"assignedPersonnel\": \"{{barangayId}}\", \"remarks\": \"LGU referred verified report.\" }" }, "url": "{{baseUrl}}/api/incidents/{{barangayIncidentId}}/process" }, "response": [] },
+        { "name": "POST Upload evidence", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "evidence", "type": "file", "src": "{{evidenceFile}}" }] }, "url": "{{baseUrl}}/api/incidents/{{lguIncidentId}}/evidence" }, "response": [] },
+        { "name": "GET Download evidence", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/{{lguIncidentId}}/evidence/{{evidenceId}}" }, "response": [] },
+        { "name": "GET Municipality safety map", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map" }, "response": [] },
+        { "name": "GET Pangasinan boundary", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map/boundary" }, "response": [] },
+        { "name": "GET Notifications", "request": { "method": "GET", "url": "{{baseUrl}}/api/notifications" }, "response": [] },
+        { "name": "PATCH Mark notification read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read" }, "response": [] },
+        { "name": "PATCH Mark all notifications read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/read-all" }, "response": [] },
+        { "name": "GET Municipality analytics", "request": { "method": "GET", "url": "{{baseUrl}}/api/analytics/overview" }, "response": [] }
+      ]
+    },
+    {
+      "name": "03 Barangay — assigned incident work",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{barangayToken}}", "type": "string" }] },
+      "item": [
+        { "name": "GET View assigned incidents", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents" }, "response": [] },
+        { "name": "PATCH Process assigned incident", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"In Progress\", \"remarks\": \"Barangay response underway.\" }" }, "url": "{{baseUrl}}/api/incidents/{{barangayIncidentId}}/process" }, "response": [] },
+        { "name": "POST Upload evidence", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "evidence", "type": "file", "src": "{{evidenceFile}}" }] }, "url": "{{baseUrl}}/api/incidents/{{barangayIncidentId}}/evidence" }, "response": [] },
+        { "name": "GET Download evidence", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/{{barangayIncidentId}}/evidence/{{evidenceId}}" }, "response": [] },
+        { "name": "GET Barangay safety map", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map" }, "response": [] },
+        { "name": "GET Pangasinan boundary", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map/boundary" }, "response": [] },
+        { "name": "GET Notifications", "request": { "method": "GET", "url": "{{baseUrl}}/api/notifications" }, "response": [] },
+        { "name": "PATCH Mark notification read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read" }, "response": [] },
+        { "name": "PATCH Mark all notifications read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/read-all" }, "response": [] },
+        { "name": "GET Barangay analytics", "request": { "method": "GET", "url": "{{baseUrl}}/api/analytics/overview" }, "response": [] }
+      ]
+    },
+    {
+      "name": "04 Police — assigned incident work",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{policeToken}}", "type": "string" }] },
+      "item": [
+        { "name": "GET View assigned incidents", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents" }, "response": [] },
+        { "name": "PATCH Process assigned incident", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"In Progress\", \"remarks\": \"Police response underway.\" }" }, "url": "{{baseUrl}}/api/incidents/{{policeIncidentId}}/process" }, "response": [] },
+        { "name": "POST Upload evidence", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "evidence", "type": "file", "src": "{{evidenceFile}}" }] }, "url": "{{baseUrl}}/api/incidents/{{policeIncidentId}}/evidence" }, "response": [] },
+        { "name": "GET Download evidence", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/{{policeIncidentId}}/evidence/{{evidenceId}}" }, "response": [] },
+        { "name": "GET Municipality safety map", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map" }, "response": [] },
+        { "name": "GET Pangasinan boundary", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map/boundary" }, "response": [] },
+        { "name": "GET Notifications", "request": { "method": "GET", "url": "{{baseUrl}}/api/notifications" }, "response": [] },
+        { "name": "PATCH Mark notification read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read" }, "response": [] },
+        { "name": "PATCH Mark all notifications read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/read-all" }, "response": [] },
+        { "name": "GET Municipality analytics", "request": { "method": "GET", "url": "{{baseUrl}}/api/analytics/overview" }, "response": [] }
+      ]
+    },
+    {
+      "name": "05 Citizen — reporting and tracking",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{citizenToken}}", "type": "string" }] },
+      "item": [
+        { "name": "POST Submit incident", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('201 Incident created', () => pm.expect(pm.response.code).to.equal(201));", "pm.environment.set('incidentId', body.incident._id);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"incidentType\": \"Suspicious activities\", \"description\": \"A complete test report with enough information for validation.\", \"location\": { \"address\": { \"barangay\": \"Poblacion\", \"municipalityOrCity\": \"Lingayen\" }, \"latitude\": 16.021, \"longitude\": 120.233 } }" }, "url": "{{baseUrl}}/api/incidents" }, "response": [] },
+        { "name": "GET View own incidents", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents" }, "response": [] },
+        { "name": "POST Upload own evidence", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "evidence", "type": "file", "src": "{{evidenceFile}}" }] }, "url": "{{baseUrl}}/api/incidents/{{incidentId}}/evidence" }, "response": [] },
+        { "name": "GET Download own evidence", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/{{incidentId}}/evidence/{{evidenceId}}" }, "response": [] },
+        { "name": "GET Community safety map", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map?status=Verified,In%20Progress&severity=High,Critical" }, "response": [] },
+        { "name": "GET Pangasinan boundary", "request": { "method": "GET", "url": "{{baseUrl}}/api/incidents/map/boundary" }, "response": [] },
+        { "name": "GET Notifications", "request": { "method": "GET", "url": "{{baseUrl}}/api/notifications?read=false&page=1&limit=25" }, "response": [] },
+        { "name": "PATCH Mark notification read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read" }, "response": [] },
+        { "name": "PATCH Mark all notifications read", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/notifications/read-all" }, "response": [] },
+        { "name": "GET Community analytics", "request": { "method": "GET", "url": "{{baseUrl}}/api/analytics/overview" }, "response": [] }
+      ]
+    },
+    {
+      "name": "99 Destructive cleanup — run last only",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+      "item": [
+        { "name": "DELETE Test user as Admin", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/auth/users/{{personnelId}}" }, "response": [] },
+        { "name": "DELETE Own-city user as LGU", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{lguToken}}", "type": "string" }] }, "request": { "method": "DELETE", "url": "{{baseUrl}}/api/auth/users/{{personnelId}}" }, "response": [] }
+      ]
+    }
+  ]
+}
