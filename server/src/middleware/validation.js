@@ -1,4 +1,5 @@
 const { body, param, validationResult } = require('express-validator');
+const { isWithinPangasinan } = require('../utils/pangasinanBoundary');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -152,6 +153,12 @@ const validateIncidentCreation = [
     .isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90.'),
   body('location.longitude')
     .isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180.'),
+  body('location').custom((location) => {
+    if (!isWithinPangasinan(Number(location?.longitude), Number(location?.latitude))) {
+      throw new Error('Incident location must be within Pangasinan.');
+    }
+    return true;
+  }),
   body('mediaEvidence')
     .optional()
     .isArray({ max: 5 }).withMessage('Media evidence must contain no more than 5 URLs.'),

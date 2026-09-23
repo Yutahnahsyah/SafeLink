@@ -1,6 +1,9 @@
 const Incident = require('../models/incident');
 const User = require('../models/user');
 const { recordAuditEvent } = require('../utils/auditLog');
+const { getPangasinanBoundaryFeature } = require('../utils/pangasinanBoundary');
+const { createNotification } = require('../utils/notifications');
+const { canAccessIncident, canCoverIncidentLocation, canManageAssignment } = require('../utils/incidentAccess');
 
 const ACTIVE_DUPLICATE_STATUSES = ['Submitted', 'Under Validation', 'Verified', 'In Progress', 'Resolved'];
 const STATUS_TRANSITIONS = {
@@ -13,10 +16,6 @@ const STATUS_TRANSITIONS = {
   Closed: []
 };
 
-const samePlace = (first, second) => (
-  first?.trim().toLowerCase() === second?.trim().toLowerCase()
-);
-
 const distanceInMeters = (first, second) => {
   const toRadians = (value) => (value * Math.PI) / 180;
   const earthRadiusInMeters = 6371000;
@@ -28,42 +27,12 @@ const distanceInMeters = (first, second) => {
   return earthRadiusInMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const canCoverIncidentLocation = (user, incident) => {
-  if (user.role === 'admin') return true;
-  if (user.role === 'barangay_personnel') {
-    return samePlace(incident.location.address.barangay, user.jurisdiction?.barangay)
-      && samePlace(incident.location.address.municipalityOrCity, user.jurisdiction?.municipalityOrCity);
-  }
-  if (['lgu_personnel', 'police_personnel'].includes(user.role)) {
-    return samePlace(incident.location.address.municipalityOrCity, user.jurisdiction?.municipalityOrCity);
-  }
-  return false;
-};
 const REFERRABLE_STATUSES = new Set(['Verified', 'In Progress', 'Resolved', 'Closed']);
 const AGENCY_PERSONNEL_ROLES = {
   Barangay: 'barangay_personnel',
   LGU: 'lgu_personnel',
   Police: 'police_personnel'
 };
-
-const isAssignedPersonnel = (user, incident) => (
-  Boolean(incident.assignedPersonnel)
-  && incident.assignedPersonnel.toString() === user.id.toString()
-);
-
-const canAccessIncident = (user, incident) => {
-  // Administrators can oversee all reports. LGU personnel are supervisors for
-  // reports within their city. All other field personnel may work only on a
-  // report explicitly assigned to their account.
-  if (user.role === 'admin') return true;
-  if (user.role === 'lgu_personnel') return canCoverIncidentLocation(user, incident);
-  return isAssignedPersonnel(user, incident);
-};
-
-const canManageAssignment = (user, incident) => (
-  user.role === 'admin'
-  || (user.role === 'lgu_personnel' && canCoverIncidentLocation(user, incident))
-);
 
 const hasField = (object, field) => Object.prototype.hasOwnProperty.call(object, field);
 
@@ -80,6 +49,22 @@ const appendResponseHistory = (incident, updatedBy, eventType, notes, changes = 
 const withRemarks = (message, remarks) => (
   remarks ? `${message} Remarks: ${remarks}` : message
 );
+
+const PUBLIC_MAP_STATUSES = ['Verified', 'In Progress', 'Resolved', 'Closed'];
+
+const parseMapNumber = (value, fieldName) => {
+  if (value === undefined) return undefined;
+  const number = Number(value);
+  if (!Number.isFinite(number)) throw new Error(`${fieldName} must be a number.`);
+  return number;
+};
+
+const parseMapDate = (value, fieldName) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error(`${fieldName} must be a valid ISO date.`);
+  return date;
+};
 
 // @desc    Citizen submits a new safety incident report
 // @route   POST /api/incidents
@@ -102,7 +87,13 @@ const createIncident = async (req, res) => {
       citizen: req.user.id,
       incidentType,
       description,
-      location,
+      location: {
+        ...location,
+        geoPoint: {
+          type: 'Point',
+          coordinates: [location.longitude, location.latitude]
+        }
+      },
       mediaEvidence: mediaEvidence || [],
       possibleDuplicateOf: duplicate?._id || null,
       responseHistory: [{
@@ -125,6 +116,13 @@ const createIncident = async (req, res) => {
       outcome: 'success',
       details: { incidentType: incident.incidentType }
     });
+    await createNotification({
+      recipient: incident.citizen,
+      incident: incident._id,
+      type: 'report_submitted',
+      title: 'Report received',
+      message: 'Your incident report was submitted and is pending validation.'
+    });
     return res.status(201).json({
       message: duplicate
         ? 'Incident reported successfully and flagged for duplicate review.'
@@ -136,6 +134,112 @@ const createIncident = async (req, res) => {
     return res.status(500).json({ message: 'Server error while submitting incident.' });
   }
 };
+
+// @desc    Get privacy-safe incident markers for the community safety map
+// @route   GET /api/incidents/map
+const getMapIncidents = async (req, res) => {
+  try {
+    const { status, severity, incidentType, minLatitude, maxLatitude, minLongitude, maxLongitude } = req.query;
+    const query = {};
+    const lowerLatitude = parseMapNumber(minLatitude, 'minLatitude');
+    const upperLatitude = parseMapNumber(maxLatitude, 'maxLatitude');
+    const lowerLongitude = parseMapNumber(minLongitude, 'minLongitude');
+    const upperLongitude = parseMapNumber(maxLongitude, 'maxLongitude');
+    const from = parseMapDate(req.query.from, 'from');
+    const to = parseMapDate(req.query.to, 'to');
+
+    if ((lowerLatitude !== undefined && upperLatitude === undefined)
+      || (lowerLongitude !== undefined && upperLongitude === undefined)) {
+      return res.status(400).json({ message: 'Map bounds require both minimum and maximum values.' });
+    }
+    if ((lowerLatitude !== undefined && lowerLatitude > upperLatitude)
+      || (lowerLongitude !== undefined && lowerLongitude > upperLongitude)) {
+      return res.status(400).json({ message: 'Minimum map bounds cannot exceed maximum bounds.' });
+    }
+    if (from && to && from > to) {
+      return res.status(400).json({ message: 'The from date cannot be after the to date.' });
+    }
+
+    const requestedStatuses = status
+      ? status.split(',').map((item) => item.trim()).filter(Boolean)
+      : null;
+    const allowedStatuses = ['Submitted', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'];
+    if (requestedStatuses && (requestedStatuses.length === 0
+      || requestedStatuses.some((item) => !allowedStatuses.includes(item)))) {
+      return res.status(400).json({ message: 'One or more status filters are invalid.' });
+    }
+
+    if (req.user.role === 'citizen') {
+      const visibleStatuses = requestedStatuses
+        ? requestedStatuses.filter((item) => PUBLIC_MAP_STATUSES.includes(item))
+        : PUBLIC_MAP_STATUSES;
+      query.status = { $in: visibleStatuses };
+    } else if (req.user.role === 'barangay_personnel') {
+      query['location.address.barangay'] = req.user.jurisdiction?.barangay;
+      query['location.address.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
+    } else if (['lgu_personnel', 'police_personnel'].includes(req.user.role)) {
+      query['location.address.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied: unrecognized role.' });
+    }
+
+    if (requestedStatuses && req.user.role !== 'citizen') {
+      query.status = { $in: requestedStatuses };
+    }
+    if (severity) {
+      const severities = severity.split(',').map((item) => item.trim()).filter(Boolean);
+      const allowedSeverities = ['Low', 'Medium', 'High', 'Critical'];
+      if (severities.length === 0 || severities.some((item) => !allowedSeverities.includes(item))) {
+        return res.status(400).json({ message: 'One or more severity filters are invalid.' });
+      }
+      query.severity = { $in: severities };
+    }
+    if (incidentType) query.incidentType = incidentType;
+    if (lowerLatitude !== undefined) {
+      query['location.latitude'] = { $gte: lowerLatitude, $lte: upperLatitude };
+      query['location.longitude'] = { $gte: lowerLongitude, $lte: upperLongitude };
+    }
+    if (from || to) {
+      query.createdAt = {};
+      if (from) query.createdAt.$gte = from;
+      if (to) query.createdAt.$lte = to;
+    }
+
+    const incidents = await Incident.find(query)
+      .select('_id incidentType severity status assignedAgency location.address.barangay location.address.municipalityOrCity location.latitude location.longitude createdAt updatedAt')
+      .sort({ createdAt: -1 })
+      .limit(1000);
+
+    return res.json({
+      type: 'FeatureCollection',
+      features: incidents.map((incident) => ({
+        type: 'Feature',
+        id: incident._id.toString(),
+        geometry: {
+          type: 'Point',
+          coordinates: [incident.location.longitude, incident.location.latitude]
+        },
+        properties: {
+          incidentType: incident.incidentType,
+          severity: incident.severity,
+          status: incident.status,
+          assignedAgency: incident.assignedAgency,
+          barangay: incident.location.address.barangay,
+          municipalityOrCity: incident.location.address.municipalityOrCity,
+          createdAt: incident.createdAt,
+          updatedAt: incident.updatedAt
+        }
+      })),
+      metadata: { resultLimit: 1000, returned: incidents.length }
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || 'Invalid map filter.' });
+  }
+};
+
+// @desc    Get the Pangasinan boundary for Leaflet rendering
+// @route   GET /api/incidents/map/boundary
+const getMapBoundary = (req, res) => res.json(getPangasinanBoundaryFeature());
 
 // @desc    Get all incidents within the requester's authorized scope
 // @route   GET /api/incidents
@@ -356,6 +460,44 @@ const processIncident = async (req, res) => {
       targetUser: event.targetUser || null,
       details: event.details
     })));
+    const notificationEvents = [];
+    if (statusChanged) {
+      notificationEvents.push({
+        type: 'status_changed',
+        title: 'Report status updated',
+        message: `Your report status changed from ${previousStatus} to ${nextStatus}.`
+      });
+    }
+    if (severityChanged) {
+      notificationEvents.push({
+        type: 'severity_changed',
+        title: 'Report severity updated',
+        message: `Your report severity is now ${severity}.`
+      });
+    }
+    if (personnelChanged) {
+      notificationEvents.push({
+        type: 'personnel_assigned',
+        title: 'Personnel assigned',
+        message: nextAssignedPersonnel
+          ? 'Authorized personnel have been assigned to your report.'
+          : 'The personnel assignment for your report was removed.'
+      });
+    }
+    if (agencyChanged && nextAssignedAgency !== 'Unassigned') {
+      notificationEvents.push({
+        type: 'agency_referred',
+        title: 'Report referred',
+        message: `Your verified report was referred to ${nextAssignedAgency}.`
+      });
+    }
+    await Promise.all(notificationEvents.map((event) => createNotification({
+      recipient: incident.citizen,
+      incident: incident._id,
+      type: event.type,
+      title: event.title,
+      message: event.message
+    })));
 
     const updatedIncident = await Incident.findById(incident._id)
       .populate('citizen', 'firstName lastName phoneNumber email')
@@ -368,4 +510,4 @@ const processIncident = async (req, res) => {
   }
 };
 
-module.exports = { createIncident, getIncidents, processIncident };
+module.exports = { createIncident, getIncidents, getMapIncidents, getMapBoundary, processIncident };

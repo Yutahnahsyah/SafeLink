@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+const EvidenceFileSchema = new mongoose.Schema({
+  storageName: { type: String, required: true, select: false },
+  originalName: { type: String, required: true, trim: true, maxlength: 255 },
+  mimeType: { type: String, required: true },
+  size: { type: Number, required: true, min: 1 },
+  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  uploadedAt: { type: Date, default: Date.now }
+});
+
 const ResponseHistorySchema = new mongoose.Schema({
   eventType: {
     type: String,
@@ -82,11 +91,26 @@ const IncidentSchema = new mongoose.Schema({
       zipCode: { type: String, default: null }
     },
     latitude: { type: Number, required: true },
-    longitude: { type: Number, required: true }
+    longitude: { type: Number, required: true },
+    geoPoint: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point'
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined
+      }
+    }
   },
   mediaEvidence: [{
     type: String // URLs or file paths for photos/videos
   }],
+  evidenceFiles: {
+    type: [EvidenceFileSchema],
+    default: []
+  },
   status: {
     type: String,
     enum: ['Submitted', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'],
@@ -140,5 +164,6 @@ const IncidentSchema = new mongoose.Schema({
 }, { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } });
 
 IncidentSchema.index({ incidentType: 1, 'location.address.barangay': 1, 'location.address.municipalityOrCity': 1, createdAt: -1 });
+IncidentSchema.index({ 'location.geoPoint': '2dsphere' }, { sparse: true });
 
 module.exports = mongoose.model('Incident', IncidentSchema);
