@@ -40,4 +40,13 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+app.use((req, res) => {
+  res.status(404).json({ message: 'API route not found.' });
+});
+
+app.use((error, req, res, next) => {
+  console.error('Unhandled API error:', error.message);
+  res.status(error.status || 500).json({ message: 'Internal server error.' });
+});
+
 module.exports = app;
