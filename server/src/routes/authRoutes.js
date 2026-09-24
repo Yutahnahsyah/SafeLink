@@ -1,5 +1,15 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
+
+const failedLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { message: 'Too many unsuccessful login attempts. Please try again in 15 minutes.' }
+});
 
 const {
   registerCitizen,
@@ -36,7 +46,7 @@ router.get('/verify-email/:token', verifyEmail);
 router.post('/register-personnel', verifyAdminOrLGU, validatePersonnelRegistration, registerPersonnel);
 
 // POST User Login (Citizen, Barangay, LGU, Police, Admin)
-router.post('/login', validateLogin, loginUser);
+router.post('/login', failedLoginLimiter, validateLogin, loginUser);
 
 // GET Personnel Pending Accounts (LGU, Admin)
 router.get('/pending-personnel', verifyAdminOrLGU, getPendingPersonnel);

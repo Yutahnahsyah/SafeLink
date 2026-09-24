@@ -6,6 +6,16 @@ const nodemailer = require('nodemailer');
 const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
 
 const appUrl = process.env.APP_URL || 'http://localhost:5000';
+const EMAIL_SEND_TIMEOUT_MS = 15 * 1000;
+const includeErrorDetails = process.env.NODE_ENV === 'development';
+
+const developmentErrorDetails = (error) => (includeErrorDetails ? {
+  error: {
+    name: error.name,
+    code: error.code || null,
+    message: error.message
+  }
+} : {});
 
 const sameCity = (first, second) => (
   Boolean(first && second) && first.trim().toLowerCase() === second.trim().toLowerCase()
@@ -17,11 +27,41 @@ const canLGUManagePersonnel = (requester, personnel) => (
 );
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  }
+  },
+  connectionTimeout: EMAIL_SEND_TIMEOUT_MS,
+  greetingTimeout: EMAIL_SEND_TIMEOUT_MS,
+  socketTimeout: EMAIL_SEND_TIMEOUT_MS
+});
+
+const sendMailWithDeadline = (mailOptions) => new Promise((resolve, reject) => {
+  let settled = false;
+  const timeout = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    const error = new Error('Email delivery timed out.');
+    error.code = 'EMAIL_SEND_TIMEOUT';
+    reject(error);
+  }, EMAIL_SEND_TIMEOUT_MS);
+
+  transporter.sendMail(mailOptions)
+    .then((result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve(result);
+    })
+    .catch((error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      reject(error);
+    });
 });
 
 // @desc    Register a standard Citizen account (Requires Email Verification)
@@ -72,7 +112,20 @@ const registerCitizen = async (req, res) => {
       `
     };
 
-    await transporter.sendMail(mailOptions);
+    try {
+      await sendMailWithDeadline(mailOptions);
+    } catch (emailError) {
+      console.error('Citizen verification email error:', emailError.message);
+      try {
+        await User.deleteOne({ _id: user._id });
+      } catch (cleanupError) {
+        console.error('Citizen registration cleanup error:', cleanupError.message);
+      }
+      return res.status(503).json({
+        message: 'Unable to send the verification email. Please try registering again later.',
+        ...developmentErrorDetails(emailError)
+      });
+    }
 
     await recordAuditEvent({
       req,
@@ -86,7 +139,10 @@ const registerCitizen = async (req, res) => {
     });
   } catch (err) {
     console.error('Citizen registration error:', err.message);
-    res.status(500).json({ message: 'Server error during citizen registration.' });
+    res.status(500).json({
+      message: 'Server error during citizen registration.',
+      ...developmentErrorDetails(err)
+    });
   }
 };
 
@@ -156,7 +212,7 @@ const registerPersonnel = async (req, res) => {
       role,
       jurisdiction,
       phoneNumber,
-      isVerified: false, // Requires admin approval
+      isVerified: false,
       status: 'pending'
     });
 
@@ -366,7 +422,18 @@ const forgotPassword = async (req, res) => {
       `
     };
 
-    await transporter.sendMail(mailOptions);
+    try {
+      await sendMailWithDeadline(mailOptions);
+    } catch (emailError) {
+      console.error('Password reset email error:', emailError.message);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+      return res.status(503).json({
+        message: 'Unable to send the password reset email. Please try again later.',
+        ...developmentErrorDetails(emailError)
+      });
+    }
 
     res.status(200).json({ message: 'Password reset instructions sent to your email.' });
   } catch (err) {
@@ -418,8 +485,8 @@ const resetPassword = async (req, res) => {
 // @route   PATCH /api/auth/users/:id/status
 const updateUserStatus = async (req, res) => {
   try {
-    const { status } = req.body; // Expects 'active', 'suspended', or 'pending'
-    const requester = req.user;   // Extracted from JWT middleware
+    const { status } = req.body;
+    const requester = req.user;
 
     if (!['active', 'suspended', 'pending'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status value provided.' });

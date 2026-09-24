@@ -89,7 +89,36 @@
       ]
     },
     {
-      "name": "06 Destructive Cleanup (Run Last)",
+      "name": "06 Security and Rate Limits",
+      "description": "Run rate-limit requests only in an intentional security test. Restart the local server first to clear its in-memory counters. The API limit requires 301 requests in one 15-minute window; the wrong-password lockout requires six requests.",
+      "item": [
+        {
+          "name": "Check Helmet Security Headers",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Returns a normal not-found response', () => pm.expect(pm.response.code).to.equal(404));", "pm.test('Blocks MIME sniffing', () => pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.equal('nosniff'));", "pm.test('Protects framing', () => pm.expect(pm.response.headers.get('X-Frame-Options')).to.equal('SAMEORIGIN'));", "pm.test('Provides a Content Security Policy', () => pm.expect(pm.response.headers.get('Content-Security-Policy')).to.exist);", "pm.test('Provides standard rate-limit metadata', () => pm.expect(pm.response.headers.get('RateLimit')).to.exist);"] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/not-a-route" },
+          "response": []
+        },
+        {
+          "name": "API Limit — Expected 429 After 300 Requests",
+          "description": "Use Collection Runner to execute this request 301 times after restarting the server. Requests 1–300 return 404; request 301 returns 429.",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Rate-limit response is either normal or throttled', () => pm.expect([404, 429]).to.include(pm.response.code));", "if (pm.response.code === 429) pm.test('API-wide rate limit is enforced', () => pm.expect(pm.response.json().message).to.include('Too many requests'));" ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/not-a-route" },
+          "response": []
+        },
+        {
+          "name": "Wrong Password Lockout — Run 6 Times",
+          "description": "Restart the server, set wrongLoginAttempt to 0 in the environment, then send this request six times. Attempts 1–5 return 400; attempt 6 returns 429 for 15 minutes. A successful login is not counted by this limiter.",
+          "event": [
+            { "listen": "prerequest", "script": { "exec": ["const attempt = Number(pm.environment.get('wrongLoginAttempt') || 0) + 1;", "pm.environment.set('wrongLoginAttempt', attempt);"] } },
+            { "listen": "test", "script": { "exec": ["const attempt = Number(pm.environment.get('wrongLoginAttempt'));", "if (attempt < 6) pm.test('Wrong credentials are rejected', () => pm.expect(pm.response.code).to.equal(400));", "if (attempt === 6) pm.test('Sixth failed login is rate limited', () => pm.expect(pm.response.code).to.equal(429));"] } }
+          ],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{adminEmail}}\", \"password\": \"WrongPassword1!\" }" }, "url": "{{baseUrl}}/api/auth/login" },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 Destructive Cleanup (Run Last)",
       "item": [
         { "name": "Delete Test User", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/auth/users/{{personnelId}}" }, "response": [] }
       ]
