@@ -1,0 +1,183 @@
+.navbar.navbar--focused {
+  height: 76px;
+  background: rgba(7, 17, 31, 0.38);
+  border-bottom: 1px solid transparent;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.navbar.navbar--focused.is-scrolled {
+  background: rgba(4, 15, 30, 0.85);
+  backdrop-filter: blur(14px);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.navbar--focused .nav-inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 28px;
+}
+
+.navbar--focused .brand {
+  justify-self: start;
+  transition: opacity 0.2s ease;
+}
+.navbar--focused .brand:hover {
+  opacity: 0.85;
+}
+.navbar--focused .nav-links {
+  margin: 0;
+  gap: 32px;
+}
+.navbar--focused .nav-links > a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.navbar--focused .nav-links > a::after {
+  bottom: 3px;
+  background: var(--blue-2);
+}
+.navbar--focused .nav-links > a[aria-current],
+.navbar--focused .nav-links > a:hover {
+  color: var(--blue-2);
+}
+.navbar--focused .nav-links > a[aria-current]::after {
+  right: 0;
+}
+.navbar--focused .nav-actions {
+  justify-self: end;
+  gap: 22px;
+  white-space: nowrap;
+}
+.navbar--focused .login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #d1dce8;
+}
+.navbar--focused .login:hover {
+  color: #fff;
+}
+.navbar--focused .button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(33, 135, 244, 0.32);
+}
+.navbar--focused .menu-button {
+  display: none;
+  cursor: pointer;
+}
+.navbar--focused .mobile-actions {
+  display: none;
+}
+.navbar--focused :is(a, button):focus-visible {
+  outline: 2px solid var(--blue-2);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+@media (max-width: 1200px) and (min-width: 1001px) {
+  .navbar--focused .nav-inner {
+    grid-template-columns: auto 1fr auto;
+    gap: 24px;
+  }
+  .navbar--focused .nav-links {
+    justify-content: center;
+    gap: 28px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .navbar.navbar--focused {
+    height: 70px;
+  }
+  .navbar--focused .nav-inner {
+    display: flex;
+    justify-content: space-between;
+  }
+  .navbar--focused .nav-actions,
+  .navbar--focused .nav-links {
+    display: none;
+  }
+  .navbar--focused .menu-button {
+    display: grid;
+    place-items: center;
+    margin-left: auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .navbar--focused .menu-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  .navbar--focused .nav-links.is-open {
+    display: flex;
+    position: absolute;
+    top: 70px;
+    left: 14px;
+    right: 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 12px;
+    max-height: calc(100dvh - 84px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    background: #0d2034;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+    animation: navbar-open 0.18s ease both;
+  }
+  .navbar--focused .nav-links > a {
+    padding: 12px;
+    min-height: 48px;
+  }
+  .navbar--focused .nav-links > a::after {
+    left: 12px;
+    bottom: 6px;
+    max-width: 24px;
+  }
+  .navbar--focused .mobile-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 10px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .navbar--focused .mobile-actions .login {
+    padding-inline: 12px;
+  }
+  .navbar--focused .mobile-actions .button {
+    min-height: 48px;
+  }
+}
+
+@keyframes navbar-open {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navbar--focused,
+  .navbar--focused *,
+  .navbar--focused *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

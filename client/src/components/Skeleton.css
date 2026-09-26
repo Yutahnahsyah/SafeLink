@@ -1,0 +1,212 @@
+.skeleton-block,
+.map-skeleton,
+.globe-skeleton__sphere {
+  --skeleton-base: rgba(132, 160, 177, 0.18);
+  --skeleton-highlight: rgba(183, 213, 220, 0.24);
+  background-color: var(--skeleton-base);
+  background-image: linear-gradient(
+    105deg,
+    transparent 32%,
+    var(--skeleton-highlight) 46%,
+    transparent 60%
+  );
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton-block {
+  display: block;
+  border-radius: 10px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.map-skeleton {
+  position: absolute;
+  z-index: 1;
+  inset: 49px 0 0;
+  overflow: hidden;
+  background-color: #1a3344;
+  transition:
+    opacity 0.32s ease,
+    visibility 0.32s ease;
+}
+
+.map-skeleton__controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  gap: 4px;
+}
+.map-skeleton__controls .skeleton-block {
+  width: 29px;
+  height: 29px;
+  border-radius: 6px;
+}
+.map-skeleton__filters {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  padding: 7px;
+  border-radius: 12px;
+  background: rgba(7, 27, 49, 0.82);
+}
+.map-skeleton__filters .skeleton-block {
+  width: 112px;
+  height: 34px;
+}
+.map-skeleton--compact {
+  inset: 0;
+}
+.hero-map-frame .map-skeleton {
+  inset: 52px 0 0;
+}
+
+.map-surface {
+  opacity: 0;
+  transition: opacity 0.38s ease;
+}
+.map-surface.is-ready {
+  opacity: 1;
+}
+.map-surface.is-ready + .map-skeleton {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.globe-skeleton {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.globe-skeleton__sphere {
+  position: relative;
+  width: min(58%, 330px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(101, 213, 217, 0.18);
+  box-shadow:
+    inset -34px -12px 70px rgba(2, 35, 80, 0.58),
+    0 0 70px rgba(3, 177, 184, 0.08);
+}
+.globe-skeleton__sphere::before,
+.globe-skeleton__sphere::after {
+  content: "";
+  position: absolute;
+  inset: 20% 10%;
+  border: 1px solid rgba(101, 213, 217, 0.12);
+  border-radius: 50%;
+}
+.globe-skeleton__sphere::after {
+  inset: 10% 28%;
+}
+.globe-skeleton__sphere i {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(101, 213, 217, 0.48);
+  box-shadow: 0 0 0 7px rgba(3, 177, 184, 0.06);
+}
+.globe-skeleton__sphere i:nth-child(1) {
+  top: 24%;
+  left: 38%;
+}
+.globe-skeleton__sphere i:nth-child(2) {
+  top: 42%;
+  right: 24%;
+}
+.globe-skeleton__sphere i:nth-child(3) {
+  bottom: 25%;
+  left: 29%;
+}
+.globe-skeleton__sphere i:nth-child(4) {
+  bottom: 17%;
+  right: 34%;
+}
+.globe-skeleton__lines {
+  position: absolute;
+  inset: 22% 19%;
+  opacity: 0.5;
+}
+.globe-skeleton__lines i {
+  position: absolute;
+  left: 20%;
+  width: 55%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #65d5d9, transparent);
+  transform-origin: left;
+}
+.globe-skeleton__lines i:nth-child(1) {
+  top: 25%;
+  transform: rotate(27deg);
+}
+.globe-skeleton__lines i:nth-child(2) {
+  top: 49%;
+  transform: rotate(-22deg);
+}
+.globe-skeleton__lines i:nth-child(3) {
+  top: 68%;
+  transform: rotate(12deg);
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+
+@media (max-width: 540px) {
+  .map-skeleton__filters {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+  }
+  .map-skeleton__filters .skeleton-block {
+    width: auto;
+    flex: 1;
+  }
+  .globe-skeleton__sphere {
+    width: 68%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block,
+  .map-skeleton,
+  .globe-skeleton__sphere {
+    animation: skeleton-pulse 1.6s ease-in-out infinite;
+    background-image: none;
+  }
+  .map-surface,
+  .map-skeleton {
+    transition: none;
+  }
+}
+
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.72;
+  }
+}

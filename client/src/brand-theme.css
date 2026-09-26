@@ -1,0 +1,209 @@
+/* Navy/teal UI palette sampled from the supplied, unmodified SafeLink artwork.
+   Darker teal is used behind white text to maintain readable contrast. */
+:root {
+  --brand-navy: #022350;
+  --brand-teal: #03b1b8;
+  --brand-teal-dark: #007d85;
+  --brand-accent-light: #65d5d9;
+  --navy: #071b31;
+  --navy-2: #0a2a46;
+  --ink: var(--brand-navy);
+  --blue: var(--brand-teal-dark);
+  --blue-2: var(--brand-accent-light);
+  --sky: #e9f7f7;
+  --light: #f5f8f9;
+  --line: #dbe6e9;
+}
+
+.navbar.navbar--focused {
+  background: rgba(2, 35, 80, 0.38);
+}
+.navbar.navbar--focused.is-scrolled {
+  background: rgba(4, 24, 47, 0.9);
+}
+.navbar--focused .nav-inner > .safelink-brand {
+  justify-self: start;
+}
+.navbar--focused .nav-links > a::after {
+  background: var(--brand-accent-light);
+}
+.button {
+  box-shadow: 0 10px 25px rgba(0, 125, 133, 0.2);
+}
+.button:hover {
+  background: #006b75;
+  box-shadow: 0 12px 28px rgba(3, 177, 184, 0.23);
+}
+.navbar--focused .button:hover {
+  box-shadow: 0 10px 24px rgba(3, 177, 184, 0.25);
+}
+.button-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+.button-secondary:hover {
+  background: rgba(3, 177, 184, 0.12);
+  box-shadow: none;
+}
+.button-light {
+  background: #fff;
+  color: var(--brand-navy);
+  box-shadow: 0 10px 25px rgba(2, 35, 80, 0.2);
+}
+.button-light:hover {
+  background: #e9f7f7;
+}
+.button-outline {
+  background: transparent;
+  box-shadow: none;
+}
+.button-outline:hover {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+.button:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline-color: var(--brand-teal);
+}
+
+.hero--centered {
+  background:
+    radial-gradient(
+      circle at 50% 13%,
+      rgba(3, 177, 184, 0.12),
+      transparent 29%
+    ),
+    linear-gradient(180deg, #071b31 0%, #0a2a46 58%, #071b31 100%);
+}
+.hero--centered:before {
+  background: linear-gradient(
+    180deg,
+    rgba(7, 27, 49, 0.08),
+    rgba(7, 27, 49, 0.34)
+  );
+}
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(101, 213, 217, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(101, 213, 217, 0.05) 1px, transparent 1px);
+}
+.hero h1 span {
+  color: var(--brand-accent-light);
+}
+.eyebrow {
+  color: #b1d6de;
+}
+.eyebrow-dot {
+  background: var(--brand-teal);
+  box-shadow: 0 0 0 5px rgba(3, 177, 184, 0.12);
+}
+.hero-location-lines {
+  background:
+    radial-gradient(circle at 22% 68%, #65d5d9 0 2px, transparent 3px),
+    radial-gradient(circle at 81% 32%, #65d5d9 0 2px, transparent 3px);
+}
+.hero-location-lines:before,
+.hero-location-lines:after {
+  border-color: rgba(101, 213, 217, 0.35);
+}
+.section-label,
+.about-grid h2 span {
+  color: var(--brand-teal-dark);
+}
+.step-icon,
+.feature > span {
+  color: var(--brand-teal-dark);
+  background: #e9f7f7;
+}
+.feature:hover {
+  background: #f2fafa;
+}
+.timeline-section .section-label {
+  color: var(--brand-accent-light);
+}
+.check-list svg {
+  color: var(--brand-teal-dark);
+  background: #e5f5f4;
+}
+.role-avatar {
+  color: var(--brand-teal-dark);
+  border-color: #d7eaea;
+  background: linear-gradient(145deg, #e9f7f7, #f7fbfb);
+}
+.analytics-copy > a {
+  color: var(--brand-teal-dark);
+}
+.bar-chart i {
+  background: linear-gradient(var(--brand-teal), var(--brand-teal-dark));
+}
+.cta-card {
+  background: linear-gradient(120deg, var(--brand-navy), #064559 60%, #007d85);
+}
+.cta-card .section-label {
+  color: #b2e7e8;
+}
+.cta-card p {
+  color: #d1e8eb;
+}
+
+.map-topbar {
+  background: rgba(7, 27, 49, 0.93);
+}
+.map-filters,
+.map-tools,
+.map-legend {
+  background: rgba(7, 27, 49, 0.94);
+}
+.map-filters select:focus-visible {
+  outline-color: var(--brand-accent-light);
+}
+.selected-incident {
+  background: rgba(7, 27, 49, 0.96);
+}
+.selected-label,
+.selected-incident > a {
+  color: var(--brand-accent-light);
+}
+.status-assigned,
+.status-verified {
+  color: #74d9dd;
+  background: rgba(3, 177, 184, 0.13);
+}
+.incident-popup small {
+  color: var(--brand-teal-dark);
+}
+
+.connected-response {
+  background: var(--navy);
+}
+.connected-response .section-label,
+.network-workflow li > span {
+  color: var(--brand-accent-light);
+}
+.network-globe-stage {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(3, 177, 184, 0.1),
+    transparent 65%
+  );
+}
+.network-globe-tooltip {
+  background: rgba(7, 27, 49, 0.96);
+  border-color: #285363;
+}
+.network-fallback-orbit {
+  color: var(--brand-accent-light);
+  border-color: #285363;
+}
+.network-fallback-orbit i {
+  background: var(--brand-teal);
+}
+.network-fallback-orbit i:nth-of-type(3) {
+  background: var(--brand-accent-light);
+}
+@media (max-width: 1000px) {
+  .navbar--focused .nav-links.is-open {
+    background: #0a2a46;
+  }
+}

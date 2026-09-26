@@ -5,9 +5,9 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
 
-const appUrl = process.env.APP_URL || 'http://localhost:5000';
 const EMAIL_SEND_TIMEOUT_MS = 15 * 1000;
 const includeErrorDetails = process.env.NODE_ENV === 'development';
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
 const developmentErrorDetails = (error) => (includeErrorDetails ? {
   error: {
@@ -64,6 +64,50 @@ const sendMailWithDeadline = (mailOptions) => new Promise((resolve, reject) => {
     });
 });
 
+const resendAttempts = new Map();
+const RESEND_COOLDOWN_MS = 60 * 1000;
+const genericResendMessage = 'If an unverified Citizen account exists for that email, a verification message will be sent.';
+
+const createVerificationToken = () => {
+  const token = crypto.randomBytes(32).toString('hex');
+  return {
+    token,
+    hash: crypto.createHash('sha256').update(token).digest('hex'),
+    expires: Date.now() + 15 * 60 * 1000
+  };
+};
+
+const sendVerificationEmail = (user, verificationToken) => {
+  const verifyUrl = `${clientUrl}/activate-account?token=${verificationToken}`;
+  return sendMailWithDeadline({
+    from: `"SafeLink System" <${process.env.EMAIL_USER}>`,
+    to: user.email,
+    subject: 'Verify Your SafeLink Citizen Account',
+    html: `
+      <div style="background:#f3f7f8;padding:32px 16px;font-family:Arial,sans-serif;color:#17324d">
+        <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:18px;padding:32px;border:1px solid #dbe7ea">
+          <p style="margin:0 0 8px;color:#087d85;font-weight:700;letter-spacing:.08em;text-transform:uppercase">SafeLink</p>
+          <h2 style="margin:0 0 16px;color:#102f4f">Activate your Citizen account</h2>
+          <p>Welcome to SafeLink, ${user.firstName}. Confirm your email address to activate your account.</p>
+          <p>This activation link is valid for 15 minutes.</p>
+          <p style="margin:28px 0">
+            <a href="${verifyUrl}" target="_blank" style="display:inline-block;background:#087d85;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 22px;border-radius:10px">Activate my SafeLink account</a>
+          </p>
+          <p style="font-size:13px;color:#587086">If the button does not open, copy the link address from the button and paste it into your browser.</p>
+          <p style="font-size:13px;color:#587086">If you didn't create this account, you can safely ignore this email.</p>
+        </div>
+      </div>
+    `
+  });
+};
+
+const emailDeliveryError = (res, extra = {}) => res.status(503).json({
+  code: 'EMAIL_DELIVERY_FAILED',
+  message: 'The account information was saved, but SafeLink could not send the email. Please try again shortly.',
+  retryable: true,
+  ...extra
+});
+
 // @desc    Register a standard Citizen account (Requires Email Verification)
 // @route   POST /api/auth/register-citizen
 const registerCitizen = async (req, res) => {
@@ -79,8 +123,7 @@ const registerCitizen = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+    const verification = createVerificationToken();
 
     user = new User({
       firstName,
@@ -91,41 +134,12 @@ const registerCitizen = async (req, res) => {
       phoneNumber,
       address,
       role: 'citizen',
-      isVerified: false,
-      emailVerificationToken: hashedToken,
-      emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000
+  isVerified: false,
+      emailVerificationToken: verification.hash,
+      emailVerificationExpires: verification.expires
     });
 
     await user.save();
-
-    const verifyUrl = `${appUrl}/api/auth/verify-email/${verificationToken}`;
-
-    const mailOptions = {
-      from: `"SafeLink System" <${process.env.EMAIL_USER}>`,
-      to: user.email,
-      subject: 'Verify Your SafeLink Citizen Account',
-      html: `
-        <h3>Welcome to SafeLink, ${firstName}!</h3>
-        <p>Please click the link below to verify your email address. This link is valid for 24 hours:</p>
-        <a href="${verifyUrl}" target="_blank">${verifyUrl}</a>
-        <p>If you didn't create this account, please ignore this email.</p>
-      `
-    };
-
-    try {
-      await sendMailWithDeadline(mailOptions);
-    } catch (emailError) {
-      console.error('Citizen verification email error:', emailError.message);
-      try {
-        await User.deleteOne({ _id: user._id });
-      } catch (cleanupError) {
-        console.error('Citizen registration cleanup error:', cleanupError.message);
-      }
-      return res.status(503).json({
-        message: 'Unable to send the verification email. Please try registering again later.',
-        ...developmentErrorDetails(emailError)
-      });
-    }
 
     await recordAuditEvent({
       req,
@@ -134,15 +148,68 @@ const registerCitizen = async (req, res) => {
       outcome: 'success'
     });
 
-    res.status(201).json({
-      message: 'Citizen account created successfully. Please check your email to verify your account before logging in.'
-    });
+    try {
+      await sendVerificationEmail(user, verification.token);
+      return res.status(201).json({
+        message: 'Citizen account created successfully. Please check your email to verify your account before logging in.',
+        accountCreated: true,
+        verificationEmailSent: true
+      });
+    } catch (mailError) {
+      console.error('Verification email delivery error:', mailError.message);
+      await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_VERIFICATION_EMAIL_FAILED', outcome: 'failure' });
+      return emailDeliveryError(res, { accountCreated: true, verificationEmailSent: false });
+    }
   } catch (err) {
     console.error('Citizen registration error:', err.message);
     res.status(500).json({
       message: 'Server error during citizen registration.',
       ...developmentErrorDetails(err)
     });
+  }
+};
+
+// @desc    Resend a Citizen email-verification link without exposing account existence
+// @route   POST /api/auth/resend-verification
+const resendVerification = async (req, res) => {
+  try {
+    const email = req.body.email.toLowerCase().trim();
+    const user = await User.findOne({ email });
+    if (!user || user.role !== 'citizen' || user.isVerified) {
+      return res.status(200).json({ message: genericResendMessage });
+    }
+
+    const resendKey = hashIdentifier(email);
+    const lastAttempt = resendAttempts.get(resendKey) || 0;
+    const remaining = RESEND_COOLDOWN_MS - (Date.now() - lastAttempt);
+    if (remaining > 0) {
+      res.set('Retry-After', String(Math.ceil(remaining / 1000)));
+      return res.status(429).json({
+        code: 'RESEND_COOLDOWN',
+        message: 'Please wait before requesting another verification email.'
+      });
+    }
+    resendAttempts.set(resendKey, Date.now());
+
+    const verification = createVerificationToken();
+    user.emailVerificationToken = verification.hash;
+    user.emailVerificationExpires = verification.expires;
+    await user.save();
+
+    try {
+      await sendVerificationEmail(user, verification.token);
+      resendAttempts.set(resendKey, Date.now());
+      await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_VERIFICATION_EMAIL_RESENT', outcome: 'success' });
+      return res.status(200).json({ message: genericResendMessage });
+    } catch (mailError) {
+      resendAttempts.set(resendKey, Date.now());
+      console.error('Verification resend delivery error:', mailError.message);
+      await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_VERIFICATION_EMAIL_FAILED', outcome: 'failure' });
+      return emailDeliveryError(res, { accountCreated: true, verificationEmailSent: false });
+    }
+  } catch (error) {
+    console.error('Verification resend error:', error.message);
+    return res.status(500).json({ message: 'Server error requesting a verification email.' });
   }
 };
 
@@ -153,16 +220,41 @@ const verifyEmail = async (req, res) => {
     const { token } = req.params;
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    const user = await User.findOne({
-      emailVerificationToken: hashedToken,
-      emailVerificationExpires: { $gt: Date.now() }
-    });
+    const user = await User.findOne({ emailVerificationToken: hashedToken });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired email verification token.' });
+      const verifiedUser = await User.findOne({
+        lastUsedEmailVerificationToken: hashedToken,
+        lastUsedEmailVerificationExpires: { $gt: Date.now() },
+        isVerified: true
+      }).select('+lastUsedEmailVerificationToken +lastUsedEmailVerificationExpires');
+      if (verifiedUser) {
+        return res.status(409).json({
+          code: 'ALREADY_VERIFIED',
+          message: 'This Citizen account is already verified.'
+        });
+      }
+      return res.status(400).json({
+        code: 'VERIFICATION_TOKEN_INVALID',
+        message: 'This verification token is invalid.'
+      });
+    }
+    if (user.isVerified) {
+      return res.status(409).json({
+        code: 'ALREADY_VERIFIED',
+        message: 'This Citizen account is already verified.'
+      });
+    }
+    if (!user.emailVerificationExpires || user.emailVerificationExpires.getTime() <= Date.now()) {
+      return res.status(410).json({
+        code: 'VERIFICATION_TOKEN_EXPIRED',
+        message: 'This verification token has expired.'
+      });
     }
 
     user.isVerified = true;
+    user.lastUsedEmailVerificationToken = hashedToken;
+    user.lastUsedEmailVerificationExpires = Date.now() + 15 * 60 * 1000;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
     await user.save();
@@ -175,7 +267,10 @@ const verifyEmail = async (req, res) => {
       outcome: 'success'
     });
 
-    res.status(200).json({ message: 'Email verified successfully! You can now log in to your account.' });
+    res.status(200).json({
+      code: 'ACCOUNT_ACTIVATED',
+      message: 'Account activated successfully. Your SafeLink Citizen account is now verified and ready to use.'
+    });
   } catch (err) {
     console.error('Email verification error:', err.message);
     res.status(500).json({ message: 'Server error during email verification.' });
@@ -233,6 +328,60 @@ const registerPersonnel = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server error during personnel registration.' });
+  }
+};
+
+// @desc    Submit a public personnel access application
+// @route   POST /api/auth/apply-personnel
+const applyPersonnel = async (req, res) => {
+  try {
+    const { firstName, lastName, middleInitial, password, role, jurisdiction, phoneNumber } = req.body;
+    const email = req.body.email.toLowerCase().trim();
+
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ message: 'Account already exists with this email.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    user = new User({
+      firstName,
+      lastName,
+      middleInitial: middleInitial || '',
+      email,
+      password: hashedPassword,
+      role,
+      jurisdiction,
+      phoneNumber,
+      isVerified: false,
+      status: 'pending'
+    });
+
+    await user.save();
+
+    await recordAuditEvent({
+      req,
+      targetUser: user._id,
+      action: 'PERSONNEL_APPLICATION_SUBMITTED',
+      outcome: 'success',
+      details: { role: user.role }
+    });
+
+    res.status(201).json({
+      message: 'Personnel application submitted successfully. Awaiting administrator approval.',
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        isVerified: user.isVerified
+      }
+    });
+  } catch (err) {
+    console.error('Personnel application error:', err.message);
+    res.status(500).json({ message: 'Server error during personnel application.' });
   }
 };
 
@@ -322,12 +471,28 @@ const loginUser = async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
-        status: user.status
+        status: user.status,
+        isVerified: user.isVerified,
+        address: user.address,
+        jurisdiction: user.jurisdiction
       }
     });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server error during login.' });
+  }
+};
+
+// @desc    Return the current authenticated account and authorization scope
+// @route   GET /api/auth/me
+const getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .select('_id firstName lastName middleInitial email phoneNumber role address jurisdiction status isVerified createdAt');
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    return res.json({ user });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error fetching the current account.' });
   }
 };
 
@@ -407,7 +572,8 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    const resetUrl = `${appUrl}/api/auth/reset-password/${resetToken}`;
+    // Create frontend/API reset link URL
+    const resetUrl = `${clientUrl}/reset-password?token=${resetToken}`;
 
     const mailOptions = {
       from: `"SafeLink System" <${process.env.EMAIL_USER}>`,
@@ -430,7 +596,9 @@ const forgotPassword = async (req, res) => {
       user.resetPasswordExpires = undefined;
       await user.save();
       return res.status(503).json({
-        message: 'Unable to send the password reset email. Please try again later.',
+        code: 'EMAIL_DELIVERY_FAILED',
+        message: 'SafeLink could not send the password-reset email. Please try again shortly.',
+        retryable: true,
         ...developmentErrorDetails(emailError)
       });
     }
@@ -593,8 +761,11 @@ const deleteUser = async (req, res) => {
 module.exports = {
   registerCitizen,
   verifyEmail,
+  resendVerification,
   registerPersonnel,
+  applyPersonnel,
   loginUser,
+  getCurrentUser,
   getPendingPersonnel,
   approvePersonnel,
   forgotPassword,

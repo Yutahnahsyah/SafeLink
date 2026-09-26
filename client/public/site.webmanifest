@@ -1,0 +1,16 @@
+{
+  "name": "SafeLink",
+  "short_name": "SafeLink",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#071b31",
+  "theme_color": "#022350",
+  "icons": [
+    {
+      "src": "/brand/safelink-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

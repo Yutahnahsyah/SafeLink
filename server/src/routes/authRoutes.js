@@ -14,8 +14,11 @@ const failedLoginLimiter = rateLimit({
 const {
   registerCitizen,
   verifyEmail,
+  resendVerification,
   registerPersonnel,
+  applyPersonnel,
   loginUser,
+  getCurrentUser,
   getPendingPersonnel,
   approvePersonnel,
   forgotPassword,
@@ -41,12 +44,17 @@ const {
 router.post('/register-citizen', validateCitizenRegistration, registerCitizen);
 // GET Citizen Verify (Citizen)
 router.get('/verify-email/:token', verifyEmail);
+router.post('/resend-verification', validateForgotPassword, resendVerification);
 
 // POST Personnel Register (LGU, Admin)
 router.post('/register-personnel', verifyAdminOrLGU, validatePersonnelRegistration, registerPersonnel);
 
+// POST Personnel Application (Public; always pending administrator approval)
+router.post('/apply-personnel', validatePersonnelRegistration, applyPersonnel);
+
 // POST User Login (Citizen, Barangay, LGU, Police, Admin)
 router.post('/login', failedLoginLimiter, validateLogin, loginUser);
+router.get('/me', verifyToken, getCurrentUser);
 
 // GET Personnel Pending Accounts (LGU, Admin)
 router.get('/pending-personnel', verifyAdminOrLGU, getPendingPersonnel);

@@ -74,6 +74,16 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  lastUsedEmailVerificationToken: {
+    type: String,
+    default: null,
+    select: false
+  },
+  lastUsedEmailVerificationExpires: {
+    type: Date,
+    default: null,
+    select: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
