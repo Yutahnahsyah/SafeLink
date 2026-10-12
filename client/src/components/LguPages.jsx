@@ -21,10 +21,10 @@ import {
   scopeLguRecords,
 } from "../lguScope";
 
-const workflowStatuses = ["Submitted", "Under Validation", "Verified", "Rejected", "In Progress", "Resolved", "Closed"];
+const workflowStatuses = ["Submitted", "Under Barangay Review", "Verified", "Rejected", "In Progress", "Resolved", "Closed"];
 const timelineStages = [
   ["Submitted", "Citizen report submitted"],
-  ["Under Validation", "Validation started"],
+  ["Under Barangay Review", "Barangay review"],
   ["Verified", "Report verified"],
   ["In Progress", "Response in progress"],
   ["Resolved", "Resolved"],
@@ -120,7 +120,7 @@ export function LguDashboardPage() {
   const count = (statuses) => incidentsResult.available ? incidents.filter((item) => statuses.includes(item.status)).length : "—";
   const metrics = [
     ["report", "Submitted", count(["Submitted"]), "assigned"],
-    ["shield", "Under Validation", count(["Under Validation"]), "acknowledged"],
+    ["shield", "Under Barangay Review", count(["Under Barangay Review"]), "acknowledged"],
     ["priority", "In Progress", count(["In Progress"]), "responding"],
     ["check", "Resolved", count(["Resolved", "Closed"]), "resolved"],
   ];
@@ -165,7 +165,7 @@ export function LguResolvedPage() {
 }
 
 function IncidentTimeline({ incident }) {
-  const statusOrder = ["Submitted", "Under Validation", "Verified", "In Progress", "Resolved", "Closed"];
+  const statusOrder = ["Submitted", "Under Barangay Review", "Verified", "In Progress", "Resolved", "Closed"];
   const currentIndex = Math.max(statusOrder.indexOf(incident.status), 0);
   return <div className="lgu-timeline">{timelineStages.map(([status, label], index) => {
     const history = incident.statusHistory?.find((item) => item.status === status);
@@ -217,18 +217,17 @@ export function LguIncidentDetailPage({ id }) {
       setAssignmentPersonnel("");
     }
   };
-  const nextAction = {
-    Submitted: ["Start Validation", "Under Validation"],
+  const canAdvanceResponse = canUpdate && currentAgency === "LGU";
+  const nextAction = canAdvanceResponse ? {
     Verified: ["Start Response", "In Progress"],
     "In Progress": ["Resolve Incident", "Resolved"],
-    Resolved: ["Close Incident", "Closed"],
-  }[incident.status];
+  }[incident.status] : null;
   return <LguShell title={incident.title || incident.type || "Incident"} eyebrow={incident.id}>
     {incident.reassignedAway && <p className="lgu-reassignment" role="alert"><Icon name="shield" /> This incident has been reassigned by an administrator. Response controls are no longer available.</p>}
     <div className="lgu-case-header"><div><span className={priorityClass(incident.priority)}>{incident.priority || "Priority not set"}</span><h2>{incident.title || incident.type || incident.category}</h2><p>{incident.location || "Location not provided"}</p></div><b className={statusClass(incident.status)}>{incident.status}</b></div>
     <div className="lgu-case-layout">
       <section className="citizen-card lgu-case-overview"><header><h2>Incident Overview</h2></header><dl>{[["Report ID", incident.id], ["Category", incident.category || incident.type], ["Description", incident.description], ["Incident date / time", incident.incidentAt], ["Submitted", incident.submittedAt], ["Location", incident.location], ["Priority", incident.priority]].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section>
-      <aside className="citizen-card lgu-assignment-card"><header><h2>Assignment Information</h2></header><dl><div><dt>Assigned agency</dt><dd>{currentAgency}</dd></div><div><dt>Assigned personnel</dt><dd>{incident.assignedTo || "Not assigned"}</dd></div><div><dt>Status</dt><dd>{incident.status}</dd></div></dl>{assignmentAllowed && <div className="lgu-assignment-form"><label>Assign agency<select value={selectedAgency} disabled={processing} onChange={(event) => { setAssignmentAgency(event.target.value); setAssignmentPersonnel(""); }}><option>Barangay</option><option>LGU</option><option>Police</option><option>Unassigned</option></select></label><label>Assign personnel<select value={selectedPersonnelId} disabled={processing || selectedAgency === "Unassigned" || personnelResult.status === "loading"} onChange={(event) => setAssignmentPersonnel(event.target.value)}><option value="">No individual personnel</option>{availablePersonnel.map((person) => <option value={person.id} key={person.id}>{person.name} · {person.locality || jurisdiction}</option>)}</select></label>{personnelResult.status === "error" && <small role="alert">Personnel could not be loaded. You can still assign the agency.</small>}<button type="button" className="button button-muted" disabled={processing || !assignmentChanged} onClick={updateAssignment}>{processing ? "Saving assignment..." : "Save Assignment"}</button></div>}{!assignmentAllowed && canUpdate && <p className="lgu-assignment-note"><Icon name="shield" size={14} /> Agency assignment becomes available after this incident is verified.</p>}{processError && <p className="form-error" role="alert">{processError}</p>}{canUpdate && <div className="lgu-response-controls">{nextAction && <button className="button" disabled={processing} onClick={() => updateIncident({ status: nextAction[1] })}>{processing ? "Updating..." : nextAction[0]}</button>}{incident.status === "Under Validation" && <><button className="button" disabled={processing} onClick={() => updateIncident({ status: "Verified" })}>Verify Report</button><button className="button danger-button" disabled={processing} onClick={() => updateIncident({ status: "Rejected" })}>Reject Report</button></>}</div>}</aside>
+      <aside className="citizen-card lgu-assignment-card"><header><h2>Assignment Information</h2></header><dl><div><dt>Assigned agency</dt><dd>{currentAgency}</dd></div><div><dt>Assigned personnel</dt><dd>{incident.assignedTo || "Not assigned"}</dd></div><div><dt>Status</dt><dd>{incident.status}</dd></div></dl>{incident.escalation?.requestedAt && !incident.escalation?.acknowledgedAt && <p className="lgu-assignment-note"><Icon name="priority" size={14} /> Barangay requested {incident.escalation.agency} coordination: {incident.escalation.reason}</p>}{assignmentAllowed && <div className="lgu-assignment-form"><label>Assign agency<select value={selectedAgency} disabled={processing} onChange={(event) => { setAssignmentAgency(event.target.value); setAssignmentPersonnel(""); }}><option>Barangay</option><option>LGU</option><option>Police</option><option>Unassigned</option></select></label><label>Assign personnel<select value={selectedPersonnelId} disabled={processing || selectedAgency === "Unassigned" || personnelResult.status === "loading"} onChange={(event) => setAssignmentPersonnel(event.target.value)}><option value="">No individual personnel</option>{availablePersonnel.map((person) => <option value={person.id} key={person.id}>{person.name} · {person.locality || jurisdiction}</option>)}</select></label>{personnelResult.status === "error" && <small role="alert">Personnel could not be loaded. You can still assign the agency.</small>}<button type="button" className="button button-muted" disabled={processing || !assignmentChanged} onClick={updateAssignment}>{processing ? "Saving assignment..." : "Save Assignment"}</button></div>}{!assignmentAllowed && canUpdate && <p className="lgu-assignment-note"><Icon name="shield" size={14} /> Barangay completes review first. LGU may take over or refer a verified report when intervention is necessary.</p>}{processError && <p className="form-error" role="alert">{processError}</p>}{canAdvanceResponse && <div className="lgu-response-controls">{nextAction && <button className="button" disabled={processing} onClick={() => updateIncident({ status: nextAction[1] })}>{processing ? "Updating..." : nextAction[0]}</button>}{incident.status === "Resolved" && <p className="lgu-assignment-note"><Icon name="shield" size={14} /> Waiting for Barangay final closure confirmation.</p>}</div>}</aside>
       <section className="citizen-card lgu-location-card"><header><div><h2>Incident Location</h2><p>{incident.location}</p></div></header>{hasCoordinates ? <><div><SafeLinkMap mode="incidents" items={mapItem} focusView={{ center: [latitude, longitude], zoom: 15, label: `${jurisdiction} incident` }} compact /></div><small>{latitude.toFixed(6)}, {longitude.toFixed(6)}</small></> : <OperationalState result={{ available: true }} icon="map" empty="No authorized coordinates were returned for this incident." />}</section>
       <section className="citizen-card lgu-timeline-card"><header><h2>Response Timeline</h2></header><IncidentTimeline incident={incident} /></section>
       <section className="citizen-card lgu-evidence-card"><header><h2>Evidence</h2></header>{incident.evidence?.length ? <div className="lgu-evidence-grid">{incident.evidence.map((item) => <ProtectedEvidence incidentId={incident.id} item={item} key={item.id} />)}</div> : <OperationalState result={{ available: true }} icon="camera" empty="No permitted evidence was returned for this incident." />}</section>

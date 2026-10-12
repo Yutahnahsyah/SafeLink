@@ -7,13 +7,7 @@ import "./AdminModule.css";
 
 const navigation = [
   ["/admin/dashboard", "chart", "Dashboard"],
-  ["/admin/reports", "report", "Reports"],
-  ["/admin/review", "eye", "Pending Review"],
-  ["/admin/assignments", "layers", "Assignments"],
-  ["/admin/lgu", "shield", "LGU"],
   ["/admin/personnel", "users", "Personnel"],
-  ["/admin/map", "map", "Safety Map"],
-  ["/admin/notifications", "bell", "Notifications"],
   ["/admin/audit-logs", "history", "Audit Logs"],
   ["/admin/users", "users", "Users"],
 ];
@@ -23,7 +17,6 @@ export default function AdminShell({ title, eyebrow, children }) {
   const { user, logout, isAdminPreviewMode } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [commandQuery, setCommandQuery] = useState("");
   const profileRef = useRef(null);
   const profileButtonRef = useRef(null);
 
@@ -53,20 +46,19 @@ export default function AdminShell({ title, eyebrow, children }) {
   return <div className="citizen-app admin-app">
     <aside className={`citizen-sidebar admin-sidebar ${drawerOpen ? "is-open" : ""}`}>
       <div className="sidebar-brand"><BrandLogo href="/admin/dashboard" variant="dashboard" showName={false} /><button onClick={() => setDrawerOpen(false)} aria-label="Close navigation"><Icon name="close" /></button></div>
-      <div className="admin-workspace-label"><span>Provincial Command</span><small>Pangasinan operations</small></div>
+      <div className="admin-workspace-label"><span>Platform Governance</span><small>Accounts and audit history</small></div>
       <nav aria-label="Administrator navigation">{navigation.map(([href, icon, label]) => <Link key={href} to={href} title={label} data-label={label} className={active(href) ? "active" : ""} aria-current={active(href) ? "page" : undefined}><span className="sidebar-nav-icon"><Icon name={icon} /></span><span>{label}</span></Link>)}</nav>
-      <div className="sidebar-help admin-sidebar-note"><Icon name="layers" /><div><strong>Admin authority</strong><span>Review, route, approve, and monitor province-wide operations.</span></div></div>
+      <div className="sidebar-help admin-sidebar-note"><Icon name="layers" /><div><strong>Admin authority</strong><span>Maintain user access, approve personnel, and review audit records.</span></div></div>
     </aside>
     {drawerOpen && <button className="sidebar-scrim" onClick={() => setDrawerOpen(false)} aria-label="Close navigation" />}
     <div className="citizen-main">
       <header className="citizen-topbar admin-topbar">
         <button className="sidebar-toggle" onClick={() => setDrawerOpen(true)} aria-label="Open navigation"><Icon name="menu" /></button>
         <div className="admin-title-block"><span>{eyebrow || "Administrator"}</span><h1>{title}</h1></div>
-        <form className="admin-global-search" role="search" onSubmit={(event) => { event.preventDefault(); navigate(`/admin/reports${commandQuery.trim() ? `?search=${encodeURIComponent(commandQuery.trim())}` : ""}`); }}><Icon name="report" size={16} /><label className="sr-only" htmlFor="admin-global-search">Search reports</label><input id="admin-global-search" type="search" value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Search report ID, incident, location…" /><kbd>Enter</kbd></form>
-        <div className="admin-command-links"><span><Icon name="map" size={14} /> Pangasinan</span><Link to="/admin/review">Review queue</Link><Link to="/admin/assignments">Assignments</Link></div>
+        <div className="admin-command-links"><span><Icon name="shield" size={14} /> Account governance</span><Link to="/admin/personnel">Personnel</Link><Link to="/admin/audit-logs">Audit logs</Link></div>
         <div className="citizen-top-actions">
           {isAdminPreviewMode && <span className="preview-mode-badge admin-preview-badge" role="status">Development Preview</span>}
-          <Link className="top-notification" to="/admin/notifications" aria-label="Administrator notifications"><Icon name="bell" /></Link>
+          <Link className="top-notification" to="/admin/audit-logs" aria-label="Administrator audit logs"><Icon name="history" /></Link>
           <div className="profile-menu" ref={profileRef} onKeyDown={(event) => {
             if (event.key === "Escape" && profileOpen) { setProfileOpen(false); profileButtonRef.current?.focus(); }
           }}>

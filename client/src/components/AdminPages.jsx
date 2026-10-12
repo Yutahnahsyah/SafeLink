@@ -74,6 +74,25 @@ function CompactPersonnel({ result }) {
   return <div className="admin-compact-list">{items.map((item) => <Link to="/admin/personnel" key={item.id}><span><strong>{item.name}</strong><small>{item.requestedRole} · {item.office || item.locality || "Office unavailable"}</small></span><b className={statusClass(item.status)}>{item.status}</b><Icon name="arrow" size={14} /></Link>)}</div>;
 }
 
+export function AdminGovernancePage() {
+  const { user } = useAuth();
+  const personnelResult = useAdminPersonnel(user);
+  const auditResult = useAuditLogs(user);
+  const auditItems = auditResult.data?.data || [];
+  return <AdminShell title="Platform Governance" eyebrow="SafeLink administration">
+    <section className="admin-briefing-strip"><div><span><i /> Governance workspace</span><h2>Manage accounts. Review audit history.</h2><p>Incident review, verification, referral, and response are handled by Barangay and LGU personnel.</p></div><div><Link className="button" to="/admin/personnel">Personnel approvals <Icon name="arrow" size={15} /></Link><Link to="/admin/audit-logs">Open audit logs</Link></div></section>
+    <div className="admin-bento">
+      <section className="admin-card admin-personnel-panel"><PanelHeader eyebrow="Account governance" title="Personnel Approvals" to="/admin/personnel" /><CompactPersonnel result={personnelResult} /></section>
+      <section className="admin-card admin-activity-panel"><PanelHeader eyebrow="System accountability" title="Recent Audit Events" to="/admin/audit-logs" />{auditResult.status === "loading" ? <DataState result={auditResult} icon="history" /> : auditResult.status === "error" ? <DataState result={auditResult} icon="history" error="We couldn't load audit logs." /> : auditItems.length ? <div className="admin-compact-list">{auditItems.slice(0, 3).map((item) => <div key={item.id || item._id}><span><strong>{item.action}</strong><small>{item.createdAt || item.timestamp || "Recorded event"}</small></span></div>)}</div> : <DataState result={{ available: true }} icon="history" empty="No audit events have been recorded yet." />}</section>
+      <section className="admin-card admin-quick-panel"><PanelHeader eyebrow="Administrator tools" title="Quick Actions" /><div><Link to="/admin/personnel"><Icon name="users" /><span><strong>Personnel accounts</strong><small>Approve and manage responder accounts</small></span><Icon name="arrow" size={14} /></Link><Link to="/admin/users"><Icon name="shield" /><span><strong>User maintenance</strong><small>Update account access when necessary</small></span><Icon name="arrow" size={14} /></Link><Link to="/admin/audit-logs"><Icon name="history" /><span><strong>Audit logs</strong><small>Review recorded authentication and system activity</small></span><Icon name="arrow" size={14} /></Link></div></section>
+    </div>
+  </AdminShell>;
+}
+
+export function AdminIncidentOperationsNoticePage() {
+  return <AdminShell title="Incident Operations" eyebrow="Governance-only access"><section className="admin-card"><PageHeading eyebrow="Role boundary" title="Incident handling is managed by responders">Administrators maintain accounts and audit records. Barangay personnel review and confirm reports first; LGU personnel monitor, intervene, assign, and refer when necessary.</PageHeading><div className="admin-quick-panel"><Link className="button" to="/admin/personnel">Manage personnel</Link><Link to="/admin/audit-logs">View audit logs</Link></div></section></AdminShell>;
+}
+
 function ReportFilters({ result, reports, query, setQuery, status, setStatus }) {
   const municipalities = [...new Set(reports.map((item) => item.municipality || item.city).filter(Boolean))].sort();
   const lgus = [...new Set(reports.map((item) => item.assignedLgu).filter(Boolean))].sort();

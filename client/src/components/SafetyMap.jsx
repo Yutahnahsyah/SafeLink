@@ -89,7 +89,7 @@ export default function SafetyMap({
             >
               <option value="all">All Statuses</option>
               <option>Submitted</option>
-              <option>Under Validation</option>
+              <option>Under Barangay Review</option>
               <option>Verified</option>
               <option>Rejected</option>
               <option>In Progress</option>

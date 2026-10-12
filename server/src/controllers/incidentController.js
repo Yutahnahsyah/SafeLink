@@ -8,7 +8,7 @@ const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 
 const ACTIVE_DUPLICATE_STATUSES = ['Submitted', 'Under Barangay Review', 'Under Validation', 'Verified', 'In Progress', 'Resolved'];
 const STATUS_TRANSITIONS = {
-  Submitted: ['Under Barangay Review', 'Under Validation'],
+  Submitted: ['Under Barangay Review'],
   'Under Barangay Review': ['Verified', 'Rejected'],
   'Under Validation': ['Verified', 'Rejected'],
   Verified: ['In Progress'],
@@ -397,6 +397,18 @@ const processIncident = async (req, res) => {
     const previousAssignedPersonnel = incident.assignedPersonnel;
     let nextStatus = status || previousStatus;
     const nextAssignedAgency = hasAssignedAgency ? assignedAgency : previousAssignedAgency;
+    if (req.user.role === 'lgu_personnel' && status) {
+      if (!['In Progress', 'Resolved'].includes(status)) {
+        return res.status(403).json({
+          message: 'LGU personnel may monitor pending reports, but only Barangay can review, verify, or reject them.'
+        });
+      }
+      if (nextAssignedAgency !== 'LGU') {
+        return res.status(403).json({
+          message: 'LGU personnel must take over a verified report before updating its response status.'
+        });
+      }
+    }
     if (hasClosureConfirmation) {
       if (previousStatus !== 'Resolved') {
         return res.status(400).json({ message: 'Only a resolved report can be confirmed for closure.' });

@@ -202,7 +202,7 @@ const validateIncidentProcessing = [
     .isMongoId().withMessage('Invalid incident ID format.'),
   body('status')
     .optional()
-    .isIn(['Submitted', 'Under Barangay Review', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'])
+    .isIn(['Submitted', 'Under Barangay Review', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'])
     .withMessage('Invalid status value.'),
   body('severity')
     .optional()

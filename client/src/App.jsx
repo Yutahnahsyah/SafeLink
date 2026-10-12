@@ -44,17 +44,11 @@ import {
   LguSettingsPage,
 } from "./components/LguPages";
 import {
-  AdminAssignmentsPage,
   AdminAuditLogsPage,
-  AdminDashboardPage,
-  AdminLguPage,
-  AdminMapPage,
-  AdminNotificationsPage,
+  AdminGovernancePage,
+  AdminIncidentOperationsNoticePage,
   AdminPersonnelPage,
   AdminProfilePage,
-  AdminReportDetailPage,
-  AdminReportsPage,
-  AdminReviewPage,
   AdminSettingsPage,
   AdminUsersPage,
 } from "./components/AdminPages";
@@ -161,15 +155,9 @@ function Routes() {
   if (pathname.startsWith("/admin")) {
     if ((!isAuthenticated || user?.role !== "admin") && !isAdminPreviewMode)
       return <Redirect to="/login/admin" />;
-    if (pathname === "/admin" || pathname === "/admin/dashboard") return <AdminDashboardPage />;
-    if (pathname === "/admin/reports") return <AdminReportsPage />;
-    if (pathname.startsWith("/admin/reports/")) return <AdminReportDetailPage id={decodeURIComponent(pathname.slice("/admin/reports/".length))} />;
-    if (pathname === "/admin/review") return <AdminReviewPage />;
-    if (pathname === "/admin/assignments") return <AdminAssignmentsPage />;
-    if (pathname === "/admin/lgu") return <AdminLguPage />;
+    if (pathname === "/admin" || pathname === "/admin/dashboard") return <AdminGovernancePage />;
+    if (pathname === "/admin/reports" || pathname.startsWith("/admin/reports/") || pathname === "/admin/review" || pathname === "/admin/assignments" || pathname === "/admin/lgu" || pathname === "/admin/map" || pathname === "/admin/notifications") return <AdminIncidentOperationsNoticePage />;
     if (pathname === "/admin/personnel") return <AdminPersonnelPage />;
-    if (pathname === "/admin/map") return <AdminMapPage />;
-    if (pathname === "/admin/notifications") return <AdminNotificationsPage />;
     if (pathname === "/admin/audit-logs") return <AdminAuditLogsPage />;
     if (pathname === "/admin/users") return <AdminUsersPage />;
     if (pathname === "/admin/profile") return <AdminProfilePage />;

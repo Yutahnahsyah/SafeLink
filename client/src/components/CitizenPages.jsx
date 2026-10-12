@@ -18,7 +18,7 @@ import { notificationApi } from "../services/safelinkApi";
 
 const statuses = [
   "Submitted",
-  "Under Validation",
+  "Under Barangay Review",
   "Verified",
   "In Progress",
   "Resolved",
@@ -169,7 +169,7 @@ export function DashboardPage() {
   const latestReport = reports[0];
   const journeyStages = [
     ["Submitted", ["Submitted"]],
-    ["Reviewed", ["Under Validation", "Verified", "Rejected"]],
+    ["Barangay review", ["Under Barangay Review", "Verified", "Rejected"]],
     ["With responders", ["In Progress"]],
     ["Resolved", ["Resolved", "Closed"]],
   ];
