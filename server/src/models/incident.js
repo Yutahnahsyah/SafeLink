@@ -22,6 +22,7 @@ const ResponseHistorySchema = new mongoose.Schema({
       'agency_unassigned',
       'closure_confirmation_requested',
       'closure_confirmed',
+      'priority_confirmed',
       'note_added'
     ],
     default: 'note_added'
@@ -123,6 +124,21 @@ const IncidentSchema = new mongoose.Schema({
     type: String,
     enum: ['Low', 'Medium', 'High', 'Critical'],
     default: 'Medium'
+  },
+  citizenUrgency: {
+    type: String,
+    enum: ['Low', 'Medium', 'High'],
+    required: true,
+    default: 'Medium'
+  },
+  priorityConfirmedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  priorityConfirmedAt: {
+    type: Date,
+    default: null
   },
   assignedAgency: {
     type: String,

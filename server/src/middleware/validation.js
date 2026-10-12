@@ -154,6 +154,10 @@ const validateIncidentCreation = [
     .trim()
     .notEmpty().withMessage('Description is required.')
     .isLength({ min: 10, max: 5000 }).withMessage('Description must be between 10 and 5000 characters long.'),
+  body('citizenUrgency')
+    .notEmpty().withMessage('Suggested urgency is required.')
+    .isIn(['Low', 'Medium', 'High'])
+    .withMessage('Suggested urgency must be Low, Medium, or High.'),
   body('location.address')
     .notEmpty().withMessage('Location address is required.'),
   body('location.address.barangay')

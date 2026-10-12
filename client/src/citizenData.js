@@ -36,6 +36,7 @@ export async function submitCitizenReport(user, values) {
   requireCitizen(user);
   const incident = await incidentApi.create({
     incidentType: values.type,
+    citizenUrgency: values.citizenUrgency,
     description: [values.description.trim(), values.details.trim()].filter(Boolean).join("\n\n"),
     location: {
       address: {

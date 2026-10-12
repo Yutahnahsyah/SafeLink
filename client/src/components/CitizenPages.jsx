@@ -572,6 +572,14 @@ export function TrackReportPage({ id }) {
               <dd>{report.type}</dd>
             </div>
             <div>
+              <dt>Suggested urgency</dt>
+              <dd>{report.citizenUrgency || "Not recorded"}</dd>
+            </div>
+            <div>
+              <dt>Official priority</dt>
+              <dd>{report.priority}{report.priorityConfirmed ? " — confirmed by Barangay" : " — awaiting Barangay confirmation"}</dd>
+            </div>
+            <div>
               <dt>Date and time</dt>
               <dd>{report.incidentAt || report.submittedAt}</dd>
             </div>
@@ -626,6 +634,7 @@ export function ReportIncidentPage() {
   const locationIntroPlayedRef = useRef(false);
   const [values, setValues] = useState({
     type: "",
+    citizenUrgency: "",
     title: "",
     description: "",
     date: new Date().toISOString().slice(0, 10),
@@ -727,6 +736,7 @@ export function ReportIncidentPage() {
     const next = {};
     if (target === 1) {
       if (!values.type) next.type = "Select an incident type.";
+      if (!values.citizenUrgency) next.citizenUrgency = "Suggest how urgently the report needs attention.";
       if (values.description.trim().length < 10)
         next.description = "Provide at least 10 characters describing what happened.";
     }
@@ -891,6 +901,21 @@ export function ReportIncidentPage() {
               onChange={set("title")}
               placeholder="Short, descriptive title"
             />
+          </label>
+          <label>
+            Suggested urgency *
+            <select
+              value={values.citizenUrgency}
+              onChange={set("citizenUrgency")}
+              aria-invalid={Boolean(errors.citizenUrgency)}
+            >
+              <option value="">How urgent is this?</option>
+              <option value="Low">Low — no immediate response needed</option>
+              <option value="Medium">Medium — needs community attention</option>
+              <option value="High">High — needs prompt review</option>
+            </select>
+            <small>Barangay personnel will confirm the official priority after review.</small>
+            {errors.citizenUrgency && <small>{errors.citizenUrgency}</small>}
           </label>
           <label className="full">
             Description *
@@ -1154,6 +1179,10 @@ export function ReportIncidentPage() {
               <dd>
                 {values.date} · {values.time}
               </dd>
+            </div>
+            <div>
+              <dt>Suggested urgency</dt>
+              <dd>{values.citizenUrgency}</dd>
             </div>
             <div>
               <dt>Location</dt>

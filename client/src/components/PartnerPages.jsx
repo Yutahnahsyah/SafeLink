@@ -11,7 +11,7 @@ const workspaces = {
     eyebrow: "Barangay response workspace",
     title: "Barangay Personnel Dashboard",
     copy: "Authorized community-level incident response access.",
-    note: "Incidents assigned to this verified account.",
+    note: "Reports in your Barangay, including cases waiting to be claimed.",
     login: "/login/barangay",
   },
   police: {
@@ -34,11 +34,29 @@ export default function PartnerDashboardPage({ portal }) {
   const notificationsResult = useApiResource(loadNotifications, [user?.id], { enabled: Boolean(user?.id), initialData: [] });
   const analyticsResult = useApiResource(loadAnalytics, [user?.id], { enabled: Boolean(user?.id), initialData: null });
   const [updating, setUpdating] = useState("");
+  const [prioritySelections, setPrioritySelections] = useState({});
   const advance = async (incident) => {
-    const next = { Submitted: "Under Validation", "Under Validation": "Verified", Verified: "In Progress", "In Progress": "Resolved", Resolved: "Closed" }[incident.status];
+    const barangayAction = portal === "barangay" && {
+      Submitted: {
+        assignedPersonnel: user.id,
+        status: "Under Barangay Review",
+        remarks: "Barangay review started.",
+      },
+      "Under Barangay Review": {
+        status: "Verified",
+        severity: prioritySelections[incident.id] || incident.priority || "Medium",
+        remarks: "Barangay review completed and official priority confirmed.",
+      },
+      Verified: { status: "In Progress", remarks: "Barangay response started." },
+      "In Progress": { status: "Resolved", remarks: "Barangay response completed." },
+    }[incident.status];
+    const next = barangayAction || {
+      Verified: { status: "In Progress", remarks: "Response started." },
+      "In Progress": { status: "Resolved", remarks: "Response completed." },
+    }[incident.status];
     if (!next) return;
     setUpdating(incident.id);
-    try { await incidentApi.process(incident.id, { status: next }); incidentsResult.retry(); }
+    try { await incidentApi.process(incident.id, next); incidentsResult.retry(); }
     finally { setUpdating(""); }
   };
   const signOut = () => { logout(); navigate(config.login, { replace: true }); };
@@ -47,7 +65,7 @@ export default function PartnerDashboardPage({ portal }) {
     <main className="partner-content">
       <section className="partner-hero"><span><Icon name={portal === "barangay" ? "users" : "shield"} size={24} /></span><div><small>{config.eyebrow}</small><h1>{config.title}</h1><p>{config.copy}</p></div></section>
       <div className="partner-grid">
-        <section><span><Icon name="report" /></span><div><small>Authorized queue</small><h2>Assigned incidents</h2><p>{config.note}</p>{incidentsResult.status === "loading" ? <p>Loading incidents...</p> : incidentsResult.status === "error" ? <button onClick={incidentsResult.retry}>Retry</button> : incidentsResult.data.length ? incidentsResult.data.slice(0, 5).map((incident) => <article key={incident.id}><strong>{incident.type}</strong><small>{incident.location} · {incident.status}</small>{["Submitted", "Under Validation", "Verified", "In Progress", "Resolved"].includes(incident.status) && <button disabled={updating === incident.id} onClick={() => advance(incident)}>{updating === incident.id ? "Updating..." : "Advance status"}</button>}</article>) : <p>No incidents are assigned to this account.</p>}</div></section>
+        <section><span><Icon name="report" /></span><div><small>Authorized queue</small><h2>Assigned incidents</h2><p>{config.note}</p>{incidentsResult.status === "loading" ? <p>Loading incidents...</p> : incidentsResult.status === "error" ? <button onClick={incidentsResult.retry}>Retry</button> : incidentsResult.data.length ? incidentsResult.data.slice(0, 5).map((incident) => <article key={incident.id}><strong>{incident.type}</strong><small>{incident.location} · {incident.status}</small>{portal === "barangay" && <small>Citizen-suggested urgency: {incident.citizenUrgency || incident.priority || "Medium"}</small>}{portal === "barangay" && incident.status === "Under Barangay Review" && <label><span>Official priority</span><select value={prioritySelections[incident.id] || incident.priority || "Medium"} onChange={(event) => setPrioritySelections((current) => ({ ...current, [incident.id]: event.target.value }))}>{["Low", "Medium", "High", "Critical"].map((priority) => <option key={priority}>{priority}</option>)}</select></label>}{["Submitted", "Under Barangay Review", "Verified", "In Progress"].includes(incident.status) && <button disabled={updating === incident.id} onClick={() => advance(incident)}>{updating === incident.id ? "Updating..." : portal === "barangay" && incident.status === "Submitted" ? "Claim and start review" : portal === "barangay" && incident.status === "Under Barangay Review" ? "Confirm priority and verify" : "Advance status"}</button>}</article>) : <p>No incidents are assigned to this account.</p>}</div></section>
         <section><span><Icon name="bell" /></span><div><small>Response updates</small><h2>Notifications</h2>{notificationsResult.status === "loading" ? <p>Loading notifications...</p> : notificationsResult.status === "error" ? <button onClick={notificationsResult.retry}>Retry</button> : notificationsResult.data.length ? notificationsResult.data.map((item) => <p key={item.id}><strong>{item.title}</strong><br />{item.message}</p>) : <p>No notifications yet.</p>}</div></section>
         <section><span><Icon name="chart" /></span><div><small>Authorized analytics</small><h2>Jurisdiction overview</h2>{analyticsResult.data ? <p>{analyticsResult.data.summary.totalReports} reports · {analyticsResult.data.summary.activeReports} active · {analyticsResult.data.summary.resolvedReports} resolved</p> : <p>{analyticsResult.status === "loading" ? "Loading analytics..." : "Analytics are unavailable."}</p>}</div></section>
       </div>

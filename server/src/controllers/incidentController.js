@@ -104,7 +104,7 @@ const parseMapDate = (value, fieldName) => {
 // @route   POST /api/incidents
 const createIncident = async (req, res) => {
   try {
-    const { incidentType, description, location, mediaEvidence } = req.body;
+    const { incidentType, description, citizenUrgency, location, mediaEvidence } = req.body;
     const submittedAfter = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const nearbyReports = await Incident.find({
       incidentType,
@@ -119,6 +119,8 @@ const createIncident = async (req, res) => {
       citizen: req.user.id,
       incidentType,
       description,
+      citizenUrgency,
+      severity: citizenUrgency,
       location: {
         ...location,
         address: {
@@ -138,8 +140,8 @@ const createIncident = async (req, res) => {
         status: 'Submitted',
         newStatus: 'Submitted',
         notes: duplicate
-          ? 'Incident report submitted and flagged for duplicate review.'
-          : 'Incident report submitted by citizen and automatically routed to the local Barangay review queue.',
+          ? `Incident report submitted with ${citizenUrgency} suggested urgency and flagged for duplicate review.`
+          : `Incident report submitted with ${citizenUrgency} suggested urgency and automatically routed to the local Barangay review queue.`,
         updatedBy: req.user.id
       }]
     });
@@ -166,7 +168,7 @@ const createIncident = async (req, res) => {
         role: 'barangay_personnel',
         type: 'report_routed',
         title: 'New report awaiting Barangay review',
-        message: 'A new incident report in your Barangay is ready to be claimed and reviewed.'
+        message: `A new incident report in your Barangay is ready to be claimed and reviewed. Citizen-suggested urgency: ${citizenUrgency}.`
       }),
       notifyPersonnel({
         incident,
@@ -341,8 +343,9 @@ const processIncident = async (req, res) => {
     const { status, severity, assignedAgency, assignedPersonnel, remarks, closureConfirmed } = req.body;
     const hasAssignedAgency = hasField(req.body, 'assignedAgency');
     const hasAssignedPersonnel = hasField(req.body, 'assignedPersonnel');
+    const hasSeverity = hasField(req.body, 'severity');
     const hasClosureConfirmation = closureConfirmed === true;
-    if (!status && !severity && !hasAssignedAgency && !hasAssignedPersonnel && !remarks && !hasClosureConfirmation) {
+    if (!status && !hasSeverity && !hasAssignedAgency && !hasAssignedPersonnel && !remarks && !hasClosureConfirmation) {
       return res.status(400).json({ message: 'Provide a status, severity, assignment, referral, or remark to process the incident.' });
     }
 
@@ -351,9 +354,12 @@ const processIncident = async (req, res) => {
     if (!canAccessIncident(req.user, incident)) {
       return res.status(403).json({ message: 'Access denied: this incident is not assigned to your account or is outside your jurisdiction.' });
     }
+    if (hasSeverity && req.user.role !== 'barangay_personnel') {
+      return res.status(403).json({ message: 'Only the responsible Barangay can set the official report priority.' });
+    }
 
     const isSupportingBarangay = req.user.role === 'barangay_personnel' && incident.barangaySupport;
-    if (isSupportingBarangay && (status || severity || hasAssignedAgency || hasAssignedPersonnel)) {
+    if (isSupportingBarangay && (status || hasSeverity || hasAssignedAgency || hasAssignedPersonnel)) {
       return res.status(403).json({
         message: 'Barangay personnel are supporting responders after LGU intervention and may only add updates, evidence, or confirm closure.'
       });
@@ -363,7 +369,7 @@ const processIncident = async (req, res) => {
       && !incident.assignedPersonnel
       && !incident.barangaySupport;
     if (isUnclaimedBarangayReport && !hasClosureConfirmation
-      && (status || severity || remarks) && !hasAssignedPersonnel) {
+      && (status || hasSeverity || remarks) && !hasAssignedPersonnel) {
       return res.status(400).json({
         message: 'Claim this Barangay report by assigning it to your own account before processing it.'
       });
@@ -372,7 +378,7 @@ const processIncident = async (req, res) => {
       && (req.user.role !== 'barangay_personnel' || !canCoverIncidentLocation(req.user, incident))) {
       return res.status(403).json({ message: 'Only the responsible Barangay can confirm final closure.' });
     }
-    if (hasClosureConfirmation && (status || severity || hasAssignedAgency || hasAssignedPersonnel)) {
+    if (hasClosureConfirmation && (status || hasSeverity || hasAssignedAgency || hasAssignedPersonnel)) {
       return res.status(400).json({ message: 'Submit closure confirmation separately from other incident changes.' });
     }
     if (status === 'Closed') {
@@ -395,11 +401,17 @@ const processIncident = async (req, res) => {
       nextStatus = 'Closed';
     }
     const statusChanged = nextStatus !== previousStatus;
-    const severityChanged = Boolean(severity && severity !== previousSeverity);
+    const severityChanged = hasSeverity && severity !== previousSeverity;
+    const priorityConfirmed = hasSeverity && req.user.role === 'barangay_personnel';
 
     if (statusChanged && !STATUS_TRANSITIONS[previousStatus].includes(nextStatus)) {
       return res.status(400).json({
         message: `Invalid status transition from ${previousStatus} to ${nextStatus}.`
+      });
+    }
+    if (nextStatus === 'Verified' && !incident.priorityConfirmedAt && !priorityConfirmed) {
+      return res.status(400).json({
+        message: 'Barangay personnel must confirm an official priority before verifying this report.'
       });
     }
 
@@ -463,12 +475,17 @@ const processIncident = async (req, res) => {
       : (personnelUser?._id || (lguIntervention ? req.user.id : previousAssignedPersonnel) || null);
     const personnelChanged = String(nextAssignedPersonnel || '') !== String(previousAssignedPersonnel || '');
 
-    if (!statusChanged && !severityChanged && !agencyChanged && !personnelChanged && !remarks && !hasClosureConfirmation) {
+    if (!statusChanged && !severityChanged && !priorityConfirmed && !agencyChanged && !personnelChanged && !remarks && !hasClosureConfirmation) {
       return res.status(400).json({ message: 'No incident changes were provided.' });
     }
 
     if (statusChanged) incident.status = nextStatus;
     if (severityChanged) incident.severity = severity;
+    if (priorityConfirmed) {
+      incident.severity = severity;
+      incident.priorityConfirmedBy = req.user.id;
+      incident.priorityConfirmedAt = new Date();
+    }
     if (agencyChanged) {
       incident.assignedAgency = nextAssignedAgency;
       incident.referral = nextAssignedAgency === 'Unassigned'
@@ -519,6 +536,15 @@ const processIncident = async (req, res) => {
         { previousSeverity, newSeverity: severity }
       );
     }
+    if (priorityConfirmed) {
+      appendResponseHistory(
+        incident,
+        req.user.id,
+        'priority_confirmed',
+        `Barangay confirmed the official report priority as ${severity}.`,
+        { previousSeverity, newSeverity: severity }
+      );
+    }
     if (agencyChanged) {
       const eventType = nextAssignedAgency === 'Unassigned' ? 'agency_unassigned' : 'agency_referred';
       const message = nextAssignedAgency === 'Unassigned'
@@ -566,7 +592,7 @@ const processIncident = async (req, res) => {
         withRemarks('Barangay confirmed the resolution and closed the incident.', remarks)
       );
     }
-    if (!statusChanged && !severityChanged && !agencyChanged && !personnelChanged && !hasClosureConfirmation && remarks) {
+    if (!statusChanged && !severityChanged && !priorityConfirmed && !agencyChanged && !personnelChanged && !hasClosureConfirmation && remarks) {
       appendResponseHistory(incident, req.user.id, 'note_added', remarks);
     }
 
@@ -583,6 +609,12 @@ const processIncident = async (req, res) => {
       auditEvents.push({
         action: 'INCIDENT_SEVERITY_CHANGED',
         details: { previousSeverity, newSeverity: severity }
+      });
+    }
+    if (priorityConfirmed) {
+      auditEvents.push({
+        action: 'INCIDENT_PRIORITY_CONFIRMED',
+        details: { citizenUrgency: incident.citizenUrgency, officialSeverity: severity }
       });
     }
     if (agencyChanged) {
@@ -631,6 +663,13 @@ const processIncident = async (req, res) => {
         type: 'severity_changed',
         title: 'Report severity updated',
         message: `Your report severity is now ${severity}.`
+      });
+    }
+    if (priorityConfirmed) {
+      notificationEvents.push({
+        type: 'priority_confirmed',
+        title: 'Report priority confirmed',
+        message: `Your local Barangay confirmed the official priority as ${severity}.`
       });
     }
     if (personnelChanged) {

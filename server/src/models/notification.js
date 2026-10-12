@@ -21,6 +21,7 @@ const NotificationSchema = new mongoose.Schema({
       'lgu_intervention',
       'status_changed',
       'severity_changed',
+      'priority_confirmed',
       'personnel_assigned',
       'agency_referred',
       'closure_confirmation_requested',

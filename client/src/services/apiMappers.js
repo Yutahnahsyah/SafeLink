@@ -29,6 +29,8 @@ export function mapIncidentFromApi(incident = {}) {
     category: incident.incidentType,
     title: incident.incidentType,
     priority: incident.severity,
+    citizenUrgency: incident.citizenUrgency || "",
+    priorityConfirmed: Boolean(incident.priorityConfirmedAt),
     location: formatIncidentLocation(incident.location),
     municipality: incident.location?.address?.municipalityOrCity || "",
     barangay: incident.location?.address?.barangay || "",
