@@ -3,7 +3,6 @@ const samePlace = (first, second) => (
 );
 
 const canCoverIncidentLocation = (user, incident) => {
-  if (user.role === 'admin') return true;
   if (user.role === 'barangay_personnel') {
     return samePlace(incident.location.address.barangay, user.jurisdiction?.barangay)
       && samePlace(incident.location.address.municipalityOrCity, user.jurisdiction?.municipalityOrCity);
@@ -20,14 +19,18 @@ const isAssignedPersonnel = (user, incident) => (
 );
 
 const canAccessIncident = (user, incident) => {
-  if (user.role === 'admin') return true;
   if (user.role === 'lgu_personnel') return canCoverIncidentLocation(user, incident);
+  if (user.role === 'barangay_personnel') {
+    if (!canCoverIncidentLocation(user, incident)) return false;
+    if (incident.barangaySupport) return true;
+    return incident.assignedAgency === 'Barangay'
+      && (!incident.assignedPersonnel || isAssignedPersonnel(user, incident));
+  }
   return isAssignedPersonnel(user, incident);
 };
 
 const canManageAssignment = (user, incident) => (
-  user.role === 'admin'
-  || (user.role === 'lgu_personnel' && canCoverIncidentLocation(user, incident))
+  user.role === 'lgu_personnel' && canCoverIncidentLocation(user, incident)
 );
 
 module.exports = { canAccessIncident, canCoverIncidentLocation, canManageAssignment };

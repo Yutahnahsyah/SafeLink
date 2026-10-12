@@ -31,12 +31,12 @@ router.post(
   createIncident
 );
 
-// GET View Incidents (Citizen, Barangay, LGU, Police, Admin)
+// GET View Incidents (Citizen, Barangay, LGU, Police)
 router.get('/', verifyToken, getIncidents);
 
 // GET Privacy-safe markers and boundary for a Leaflet community safety map.
-router.get('/map', verifyToken, getMapIncidents);
-router.get('/map/boundary', verifyToken, getMapBoundary);
+router.get('/map', verifyToken, requireRole('citizen', 'barangay_personnel', 'lgu_personnel', 'police_personnel'), getMapIncidents);
+router.get('/map/boundary', verifyToken, requireRole('citizen', 'barangay_personnel', 'lgu_personnel', 'police_personnel'), getMapBoundary);
 
 router.post('/:id/evidence', verifyToken, (req, res, next) => {
   uploadEvidence.array('evidence', 5)(req, res, (error) => {
@@ -54,11 +54,11 @@ router.post('/:id/evidence', verifyToken, (req, res, next) => {
 }, addEvidence);
 router.get('/:id/evidence/:evidenceId', verifyToken, downloadEvidence);
 
-// PATCH Process & Refer Incident (Barangay, LGU, Police, Admin)
+// PATCH Process & Refer Incident (Barangay, LGU, Police)
 router.patch(
   '/:id/process',
   verifyToken,
-  requireRole('barangay_personnel', 'lgu_personnel', 'police_personnel', 'admin'),
+  requireRole('barangay_personnel', 'lgu_personnel', 'police_personnel'),
   validateIncidentProcessing,
   processIncident
 );

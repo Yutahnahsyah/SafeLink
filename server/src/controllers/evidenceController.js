@@ -91,7 +91,7 @@ const addEvidence = async (req, res) => {
 const downloadEvidence = async (req, res) => {
   try {
     const incident = await Incident.findById(req.params.id)
-      .select('citizen assignedPersonnel location evidenceFiles +evidenceFiles.storageName');
+      .select('citizen assignedAgency assignedPersonnel barangaySupport location evidenceFiles +evidenceFiles.storageName');
     if (!incident) return res.status(404).json({ message: 'Incident not found.' });
     const hasAccess = (req.user.role === 'citizen' && incident.citizen.toString() === req.user.id)
       || (req.user.role !== 'citizen' && canAccessIncident(req.user, incident));

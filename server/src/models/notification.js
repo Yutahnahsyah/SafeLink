@@ -16,10 +16,15 @@ const NotificationSchema = new mongoose.Schema({
     type: String,
     enum: [
       'report_submitted',
+      'report_routed',
+      'lgu_monitoring',
+      'lgu_intervention',
       'status_changed',
       'severity_changed',
       'personnel_assigned',
       'agency_referred',
+      'closure_confirmation_requested',
+      'closure_confirmed',
       'evidence_added'
     ],
     required: true

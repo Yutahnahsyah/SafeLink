@@ -5,9 +5,10 @@ const { getPangasinanBoundaryFeature } = require('../utils/pangasinanBoundary');
 const { createNotification } = require('../utils/notifications');
 const { canAccessIncident, canCoverIncidentLocation, canManageAssignment } = require('../utils/incidentAccess');
 
-const ACTIVE_DUPLICATE_STATUSES = ['Submitted', 'Under Validation', 'Verified', 'In Progress', 'Resolved'];
+const ACTIVE_DUPLICATE_STATUSES = ['Submitted', 'Under Barangay Review', 'Under Validation', 'Verified', 'In Progress', 'Resolved'];
 const STATUS_TRANSITIONS = {
-  Submitted: ['Under Validation'],
+  Submitted: ['Under Barangay Review', 'Under Validation'],
+  'Under Barangay Review': ['Verified', 'Rejected'],
   'Under Validation': ['Verified', 'Rejected'],
   Verified: ['In Progress'],
   Rejected: [],
@@ -32,6 +33,38 @@ const AGENCY_PERSONNEL_ROLES = {
   Barangay: 'barangay_personnel',
   LGU: 'lgu_personnel',
   Police: 'police_personnel'
+};
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const findActivePersonnel = async (incident, role) => {
+  const municipalityOrCity = incident.location.address.municipalityOrCity?.trim();
+  const barangay = incident.location.address.barangay?.trim();
+  if (!municipalityOrCity || (role === 'barangay_personnel' && !barangay)) return [];
+
+  const query = {
+    role,
+    isVerified: true,
+    status: 'active',
+    'jurisdiction.municipalityOrCity': { $regex: new RegExp(`^${escapeRegExp(municipalityOrCity)}$`, 'i') }
+  };
+  if (role === 'barangay_personnel') {
+    query['jurisdiction.barangay'] = { $regex: new RegExp(`^${escapeRegExp(barangay)}$`, 'i') };
+  }
+  return User.find(query).select('_id');
+};
+
+const notifyPersonnel = async ({ incident, role, type, title, message, excludeRecipient = null }) => {
+  const personnel = await findActivePersonnel(incident, role);
+  return Promise.all(personnel
+    .filter((person) => person._id.toString() !== String(excludeRecipient || ''))
+    .map((person) => createNotification({
+      recipient: person._id,
+      incident: incident._id,
+      type,
+      title,
+      message
+    })));
 };
 
 const hasField = (object, field) => Object.prototype.hasOwnProperty.call(object, field);
@@ -93,6 +126,7 @@ const createIncident = async (req, res) => {
         }
       },
       mediaEvidence: mediaEvidence || [],
+      assignedAgency: 'Barangay',
       possibleDuplicateOf: duplicate?._id || null,
       responseHistory: [{
         eventType: 'submitted',
@@ -100,7 +134,7 @@ const createIncident = async (req, res) => {
         newStatus: 'Submitted',
         notes: duplicate
           ? 'Incident report submitted and flagged for duplicate review.'
-          : 'Incident report submitted by citizen and pending validation.',
+          : 'Incident report submitted by citizen and automatically routed to the local Barangay review queue.',
         updatedBy: req.user.id
       }]
     });
@@ -114,13 +148,29 @@ const createIncident = async (req, res) => {
       outcome: 'success',
       details: { incidentType: incident.incidentType }
     });
-    await createNotification({
-      recipient: incident.citizen,
-      incident: incident._id,
-      type: 'report_submitted',
-      title: 'Report received',
-      message: 'Your incident report was submitted and is pending validation.'
-    });
+    await Promise.all([
+      createNotification({
+        recipient: incident.citizen,
+        incident: incident._id,
+        type: 'report_submitted',
+        title: 'Report received',
+        message: 'Your incident report was submitted and routed to the local Barangay for review.'
+      }),
+      notifyPersonnel({
+        incident,
+        role: 'barangay_personnel',
+        type: 'report_routed',
+        title: 'New report awaiting Barangay review',
+        message: 'A new incident report in your Barangay is ready to be claimed and reviewed.'
+      }),
+      notifyPersonnel({
+        incident,
+        role: 'lgu_personnel',
+        type: 'lgu_monitoring',
+        title: 'New report in your municipality',
+        message: 'A new incident report was routed to its local Barangay. You can monitor or intervene when necessary.'
+      })
+    ]);
     return res.status(201).json({
       message: duplicate
         ? 'Incident reported successfully and flagged for duplicate review.'
@@ -161,7 +211,7 @@ const getMapIncidents = async (req, res) => {
     const requestedStatuses = status
       ? status.split(',').map((item) => item.trim()).filter(Boolean)
       : null;
-    const allowedStatuses = ['Submitted', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'];
+    const allowedStatuses = ['Submitted', 'Under Barangay Review', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'];
     if (requestedStatuses && (requestedStatuses.length === 0
       || requestedStatuses.some((item) => !allowedStatuses.includes(item)))) {
       return res.status(400).json({ message: 'One or more status filters are invalid.' });
@@ -177,7 +227,9 @@ const getMapIncidents = async (req, res) => {
       query['location.address.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
     } else if (['lgu_personnel', 'police_personnel'].includes(req.user.role)) {
       query['location.address.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
-    } else if (req.user.role !== 'admin') {
+    } else if (req.user.role === 'admin') {
+      return res.status(403).json({ message: 'Administrators do not have access to incident maps.' });
+    } else {
       return res.status(403).json({ message: 'Access denied: unrecognized role.' });
     }
 
@@ -247,11 +299,23 @@ const getIncidents = async (req, res) => {
     if (req.user.role === 'citizen') query = { citizen: req.user.id };
     else if (req.user.role === 'lgu_personnel') {
       query = { 'location.address.municipalityOrCity': req.user.jurisdiction?.municipalityOrCity };
-    } else if (req.user.role === 'admin') query = {};
-    else if (['barangay_personnel', 'police_personnel'].includes(req.user.role)) {
+    } else if (req.user.role === 'barangay_personnel') {
+      const scope = {
+        'location.address.barangay': req.user.jurisdiction?.barangay,
+        'location.address.municipalityOrCity': req.user.jurisdiction?.municipalityOrCity
+      };
+      query = {
+        $or: [
+          { ...scope, assignedAgency: 'Barangay', assignedPersonnel: null },
+          { ...scope, assignedAgency: 'Barangay', assignedPersonnel: req.user.id },
+          { ...scope, barangaySupport: true }
+        ]
+      };
+    } else if (req.user.role === 'police_personnel') {
       query = { assignedPersonnel: req.user.id };
-    }
-    else return res.status(403).json({ message: 'Access denied: unrecognized role.' });
+    } else if (req.user.role === 'admin') {
+      return res.status(403).json({ message: 'Administrators do not have access to incidents.' });
+    } else return res.status(403).json({ message: 'Access denied: unrecognized role.' });
 
     const incidents = await Incident.find(query)
       .populate('citizen', 'firstName lastName phoneNumber email')
@@ -269,10 +333,11 @@ const getIncidents = async (req, res) => {
 // @route   PATCH /api/incidents/:id/process
 const processIncident = async (req, res) => {
   try {
-    const { status, severity, assignedAgency, assignedPersonnel, remarks } = req.body;
+    const { status, severity, assignedAgency, assignedPersonnel, remarks, closureConfirmed } = req.body;
     const hasAssignedAgency = hasField(req.body, 'assignedAgency');
     const hasAssignedPersonnel = hasField(req.body, 'assignedPersonnel');
-    if (!status && !severity && !hasAssignedAgency && !hasAssignedPersonnel && !remarks) {
+    const hasClosureConfirmation = closureConfirmed === true;
+    if (!status && !severity && !hasAssignedAgency && !hasAssignedPersonnel && !remarks && !hasClosureConfirmation) {
       return res.status(400).json({ message: 'Provide a status, severity, assignment, referral, or remark to process the incident.' });
     }
 
@@ -282,12 +347,48 @@ const processIncident = async (req, res) => {
       return res.status(403).json({ message: 'Access denied: this incident is not assigned to your account or is outside your jurisdiction.' });
     }
 
+    const isSupportingBarangay = req.user.role === 'barangay_personnel' && incident.barangaySupport;
+    if (isSupportingBarangay && (status || severity || hasAssignedAgency || hasAssignedPersonnel)) {
+      return res.status(403).json({
+        message: 'Barangay personnel are supporting responders after LGU intervention and may only add updates, evidence, or confirm closure.'
+      });
+    }
+    const isUnclaimedBarangayReport = req.user.role === 'barangay_personnel'
+      && incident.assignedAgency === 'Barangay'
+      && !incident.assignedPersonnel
+      && !incident.barangaySupport;
+    if (isUnclaimedBarangayReport && !hasClosureConfirmation
+      && (status || severity || remarks) && !hasAssignedPersonnel) {
+      return res.status(400).json({
+        message: 'Claim this Barangay report by assigning it to your own account before processing it.'
+      });
+    }
+    if (hasClosureConfirmation
+      && (req.user.role !== 'barangay_personnel' || !canCoverIncidentLocation(req.user, incident))) {
+      return res.status(403).json({ message: 'Only the responsible Barangay can confirm final closure.' });
+    }
+    if (hasClosureConfirmation && (status || severity || hasAssignedAgency || hasAssignedPersonnel)) {
+      return res.status(400).json({ message: 'Submit closure confirmation separately from other incident changes.' });
+    }
+    if (status === 'Closed') {
+      return res.status(400).json({ message: 'A report can only be closed through Barangay closure confirmation.' });
+    }
+
     const previousStatus = incident.status;
     const previousSeverity = incident.severity;
     const previousAssignedAgency = incident.assignedAgency;
     const previousAssignedPersonnel = incident.assignedPersonnel;
-    const nextStatus = status || previousStatus;
+    let nextStatus = status || previousStatus;
     const nextAssignedAgency = hasAssignedAgency ? assignedAgency : previousAssignedAgency;
+    if (hasClosureConfirmation) {
+      if (previousStatus !== 'Resolved') {
+        return res.status(400).json({ message: 'Only a resolved report can be confirmed for closure.' });
+      }
+      if (incident.closureConfirmation?.confirmedAt) {
+        return res.status(400).json({ message: 'This report has already received Barangay closure confirmation.' });
+      }
+      nextStatus = 'Closed';
+    }
     const statusChanged = nextStatus !== previousStatus;
     const severityChanged = Boolean(severity && severity !== previousSeverity);
 
@@ -297,9 +398,14 @@ const processIncident = async (req, res) => {
       });
     }
 
-    if ((hasAssignedPersonnel || hasAssignedAgency) && !canManageAssignment(req.user, incident)) {
+    const barangayClaim = req.user.role === 'barangay_personnel'
+      && isUnclaimedBarangayReport
+      && !hasAssignedAgency
+      && hasAssignedPersonnel
+      && assignedPersonnel === req.user.id;
+    if ((hasAssignedPersonnel || hasAssignedAgency) && !canManageAssignment(req.user, incident) && !barangayClaim) {
       return res.status(403).json({
-        message: 'Access denied: only an administrator or the responsible LGU can assign, reassign, or refer an incident.'
+        message: 'Access denied: only the responsible LGU can assign, reassign, or refer an incident.'
       });
     }
 
@@ -318,8 +424,14 @@ const processIncident = async (req, res) => {
       }
     }
 
+    const lguIntervention = req.user.role === 'lgu_personnel'
+      && nextAssignedAgency === 'LGU'
+      && previousAssignedAgency !== 'LGU';
+
     let effectivePersonnel = personnelUser;
-    if (!effectivePersonnel && previousAssignedPersonnel && nextAssignedAgency !== 'Unassigned') {
+    if (!effectivePersonnel && lguIntervention) {
+      effectivePersonnel = { _id: req.user.id, role: 'lgu_personnel' };
+    } else if (!effectivePersonnel && previousAssignedPersonnel && nextAssignedAgency !== 'Unassigned') {
       effectivePersonnel = await User.findById(previousAssignedPersonnel).select('role');
       if (!effectivePersonnel) {
         return res.status(400).json({ message: 'The currently assigned personnel account no longer exists. Reassign the incident before referring it.' });
@@ -334,7 +446,8 @@ const processIncident = async (req, res) => {
     }
 
     const agencyChanged = nextAssignedAgency !== previousAssignedAgency;
-    if (agencyChanged && nextAssignedAgency !== 'Unassigned' && !REFERRABLE_STATUSES.has(nextStatus)) {
+    if (agencyChanged && nextAssignedAgency !== 'Unassigned'
+      && !REFERRABLE_STATUSES.has(nextStatus) && !lguIntervention) {
       return res.status(400).json({
         message: 'An incident must be verified before it can be referred to an agency.'
       });
@@ -342,10 +455,10 @@ const processIncident = async (req, res) => {
 
     const nextAssignedPersonnel = nextAssignedAgency === 'Unassigned'
       ? null
-      : (personnelUser?._id || previousAssignedPersonnel || null);
+      : (personnelUser?._id || (lguIntervention ? req.user.id : previousAssignedPersonnel) || null);
     const personnelChanged = String(nextAssignedPersonnel || '') !== String(previousAssignedPersonnel || '');
 
-    if (!statusChanged && !severityChanged && !agencyChanged && !personnelChanged && !remarks) {
+    if (!statusChanged && !severityChanged && !agencyChanged && !personnelChanged && !remarks && !hasClosureConfirmation) {
       return res.status(400).json({ message: 'No incident changes were provided.' });
     }
 
@@ -360,8 +473,28 @@ const processIncident = async (req, res) => {
           referredBy: req.user.id,
           referredAt: new Date()
         };
+      if (previousAssignedAgency === 'Barangay' && ['LGU', 'Police'].includes(nextAssignedAgency)) {
+        incident.barangaySupport = true;
+      }
     }
     if (personnelChanged) incident.assignedPersonnel = nextAssignedPersonnel;
+    const closureConfirmationRequested = statusChanged && nextStatus === 'Resolved';
+    if (closureConfirmationRequested) {
+      incident.closureConfirmation = {
+        requestedBy: req.user.id,
+        requestedAt: new Date(),
+        confirmedBy: null,
+        confirmedAt: null
+      };
+    }
+    if (hasClosureConfirmation) {
+      incident.closureConfirmation = {
+        requestedBy: incident.closureConfirmation?.requestedBy || null,
+        requestedAt: incident.closureConfirmation?.requestedAt || new Date(),
+        confirmedBy: req.user.id,
+        confirmedAt: new Date()
+      };
+    }
 
     if (statusChanged) {
       appendResponseHistory(
@@ -412,7 +545,23 @@ const processIncident = async (req, res) => {
         { previousAssignedPersonnel, newAssignedPersonnel: nextAssignedPersonnel }
       );
     }
-    if (!statusChanged && !severityChanged && !agencyChanged && !personnelChanged && remarks) {
+    if (closureConfirmationRequested) {
+      appendResponseHistory(
+        incident,
+        req.user.id,
+        'closure_confirmation_requested',
+        'The incident was resolved and is awaiting Barangay confirmation before final closure.'
+      );
+    }
+    if (hasClosureConfirmation) {
+      appendResponseHistory(
+        incident,
+        req.user.id,
+        'closure_confirmed',
+        withRemarks('Barangay confirmed the resolution and closed the incident.', remarks)
+      );
+    }
+    if (!statusChanged && !severityChanged && !agencyChanged && !personnelChanged && !hasClosureConfirmation && remarks) {
       appendResponseHistory(incident, req.user.id, 'note_added', remarks);
     }
 
@@ -446,6 +595,12 @@ const processIncident = async (req, res) => {
           newAssignedPersonnel: nextAssignedPersonnel?.toString() || null
         }
       });
+    }
+    if (closureConfirmationRequested) {
+      auditEvents.push({ action: 'INCIDENT_CLOSURE_CONFIRMATION_REQUESTED', details: {} });
+    }
+    if (hasClosureConfirmation) {
+      auditEvents.push({ action: 'INCIDENT_CLOSURE_CONFIRMED', details: {} });
     }
     if (auditEvents.length === 0 && remarks) {
       auditEvents.push({ action: 'INCIDENT_NOTE_ADDED', details: {} });
@@ -489,13 +644,44 @@ const processIncident = async (req, res) => {
         message: `Your verified report was referred to ${nextAssignedAgency}.`
       });
     }
-    await Promise.all(notificationEvents.map((event) => createNotification({
-      recipient: incident.citizen,
-      incident: incident._id,
-      type: event.type,
-      title: event.title,
-      message: event.message
-    })));
+    if (hasClosureConfirmation) {
+      notificationEvents.push({
+        type: 'closure_confirmed',
+        title: 'Report closed',
+        message: 'Your local Barangay confirmed the resolution and closed your report.'
+      });
+    }
+    const personnelNotifications = [];
+    if (lguIntervention) {
+      personnelNotifications.push(notifyPersonnel({
+        incident,
+        role: 'barangay_personnel',
+        type: 'lgu_intervention',
+        title: 'LGU intervention on a local report',
+        message: 'The LGU has taken over this report. You remain a supporting responder and may add updates or evidence.',
+        excludeRecipient: req.user.id
+      }));
+    }
+    if (closureConfirmationRequested) {
+      personnelNotifications.push(notifyPersonnel({
+        incident,
+        role: 'barangay_personnel',
+        type: 'closure_confirmation_requested',
+        title: 'Barangay closure confirmation required',
+        message: 'A resolved report in your Barangay requires confirmation before it can be finally closed.',
+        excludeRecipient: req.user.id
+      }));
+    }
+    await Promise.all([
+      ...notificationEvents.map((event) => createNotification({
+        recipient: incident.citizen,
+        incident: incident._id,
+        type: event.type,
+        title: event.title,
+        message: event.message
+      })),
+      ...personnelNotifications
+    ]);
 
     const updatedIncident = await Incident.findById(incident._id)
       .populate('citizen', 'firstName lastName phoneNumber email')

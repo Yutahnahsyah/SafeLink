@@ -4,11 +4,18 @@ const { getNotifications, markNotificationRead, markAllNotificationsRead } = req
 
 const router = express.Router();
 
-// GET View Notifications (Citizen, Barangay, LGU, Police, Admin)
-router.get('/', verifyToken, getNotifications);
-// PATCH Mark All Notifications Read (Citizen, Barangay, LGU, Police, Admin)
-router.patch('/read-all', verifyToken, markAllNotificationsRead);
-// PATCH Mark Notification Read (Citizen, Barangay, LGU, Police, Admin)
-router.patch('/:id/read', verifyToken, markNotificationRead);
+const requireRole = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role)) {
+    return res.status(403).json({ message: 'Access denied: insufficient permissions.' });
+  }
+  next();
+};
+
+// GET View Notifications (Citizen, Barangay, LGU, Police)
+router.get('/', verifyToken, requireRole('citizen', 'barangay_personnel', 'lgu_personnel', 'police_personnel'), getNotifications);
+// PATCH Mark All Notifications Read (Citizen, Barangay, LGU, Police)
+router.patch('/read-all', verifyToken, requireRole('citizen', 'barangay_personnel', 'lgu_personnel', 'police_personnel'), markAllNotificationsRead);
+// PATCH Mark Notification Read (Citizen, Barangay, LGU, Police)
+router.patch('/:id/read', verifyToken, requireRole('citizen', 'barangay_personnel', 'lgu_personnel', 'police_personnel'), markNotificationRead);
 
 module.exports = router;

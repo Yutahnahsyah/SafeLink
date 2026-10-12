@@ -20,6 +20,8 @@ const ResponseHistorySchema = new mongoose.Schema({
       'personnel_reassigned',
       'agency_referred',
       'agency_unassigned',
+      'closure_confirmation_requested',
+      'closure_confirmed',
       'note_added'
     ],
     default: 'note_added'
@@ -113,7 +115,7 @@ const IncidentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Submitted', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'],
+    enum: ['Submitted', 'Under Barangay Review', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'],
     default: 'Submitted'
   },
   severity: {
@@ -124,7 +126,7 @@ const IncidentSchema = new mongoose.Schema({
   assignedAgency: {
     type: String,
     enum: ['Barangay', 'LGU', 'Police', 'Unassigned'],
-    default: 'Unassigned'
+    default: 'Barangay'
   },
   assignedPersonnel: {
     type: mongoose.Schema.Types.ObjectId,
@@ -143,6 +145,30 @@ const IncidentSchema = new mongoose.Schema({
       default: null
     },
     referredAt: {
+      type: Date,
+      default: null
+    }
+  },
+  barangaySupport: {
+    type: Boolean,
+    default: false
+  },
+  closureConfirmation: {
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    requestedAt: {
+      type: Date,
+      default: null
+    },
+    confirmedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    confirmedAt: {
       type: Date,
       default: null
     }

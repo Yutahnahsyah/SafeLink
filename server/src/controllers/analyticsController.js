@@ -38,14 +38,13 @@ const getAnalyticsOverview = async (req, res) => {
       match['location.address.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
     } else if (['lgu_personnel', 'police_personnel'].includes(req.user.role)) {
       match['location.address.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
-    } else if (req.user.role !== 'admin') {
+    } else if (req.user.role === 'admin') {
+      return res.status(403).json({ message: 'Administrators do not have access to incident analytics.' });
+    } else {
       return res.status(403).json({ message: 'Access denied: unrecognized role.' });
     }
 
-    if (req.user.role === 'admin') {
-      if (requestedCity) match['location.address.municipalityOrCity'] = requestedCity;
-      if (requestedBarangay) match['location.address.barangay'] = requestedBarangay;
-    } else if (requestedCity && requestedCity.toLowerCase()
+    if (requestedCity && requestedCity.toLowerCase()
       !== req.user.jurisdiction?.municipalityOrCity?.trim().toLowerCase()) {
       return res.status(403).json({ message: 'Access denied: analytics are limited to your municipality or city.' });
     } else if (requestedBarangay) {
@@ -97,7 +96,7 @@ const getAnalyticsOverview = async (req, res) => {
       },
       summary: {
         totalReports: result.total[0]?.count || 0,
-        activeReports: (byStatus.Submitted || 0) + (byStatus['Under Validation'] || 0)
+        activeReports: (byStatus.Submitted || 0) + (byStatus['Under Barangay Review'] || 0) + (byStatus['Under Validation'] || 0)
           + (byStatus.Verified || 0) + (byStatus['In Progress'] || 0),
         resolvedReports: (byStatus.Resolved || 0) + (byStatus.Closed || 0),
         rejectedReports: byStatus.Rejected || 0

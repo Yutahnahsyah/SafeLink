@@ -173,7 +173,7 @@ const validateIncidentProcessing = [
     .isMongoId().withMessage('Invalid incident ID format.'),
   body('status')
     .optional()
-    .isIn(['Submitted', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'])
+    .isIn(['Submitted', 'Under Barangay Review', 'Under Validation', 'Verified', 'Rejected', 'In Progress', 'Resolved', 'Closed'])
     .withMessage('Invalid status value.'),
   body('severity')
     .optional()
@@ -192,6 +192,11 @@ const validateIncidentProcessing = [
     .trim()
     .isLength({ min: 1, max: 2000 })
     .withMessage('Remarks must be between 1 and 2000 characters long.'),
+  body('closureConfirmed')
+    .optional()
+    .isBoolean()
+    .withMessage('closureConfirmed must be true or false.')
+    .toBoolean(),
   validate
 ];
 
