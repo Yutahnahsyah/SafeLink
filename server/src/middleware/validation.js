@@ -212,6 +212,10 @@ const validateIncidentProcessing = [
     .optional()
     .isIn(['Barangay', 'LGU', 'Police', 'Unassigned'])
     .withMessage('Invalid assigned agency.'),
+  body('escalationAgency')
+    .optional()
+    .isIn(['LGU', 'Police'])
+    .withMessage('Escalation agency must be LGU or Police.'),
   body('assignedPersonnel')
     .optional()
     .isMongoId()

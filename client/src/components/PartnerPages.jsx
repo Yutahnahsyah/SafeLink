@@ -40,7 +40,13 @@ export default function PartnerDashboardPage({ portal }) {
   ));
   const [updating, setUpdating] = useState("");
   const [prioritySelections, setPrioritySelections] = useState({});
+  const [escalationPaths, setEscalationPaths] = useState({});
+  const [escalationReasons, setEscalationReasons] = useState({});
   const advance = async (incident) => {
+    const escalationAgency = escalationPaths[incident.id] || "local";
+    const escalationReason = escalationReasons[incident.id]?.trim();
+    if (portal === "barangay" && incident.status === "Under Barangay Review"
+      && escalationAgency !== "local" && !escalationReason) return;
     const barangayAction = portal === "barangay" && {
       Submitted: {
         assignedPersonnel: user.id,
@@ -50,7 +56,10 @@ export default function PartnerDashboardPage({ portal }) {
       "Under Barangay Review": {
         status: "Verified",
         severity: prioritySelections[incident.id] || incident.priority || "Medium",
-        remarks: "Barangay review completed and official priority confirmed.",
+        remarks: escalationAgency === "local"
+          ? "Barangay review completed and official priority confirmed. Local response will proceed."
+          : escalationReason,
+        ...(escalationAgency === "local" ? {} : { escalationAgency }),
       },
       Verified: { status: "In Progress", remarks: "Barangay response started." },
       "In Progress": { status: "Resolved", remarks: "Barangay response completed." },
@@ -70,7 +79,11 @@ export default function PartnerDashboardPage({ portal }) {
     <main className="partner-content">
       <section className="partner-hero"><span><Icon name={portal === "barangay" ? "users" : "shield"} size={24} /></span><div><small>{config.eyebrow}</small><h1>{config.title}</h1><p>{config.copy}</p></div></section>
       <div className="partner-grid">
-        <section><span><Icon name="report" /></span><div><small>Authorized queue</small><h2>Assigned incidents</h2><p>{config.note}</p>{incidentsResult.status === "loading" ? <p>Loading incidents...</p> : incidentsResult.status === "error" ? <button onClick={incidentsResult.retry}>Retry</button> : incidentsResult.data.length ? incidentsResult.data.slice(0, 5).map((incident) => <article key={incident.id}><strong>{incident.type}</strong><small>{incident.location} · {incident.status}</small>{portal === "barangay" && <small>Citizen-suggested urgency: {incident.citizenUrgency || incident.priority || "Medium"}</small>}{portal === "barangay" && incident.status === "Under Barangay Review" && <label><span>Official priority</span><select value={prioritySelections[incident.id] || incident.priority || "Medium"} onChange={(event) => setPrioritySelections((current) => ({ ...current, [incident.id]: event.target.value }))}>{["Low", "Medium", "High", "Critical"].map((priority) => <option key={priority}>{priority}</option>)}</select></label>}{["Submitted", "Under Barangay Review", "Verified", "In Progress"].includes(incident.status) && <button disabled={updating === incident.id} onClick={() => advance(incident)}>{updating === incident.id ? "Updating..." : portal === "barangay" && incident.status === "Submitted" ? "Claim and start review" : portal === "barangay" && incident.status === "Under Barangay Review" ? "Confirm priority and verify" : "Advance status"}</button>}</article>) : <p>No incidents are assigned to this account.</p>}</div></section>
+        <section><span><Icon name="report" /></span><div><small>Authorized queue</small><h2>Assigned incidents</h2><p>{config.note}</p>{incidentsResult.status === "loading" ? <p>Loading incidents...</p> : incidentsResult.status === "error" ? <button onClick={incidentsResult.retry}>Retry</button> : incidentsResult.data.length ? incidentsResult.data.slice(0, 5).map((incident) => {
+          const escalationAgency = escalationPaths[incident.id] || "local";
+          const escalationNeedsReason = portal === "barangay" && incident.status === "Under Barangay Review" && escalationAgency !== "local";
+          return <article key={incident.id}><strong>{incident.type}</strong><small>{incident.location} · {incident.status}</small>{portal === "barangay" && <small>Citizen-suggested urgency: {incident.citizenUrgency || incident.priority || "Medium"}</small>}{portal === "barangay" && incident.status === "Under Barangay Review" && <><label><span>Official priority</span><select value={prioritySelections[incident.id] || incident.priority || "Medium"} onChange={(event) => setPrioritySelections((current) => ({ ...current, [incident.id]: event.target.value }))}>{["Low", "Medium", "High", "Critical"].map((priority) => <option key={priority}>{priority}</option>)}</select></label><label><span>Response path</span><select value={escalationAgency} onChange={(event) => setEscalationPaths((current) => ({ ...current, [incident.id]: event.target.value }))}><option value="local">Handle within Barangay</option><option value="LGU">Request LGU intervention</option><option value="Police">Request Police coordination via LGU</option></select></label>{escalationNeedsReason && <label><span>Escalation reason</span><textarea value={escalationReasons[incident.id] || ""} onChange={(event) => setEscalationReasons((current) => ({ ...current, [incident.id]: event.target.value }))} placeholder="Explain why municipal or police coordination is needed." /></label>}<small>LGU receives the request and makes the final takeover or referral decision.</small></>}{["Submitted", "Under Barangay Review", "Verified", "In Progress"].includes(incident.status) && <button disabled={updating === incident.id || (escalationNeedsReason && !escalationReasons[incident.id]?.trim())} onClick={() => advance(incident)}>{updating === incident.id ? "Updating..." : portal === "barangay" && incident.status === "Submitted" ? "Claim and start review" : portal === "barangay" && incident.status === "Under Barangay Review" ? escalationAgency === "local" ? "Confirm priority and verify" : "Verify and request coordination" : "Advance status"}</button>}</article>;
+        }) : <p>No incidents are assigned to this account.</p>}</div></section>
         <section><span><Icon name="bell" /></span><div><small>Response updates</small><h2>Notifications</h2>{notificationsResult.status === "loading" ? <p>Loading notifications...</p> : notificationsResult.status === "error" ? <button onClick={notificationsResult.retry}>Retry</button> : notifications.length ? notifications.map((item) => <p key={item.id}><strong>{item.priority !== "normal" ? `${item.priority.toUpperCase()} · ` : ""}{item.title}</strong><br />{item.message}</p>) : <p>No notifications yet.</p>}</div></section>
         <section><span><Icon name="chart" /></span><div><small>Authorized analytics</small><h2>Jurisdiction overview</h2>{analyticsResult.data ? <p>{analyticsResult.data.summary.totalReports} reports · {analyticsResult.data.summary.activeReports} active · {analyticsResult.data.summary.resolvedReports} resolved</p> : <p>{analyticsResult.status === "loading" ? "Loading analytics..." : "Analytics are unavailable."}</p>}</div></section>
       </div>

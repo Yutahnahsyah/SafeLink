@@ -20,6 +20,7 @@ const ResponseHistorySchema = new mongoose.Schema({
       'personnel_reassigned',
       'agency_referred',
       'agency_unassigned',
+      'escalation_requested',
       'closure_confirmation_requested',
       'closure_confirmed',
       'priority_confirmed',
@@ -169,6 +170,35 @@ const IncidentSchema = new mongoose.Schema({
   barangaySupport: {
     type: Boolean,
     default: false
+  },
+  escalation: {
+    agency: {
+      type: String,
+      enum: ['LGU', 'Police'],
+      default: null
+    },
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    requestedAt: {
+      type: Date,
+      default: null
+    },
+    reason: {
+      type: String,
+      default: null
+    },
+    acknowledgedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    acknowledgedAt: {
+      type: Date,
+      default: null
+    }
   },
   closureConfirmation: {
     requestedBy: {

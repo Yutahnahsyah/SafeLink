@@ -19,6 +19,7 @@ const NotificationSchema = new mongoose.Schema({
       'report_routed',
       'priority_alert',
       'lgu_monitoring',
+      'barangay_escalation_requested',
       'lgu_intervention',
       'status_changed',
       'severity_changed',

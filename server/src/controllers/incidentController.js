@@ -342,13 +342,14 @@ const getIncidents = async (req, res) => {
 // @route   PATCH /api/incidents/:id/process
 const processIncident = async (req, res) => {
   try {
-    const { status, severity, assignedAgency, assignedPersonnel, remarks, closureConfirmed } = req.body;
+    const { status, severity, assignedAgency, assignedPersonnel, escalationAgency, remarks, closureConfirmed } = req.body;
     const hasAssignedAgency = hasField(req.body, 'assignedAgency');
     const hasAssignedPersonnel = hasField(req.body, 'assignedPersonnel');
     const hasSeverity = hasField(req.body, 'severity');
+    const hasEscalationRequest = hasField(req.body, 'escalationAgency');
     const hasClosureConfirmation = closureConfirmed === true;
-    if (!status && !hasSeverity && !hasAssignedAgency && !hasAssignedPersonnel && !remarks && !hasClosureConfirmation) {
-      return res.status(400).json({ message: 'Provide a status, severity, assignment, referral, or remark to process the incident.' });
+    if (!status && !hasSeverity && !hasAssignedAgency && !hasAssignedPersonnel && !hasEscalationRequest && !remarks && !hasClosureConfirmation) {
+      return res.status(400).json({ message: 'Provide a status, priority, assignment, escalation, referral, or remark to process the incident.' });
     }
 
     const incident = await Incident.findById(req.params.id);
@@ -359,9 +360,12 @@ const processIncident = async (req, res) => {
     if (hasSeverity && req.user.role !== 'barangay_personnel') {
       return res.status(403).json({ message: 'Only the responsible Barangay can set the official report priority.' });
     }
+    if (hasEscalationRequest && req.user.role !== 'barangay_personnel') {
+      return res.status(403).json({ message: 'Only the responsible Barangay can request escalation.' });
+    }
 
     const isSupportingBarangay = req.user.role === 'barangay_personnel' && incident.barangaySupport;
-    if (isSupportingBarangay && (status || hasSeverity || hasAssignedAgency || hasAssignedPersonnel)) {
+    if (isSupportingBarangay && (status || hasSeverity || hasAssignedAgency || hasAssignedPersonnel || hasEscalationRequest)) {
       return res.status(403).json({
         message: 'Barangay personnel are supporting responders after LGU intervention and may only add updates, evidence, or confirm closure.'
       });
@@ -371,7 +375,7 @@ const processIncident = async (req, res) => {
       && !incident.assignedPersonnel
       && !incident.barangaySupport;
     if (isUnclaimedBarangayReport && !hasClosureConfirmation
-      && (status || hasSeverity || remarks) && !hasAssignedPersonnel) {
+      && (status || hasSeverity || hasEscalationRequest || remarks) && !hasAssignedPersonnel) {
       return res.status(400).json({
         message: 'Claim this Barangay report by assigning it to your own account before processing it.'
       });
@@ -380,7 +384,7 @@ const processIncident = async (req, res) => {
       && (req.user.role !== 'barangay_personnel' || !canCoverIncidentLocation(req.user, incident))) {
       return res.status(403).json({ message: 'Only the responsible Barangay can confirm final closure.' });
     }
-    if (hasClosureConfirmation && (status || hasSeverity || hasAssignedAgency || hasAssignedPersonnel)) {
+    if (hasClosureConfirmation && (status || hasSeverity || hasAssignedAgency || hasAssignedPersonnel || hasEscalationRequest)) {
       return res.status(400).json({ message: 'Submit closure confirmation separately from other incident changes.' });
     }
     if (status === 'Closed') {
@@ -415,6 +419,17 @@ const processIncident = async (req, res) => {
       return res.status(400).json({
         message: 'Barangay personnel must confirm an official priority before verifying this report.'
       });
+    }
+    if (hasEscalationRequest) {
+      if (!['Verified', 'In Progress'].includes(nextStatus)) {
+        return res.status(400).json({ message: 'A report must be verified before Barangay can request escalation.' });
+      }
+      if (!remarks) {
+        return res.status(400).json({ message: 'Provide remarks explaining why escalation is needed.' });
+      }
+      if (incident.escalation?.requestedAt && !incident.escalation?.acknowledgedAt) {
+        return res.status(400).json({ message: 'An escalation request is already awaiting LGU action.' });
+      }
     }
 
     const barangayClaim = req.user.role === 'barangay_personnel'
@@ -477,7 +492,7 @@ const processIncident = async (req, res) => {
       : (personnelUser?._id || (lguIntervention ? req.user.id : previousAssignedPersonnel) || null);
     const personnelChanged = String(nextAssignedPersonnel || '') !== String(previousAssignedPersonnel || '');
 
-    if (!statusChanged && !severityChanged && !priorityConfirmed && !agencyChanged && !personnelChanged && !remarks && !hasClosureConfirmation) {
+    if (!statusChanged && !severityChanged && !priorityConfirmed && !agencyChanged && !personnelChanged && !hasEscalationRequest && !remarks && !hasClosureConfirmation) {
       return res.status(400).json({ message: 'No incident changes were provided.' });
     }
 
@@ -487,6 +502,16 @@ const processIncident = async (req, res) => {
       incident.severity = severity;
       incident.priorityConfirmedBy = req.user.id;
       incident.priorityConfirmedAt = new Date();
+    }
+    if (hasEscalationRequest) {
+      incident.escalation = {
+        agency: escalationAgency,
+        requestedBy: req.user.id,
+        requestedAt: new Date(),
+        reason: remarks,
+        acknowledgedBy: null,
+        acknowledgedAt: null
+      };
     }
     if (agencyChanged) {
       incident.assignedAgency = nextAssignedAgency;
@@ -502,6 +527,14 @@ const processIncident = async (req, res) => {
       }
     }
     if (personnelChanged) incident.assignedPersonnel = nextAssignedPersonnel;
+    const escalationAcknowledged = req.user.role === 'lgu_personnel'
+      && agencyChanged
+      && incident.escalation?.requestedAt
+      && !incident.escalation?.acknowledgedAt;
+    if (escalationAcknowledged) {
+      incident.escalation.acknowledgedBy = req.user.id;
+      incident.escalation.acknowledgedAt = new Date();
+    }
     const closureConfirmationRequested = statusChanged && nextStatus === 'Resolved';
     if (closureConfirmationRequested) {
       incident.closureConfirmation = {
@@ -545,6 +578,14 @@ const processIncident = async (req, res) => {
         'priority_confirmed',
         `Barangay confirmed the official report priority as ${severity}.`,
         { previousSeverity, newSeverity: severity }
+      );
+    }
+    if (hasEscalationRequest) {
+      appendResponseHistory(
+        incident,
+        req.user.id,
+        'escalation_requested',
+        `Barangay requested ${escalationAgency} escalation. Remarks: ${remarks}`
       );
     }
     if (agencyChanged) {
@@ -594,7 +635,7 @@ const processIncident = async (req, res) => {
         withRemarks('Barangay confirmed the resolution and closed the incident.', remarks)
       );
     }
-    if (!statusChanged && !severityChanged && !priorityConfirmed && !agencyChanged && !personnelChanged && !hasClosureConfirmation && remarks) {
+    if (!statusChanged && !severityChanged && !priorityConfirmed && !agencyChanged && !personnelChanged && !hasEscalationRequest && !hasClosureConfirmation && remarks) {
       appendResponseHistory(incident, req.user.id, 'note_added', remarks);
     }
 
@@ -617,6 +658,18 @@ const processIncident = async (req, res) => {
       auditEvents.push({
         action: 'INCIDENT_PRIORITY_CONFIRMED',
         details: { citizenUrgency: incident.citizenUrgency, officialSeverity: severity }
+      });
+    }
+    if (hasEscalationRequest) {
+      auditEvents.push({
+        action: 'INCIDENT_ESCALATION_REQUESTED',
+        details: { requestedAgency: escalationAgency }
+      });
+    }
+    if (escalationAcknowledged) {
+      auditEvents.push({
+        action: 'INCIDENT_ESCALATION_ACKNOWLEDGED',
+        details: { requestedAgency: incident.escalation?.agency, assignedAgency: nextAssignedAgency }
       });
     }
     if (agencyChanged) {
@@ -699,6 +752,25 @@ const processIncident = async (req, res) => {
       });
     }
     const personnelNotifications = [];
+    if (hasEscalationRequest) {
+      personnelNotifications.push(notifyPersonnel({
+        incident,
+        role: 'lgu_personnel',
+        type: 'barangay_escalation_requested',
+        title: `Barangay requested ${escalationAgency} coordination`,
+        message: `Barangay requested ${escalationAgency} coordination. Reason: ${remarks}`,
+        priority: incident.severity === 'Critical' ? 'critical' : incident.severity === 'High' ? 'high' : 'normal'
+      }));
+    } else if (statusChanged && nextStatus === 'Verified') {
+      personnelNotifications.push(notifyPersonnel({
+        incident,
+        role: 'lgu_personnel',
+        type: 'lgu_monitoring',
+        title: 'Barangay verified a local report',
+        message: `Barangay completed review and confirmed ${incident.severity} priority. The report remains available for LGU monitoring.`,
+        priority: incident.severity === 'Critical' ? 'critical' : incident.severity === 'High' ? 'high' : 'normal'
+      }));
+    }
     if (priorityConfirmed && ['High', 'Critical'].includes(severity)) {
       personnelNotifications.push(notifyPersonnel({
         incident,
