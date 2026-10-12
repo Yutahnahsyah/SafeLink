@@ -55,7 +55,7 @@ const findActivePersonnel = async (incident, role) => {
   return User.find(query).select('_id');
 };
 
-const notifyPersonnel = async ({ incident, role, type, title, message, excludeRecipient = null }) => {
+const notifyPersonnel = async ({ incident, role, type, title, message, priority = 'normal', excludeRecipient = null }) => {
   const personnel = await findActivePersonnel(incident, role);
   return Promise.all(personnel
     .filter((person) => person._id.toString() !== String(excludeRecipient || ''))
@@ -64,7 +64,8 @@ const notifyPersonnel = async ({ incident, role, type, title, message, excludeRe
       incident: incident._id,
       type,
       title,
-      message
+      message,
+      priority
     })));
 };
 
@@ -166,9 +167,10 @@ const createIncident = async (req, res) => {
       notifyPersonnel({
         incident,
         role: 'barangay_personnel',
-        type: 'report_routed',
-        title: 'New report awaiting Barangay review',
-        message: `A new incident report in your Barangay is ready to be claimed and reviewed. Citizen-suggested urgency: ${citizenUrgency}.`
+        type: citizenUrgency === 'High' ? 'priority_alert' : 'report_routed',
+        title: citizenUrgency === 'High' ? 'High-priority report awaiting Barangay review' : 'New report awaiting Barangay review',
+        message: `A new incident report in your Barangay is ready to be claimed and reviewed. Citizen-suggested urgency: ${citizenUrgency}.`,
+        priority: citizenUrgency === 'High' ? 'high' : 'normal'
       }),
       notifyPersonnel({
         incident,
@@ -669,7 +671,8 @@ const processIncident = async (req, res) => {
       notificationEvents.push({
         type: 'priority_confirmed',
         title: 'Report priority confirmed',
-        message: `Your local Barangay confirmed the official priority as ${severity}.`
+        message: `Your local Barangay confirmed the official priority as ${severity}.`,
+        priority: severity === 'Critical' ? 'critical' : severity === 'High' ? 'high' : 'normal'
       });
     }
     if (personnelChanged) {
@@ -696,6 +699,16 @@ const processIncident = async (req, res) => {
       });
     }
     const personnelNotifications = [];
+    if (priorityConfirmed && ['High', 'Critical'].includes(severity)) {
+      personnelNotifications.push(notifyPersonnel({
+        incident,
+        role: 'barangay_personnel',
+        type: 'priority_alert',
+        title: `${severity}-priority report confirmed`,
+        message: `Barangay confirmed this report as ${severity} priority. Review the assigned response and coordinate if needed.`,
+        priority: severity === 'Critical' ? 'critical' : 'high'
+      }));
+    }
     if (lguIntervention) {
       personnelNotifications.push(notifyPersonnel({
         incident,
@@ -722,7 +735,8 @@ const processIncident = async (req, res) => {
         incident: incident._id,
         type: event.type,
         title: event.title,
-        message: event.message
+        message: event.message,
+        priority: event.priority
       })),
       ...personnelNotifications
     ]);

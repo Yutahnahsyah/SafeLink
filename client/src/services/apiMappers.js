@@ -77,6 +77,7 @@ export function mapNotificationFromApi(notification = {}) {
     ...notification,
     id: String(notification._id || notification.id || ""),
     unread: !notification.read,
+    priority: notification.priority || "normal",
     body: notification.message,
     timestamp: dateTime(notification.createdAt),
     incidentId: String(notification.incident?._id || notification.incident || ""),

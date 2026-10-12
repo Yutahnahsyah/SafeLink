@@ -17,6 +17,7 @@ const NotificationSchema = new mongoose.Schema({
     enum: [
       'report_submitted',
       'report_routed',
+      'priority_alert',
       'lgu_monitoring',
       'lgu_intervention',
       'status_changed',
@@ -32,6 +33,11 @@ const NotificationSchema = new mongoose.Schema({
   },
   title: { type: String, required: true, trim: true, maxlength: 140 },
   message: { type: String, required: true, trim: true, maxlength: 1000 },
+  priority: {
+    type: String,
+    enum: ['normal', 'high', 'critical'],
+    default: 'normal'
+  },
   read: { type: Boolean, default: false },
   readAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }

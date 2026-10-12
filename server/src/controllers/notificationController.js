@@ -13,7 +13,7 @@ const getNotifications = async (req, res) => {
     }
 
     const [notifications, total, unread] = await Promise.all([
-      Notification.find(query).populate('incident', 'incidentType status severity').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+      Notification.find(query).populate('incident', 'incidentType status severity').sort({ read: 1, priority: 1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
       Notification.countDocuments(query),
       Notification.countDocuments({ recipient: req.user.id, read: false })
     ]);
