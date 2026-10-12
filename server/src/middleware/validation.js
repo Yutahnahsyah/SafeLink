@@ -1,5 +1,6 @@
 const { body, param, validationResult } = require('express-validator');
 const { isWithinPangasinan } = require('../utils/pangasinanBoundary');
+const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -55,7 +56,20 @@ const validateCitizenRegistration = [
     .withMessage('Barangay address is required.'),
   body('address.municipalityOrCity')
     .notEmpty()
-    .withMessage('Municipality or city address is required.'),
+    .withMessage('Municipality or city address is required.')
+    .bail()
+    .custom((value) => Boolean(getPangasinanZipCode(value)))
+    .withMessage('Select a municipality or city in Pangasinan.'),
+  body('address.street')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage('Street must not exceed 255 characters.'),
+  body('address.landmark')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage('Landmark must not exceed 255 characters.'),
   validate
 ];
 
@@ -147,7 +161,18 @@ const validateIncidentCreation = [
     .notEmpty().withMessage('Barangay is required.'),
   body('location.address.municipalityOrCity')
     .trim()
-    .notEmpty().withMessage('Municipality or city is required.'),
+    .notEmpty().withMessage('Municipality or city is required.')
+    .bail()
+    .custom((value) => Boolean(getPangasinanZipCode(value)))
+    .withMessage('Select a municipality or city in Pangasinan.'),
+  body('location.address.street')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 255 }).withMessage('Street must not exceed 255 characters.'),
+  body('location.address.landmark')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 255 }).withMessage('Landmark must not exceed 255 characters.'),
   body('location.latitude')
     .isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90.'),
   body('location.longitude')

@@ -35,8 +35,9 @@ export function AddressStep({ values, errors, touched, update, touch }) {
   return <div className="auth-form auth-form--grid registration-form-grid">
     <MunicipalityField value={values.municipalityOrCity} onChange={update("municipalityOrCity")} onBlur={() => touch("municipalityOrCity")} error={errors.municipalityOrCity} touched={touched.municipalityOrCity} />
     <RegistrationField id="registration-barangay" label="Barangay" value={values.barangay} onChange={update("barangay")} onBlur={() => touch("barangay")} error={errors.barangay} touched={touched.barangay} autoComplete="address-level3" />
-    <RegistrationField id="registration-street" label="Street / Landmark" optional value={values.street} onChange={update("street")} onBlur={() => touch("street")} autoComplete="street-address" />
-    <RegistrationField id="registration-zip" label="ZIP Code" optional value={values.zipCode} onChange={update("zipCode")} onBlur={() => touch("zipCode")} inputMode="numeric" autoComplete="postal-code" />
+    <RegistrationField id="registration-street" label="Street" optional value={values.street} onChange={update("street")} onBlur={() => touch("street")} autoComplete="street-address" />
+    <RegistrationField id="registration-landmark" label="Nearby Landmark" optional value={values.landmark} onChange={update("landmark")} onBlur={() => touch("landmark")} />
+    <RegistrationField id="registration-zip" className="full" label="ZIP Code" value={values.zipCode} readOnly aria-readonly="true" autoComplete="postal-code" />
   </div>;
 }
 

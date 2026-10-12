@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
+const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 
 const EMAIL_SEND_TIMEOUT_MS = 15 * 1000;
 const includeErrorDetails = process.env.NODE_ENV === 'development';
@@ -132,7 +133,10 @@ const registerCitizen = async (req, res) => {
       email,
       password: hashedPassword,
       phoneNumber,
-      address,
+      address: {
+        ...address,
+        zipCode: getPangasinanZipCode(address.municipalityOrCity)
+      },
       role: 'citizen',
   isVerified: false,
       emailVerificationToken: verification.hash,

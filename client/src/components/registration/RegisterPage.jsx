@@ -4,6 +4,7 @@ import { Link } from "../../routing";
 import { AddressStep, JurisdictionStep, PersonalInfoStep, PersonnelRoleStep, RegisterRoleSelector, RegistrationReview, RegistrationSuccess, SecurityStep } from "./RegistrationSteps";
 import { RegistrationActions, RegistrationShell, RegistrationStepper } from "./RegistrationShell";
 import { citizenPayload, citizenSteps, initialRegistrationValues, personnelPayload, personnelRoles, personnelSteps, validateRegistration } from "./registrationConfig";
+import { getPangasinanZipCode } from "../../data/pangasinanLocations";
 import "./RegistrationFlow.css";
 
 const fieldsByStep = {
@@ -41,7 +42,11 @@ export default function RegisterPage() {
   const scrollTop = () => window.requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   const update = (key) => (eventOrValue) => {
     const value = typeof eventOrValue === "string" ? eventOrValue : eventOrValue.target.value;
-    setValues((current) => ({ ...current, [key]: value }));
+    setValues((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "municipalityOrCity" ? { zipCode: getPangasinanZipCode(value) } : {}),
+    }));
     setServerError("");
   };
   const touch = (key) => setTouched((current) => ({ ...current, [key]: true }));

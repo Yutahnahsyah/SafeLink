@@ -4,6 +4,7 @@ const { recordAuditEvent } = require('../utils/auditLog');
 const { getPangasinanBoundaryFeature } = require('../utils/pangasinanBoundary');
 const { createNotification } = require('../utils/notifications');
 const { canAccessIncident, canCoverIncidentLocation, canManageAssignment } = require('../utils/incidentAccess');
+const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 
 const ACTIVE_DUPLICATE_STATUSES = ['Submitted', 'Under Barangay Review', 'Under Validation', 'Verified', 'In Progress', 'Resolved'];
 const STATUS_TRANSITIONS = {
@@ -120,6 +121,10 @@ const createIncident = async (req, res) => {
       description,
       location: {
         ...location,
+        address: {
+          ...location.address,
+          zipCode: getPangasinanZipCode(location.address.municipalityOrCity)
+        },
         geoPoint: {
           type: 'Point',
           coordinates: [location.longitude, location.latitude]

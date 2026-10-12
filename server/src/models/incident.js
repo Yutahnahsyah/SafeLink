@@ -88,6 +88,7 @@ const IncidentSchema = new mongoose.Schema({
   location: {
     address: {
       street: { type: String, default: null },
+      landmark: { type: String, default: null },
       barangay: { type: String, required: true },
       municipalityOrCity: { type: String, required: true },
       zipCode: { type: String, default: null }

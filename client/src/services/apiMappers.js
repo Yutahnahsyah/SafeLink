@@ -14,7 +14,7 @@ export function mapUserFromApi(user = {}) {
 
 export function formatIncidentLocation(location = {}) {
   const address = location.address || {};
-  return [address.street, address.barangay, address.municipalityOrCity, address.zipCode].filter(Boolean).join(", ");
+  return [address.landmark, address.street, address.barangay, address.municipalityOrCity, address.zipCode].filter(Boolean).join(", ");
 }
 
 export function mapIncidentFromApi(incident = {}) {

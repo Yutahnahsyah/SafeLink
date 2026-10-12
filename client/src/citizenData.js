@@ -40,6 +40,7 @@ export async function submitCitizenReport(user, values) {
     location: {
       address: {
         street: values.street.trim() || undefined,
+        landmark: values.location.trim() || undefined,
         barangay: values.barangay.trim(),
         municipalityOrCity: values.municipalityOrCity,
         zipCode: values.zipCode.trim() || undefined,

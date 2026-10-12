@@ -12,7 +12,7 @@ import {
   submitCitizenReport,
 } from "../citizenData";
 import { reverseGeocode } from "../services/reverseGeocode";
-import { pangasinanLocations } from "../data/pangasinanLocations";
+import { getPangasinanZipCode, pangasinanLocations } from "../data/pangasinanLocations";
 import ProtectedEvidence from "./ProtectedEvidence";
 import { notificationApi } from "../services/safelinkApi";
 
@@ -654,6 +654,16 @@ export function ReportIncidentPage() {
     locationEditRevisionRef.current += 1;
     set("location")(event);
   };
+  const setMunicipality = (event) => {
+    const municipalityOrCity = event.target.value;
+    setValues((current) => ({
+      ...current,
+      municipalityOrCity,
+      zipCode: getPangasinanZipCode(municipalityOrCity),
+    }));
+    setErrors((current) => ({ ...current, municipalityOrCity: "" }));
+    setNotice("");
+  };
   useEffect(() => () => geocodeControllerRef.current?.abort(), []);
   const findReadableLocation = ({ latitude, longitude }, source) => {
     geocodeControllerRef.current?.abort();
@@ -925,12 +935,12 @@ export function ReportIncidentPage() {
           noValidate
         >
           <label className="full">
-            Location / landmark *
+            Nearby landmark or location details *
             <div className="input-action">
               <input
                 value={values.location}
                 onChange={setLocationText}
-                placeholder="Barangay, municipality, street, or nearby landmark"
+                placeholder="Nearby landmark, street, or other useful location detail"
                 aria-invalid={Boolean(errors.location)}
               />
               <button
@@ -954,7 +964,7 @@ export function ReportIncidentPage() {
           </label>
           <label>
             Municipality / City *
-            <select value={values.municipalityOrCity} onChange={set("municipalityOrCity")} aria-invalid={Boolean(errors.municipalityOrCity)}>
+            <select value={values.municipalityOrCity} onChange={setMunicipality} aria-invalid={Boolean(errors.municipalityOrCity)}>
               <option value="">Select municipality or city</option>
               {pangasinanLocations.map(({ name }) => <option value={name} key={name}>{name}</option>)}
             </select>
@@ -966,12 +976,12 @@ export function ReportIncidentPage() {
             {errors.barangay && <small>{errors.barangay}</small>}
           </label>
           <label>
-            Street / Landmark <span>(optional)</span>
+            Street <span>(optional)</span>
             <input value={values.street} onChange={set("street")} autoComplete="street-address" />
           </label>
           <label>
-            ZIP Code <span>(optional)</span>
-            <input value={values.zipCode} onChange={set("zipCode")} inputMode="numeric" autoComplete="postal-code" />
+            ZIP Code <span>(auto-filled)</span>
+            <input value={values.zipCode} readOnly aria-readonly="true" autoComplete="postal-code" />
           </label>
           <div className="location-picker full">
             <div className="location-picker-heading">
