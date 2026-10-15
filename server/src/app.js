@@ -11,6 +11,14 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 
 const app = express();
+const positiveInteger = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+const authRequestLimit = positiveInteger(
+  process.env.AUTH_RATE_LIMIT_MAX,
+  process.env.NODE_ENV === 'production' ? 20 : 200
+);
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -22,7 +30,7 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: authRequestLimit,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { message: 'Too many authentication requests. Please try again later.' }
