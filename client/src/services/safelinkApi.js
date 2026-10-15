@@ -51,6 +51,12 @@ export const personnelApi = {
   remove: (id) => apiRequest(`auth/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
 
+export const userApi = {
+  list: async () => (await apiRequest("users")).map(mapUserFromApi),
+  setStatus: (id, status) => apiRequest(`auth/users/${encodeURIComponent(id)}/status`, { method: "PATCH", body: { status } }),
+  remove: (id) => apiRequest(`auth/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
+};
+
 export const auditApi = {
   list: (filters = {}) => apiRequest(`admin/audit-logs${queryString(filters)}`),
 };

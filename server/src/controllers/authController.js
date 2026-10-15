@@ -670,6 +670,9 @@ const updateUserStatus = async (req, res) => {
     if (!targetUser) {
       return res.status(404).json({ message: 'Target user not found.' });
     }
+    if (targetUser._id.toString() === requester.id) {
+      return res.status(400).json({ message: 'You cannot change the status of your own account.' });
+    }
 
     if (requester.role === 'admin') {
     }
