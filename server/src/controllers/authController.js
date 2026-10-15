@@ -8,7 +8,9 @@ const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 
 const EMAIL_SEND_TIMEOUT_MS = 15 * 1000;
 const includeErrorDetails = process.env.NODE_ENV === 'development';
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+// CLIENT_URL is the canonical frontend origin. APP_URL remains as a fallback
+// so existing deployments using the previous environment template keep working.
+const clientUrl = process.env.CLIENT_URL || process.env.APP_URL || 'http://localhost:5173';
 
 const developmentErrorDetails = (error) => (includeErrorDetails ? {
   error: {
