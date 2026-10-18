@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { requireAdmin } from "./auth";
-import { analyticsApi, auditApi, incidentApi, notificationApi, personnelApi, userApi } from "./services/safelinkApi";
+import { analyticsApi, auditApi, incidentApi, notificationApi, personnelApi } from "./services/safelinkApi";
 import { useApiResource } from "./services/useApiResource";
 
 export const adminCapabilities = Object.freeze({
@@ -8,7 +8,7 @@ export const adminCapabilities = Object.freeze({
   assignments: true, reassignment: true, lguDirectory: false,
   personnel: true, personnelApproval: true, personnelCreation: true,
   notifications: true, analytics: true, auditLogs: true,
-  users: true, userSuspension: true, userDeletion: true,
+  users: false, userSuspension: true, userDeletion: true,
   profileUpdate: false, passwordChange: true, notificationPreferences: false,
 });
 
@@ -42,15 +42,9 @@ export function useAuditLogs(user) {
   return useApiResource(loader, [user?.id], { enabled: Boolean(user?.id && !user?.isDevelopmentPreview), initialData: { data: [], pagination: {} } });
 }
 
-export function useAdminUsers(user) {
-  const loader = useCallback(() => { requireAdmin(user); return userApi.list(); }, [user?.id]);
-  return useApiResource(loader, [user?.id], { enabled: Boolean(user?.id && !user?.isDevelopmentPreview), initialData: [] });
-}
-
 export function processAdminIncident(id, changes) { return incidentApi.process(id, changes); }
 export function approveAdminPersonnel(id) { return personnelApi.approve(id); }
-export function setAdminUserStatus(id, status) { return userApi.setStatus(id, status); }
-export function deleteAdminUser(id) { return userApi.remove(id); }
 
 const unavailable = (feature) => ({ data: null, status: "unavailable", available: false, error: `${feature} is not provided by the current backend.` });
 export function getAdminLgus() { return unavailable("LGU directory information"); }
+export function getAdminUsers() { return unavailable("Administrative user listing"); }

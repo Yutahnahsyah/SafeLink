@@ -12,9 +12,7 @@ import {
   useAdminPersonnel,
   useAdminReport,
   useAdminReports,
-  useAdminUsers,
-  setAdminUserStatus,
-  deleteAdminUser,
+  getAdminUsers,
   processAdminIncident,
   approveAdminPersonnel,
   useAdminAnalytics,
@@ -313,28 +311,10 @@ export function AdminAuditLogsPage() {
 
 export function AdminUsersPage() {
   const { user } = useAuth();
-  const result = useAdminUsers(user);
+  const result = getAdminUsers(user);
   const users = result.data || [];
   const [confirmation, setConfirmation] = useState(null);
-  const [actionError, setActionError] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
-  const manageAccount = async () => {
-    if (!confirmation) return;
-    setActionLoading(true);
-    setActionError("");
-    try {
-      if (confirmation.action === "Delete") await deleteAdminUser(confirmation.account.id);
-      else await setAdminUserStatus(confirmation.account.id, confirmation.status);
-      setConfirmation(null);
-      await result.retry();
-    } catch (error) {
-      setActionError(error?.message || "SafeLink couldn't update this account.");
-      setConfirmation(null);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-  return <AdminShell title="Users" eyebrow="Account administration"><PageHeading eyebrow="Authorized management" title="SafeLink user accounts">View only the account information required for supported administrative actions.</PageHeading>{actionError && <p className="form-error" role="alert">{actionError}</p>}<section className="admin-card">{result.status === "loading" || result.status === "error" ? <DataState result={result} icon="users" unavailable="User management data is unavailable." error="We couldn't load users." /> : users.length ? <div className="admin-user-list">{users.map((account) => { const isCurrentAdmin = account.id === user?.id; const canChangeStatus = !isCurrentAdmin && account.status !== "pending"; const statusAction = account.status === "active" ? { label: "Suspend", status: "suspended" } : { label: "Activate", status: "active" }; return <article key={account.id}><span><Icon name="users" /></span><div><strong>{account.name}</strong><small>{account.role} · {account.email || "Email unavailable"}</small></div><b className={statusClass(account.status)}>{account.status}</b><div>{canChangeStatus && adminCapabilities.userSuspension && <button disabled={actionLoading} onClick={() => setConfirmation({ action: statusAction.label, status: statusAction.status, account })}>{statusAction.label}</button>}{!isCurrentAdmin && adminCapabilities.userDeletion && <button disabled={actionLoading} className="danger-link" onClick={() => setConfirmation({ action: "Delete", account })}>Delete</button>}{account.status === "pending" && <small>Approve through Personnel</small>}{isCurrentAdmin && <small>Current account</small>}</div></article>; })}</div> : <DataState result={{ available: true }} icon="users" empty="No user records were returned." />}</section><ConfirmationDialog open={Boolean(confirmation)} title={`${confirmation?.action || "Manage"} user account`} message={`${confirmation?.action || "This action"} ${confirmation?.action === "Delete" ? "permanently removes" : "updates"} ${confirmation?.account?.email || "this account"}.`} confirmLabel={`${confirmation?.action || "Confirm"} User`} danger={confirmation?.action === "Delete"} onCancel={() => setConfirmation(null)} onConfirm={manageAccount} /></AdminShell>;
+  return <AdminShell title="Users" eyebrow="Account administration"><PageHeading eyebrow="Authorized management" title="SafeLink user accounts">View only the account information required for supported administrative actions.</PageHeading><section className="admin-card">{!result.available || result.status === "error" ? <DataState result={result} icon="users" unavailable="User management data is unavailable until the Administrator users API is connected." error="We couldn't load users." /> : users.length ? <div className="admin-user-list">{users.map((account) => <article key={account.id}><span><Icon name="users" /></span><div><strong>{account.name}</strong><small>{account.role} · {account.email || "Email unavailable"}</small></div><b className={statusClass(account.status)}>{account.status}</b><div>{adminCapabilities.userSuspension && <button onClick={() => setConfirmation({ action: "Suspend", account })}>Suspend</button>}{adminCapabilities.userDeletion && <button className="danger-link" onClick={() => setConfirmation({ action: "Delete", account })}>Delete</button>}</div></article>)}</div> : <DataState result={{ available: true }} icon="users" empty="No user records were returned." />}</section>{!adminCapabilities.users && <p className="admin-page-disclosure"><Icon name="shield" size={15} /> Suspend and delete controls are hidden until authenticated Administrator user-management APIs are connected.</p>}<ConfirmationDialog open={Boolean(confirmation)} title={`${confirmation?.action || "Manage"} user account`} message={`${confirmation?.action || "This action"} requires explicit confirmation and will only be submitted through the authorized API.`} confirmLabel={`${confirmation?.action || "Confirm"} User`} danger={confirmation?.action === "Delete"} onCancel={() => setConfirmation(null)} onConfirm={() => setConfirmation(null)} /></AdminShell>;
 }
 
 export function AdminProfilePage() {

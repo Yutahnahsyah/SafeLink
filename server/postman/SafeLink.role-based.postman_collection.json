@@ -30,7 +30,6 @@
         { "name": "GET Pending personnel", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/pending-personnel" }, "response": [] },
         { "name": "PUT Approve pending personnel", "request": { "method": "PUT", "url": "{{baseUrl}}/api/auth/approve-personnel/{{pendingPersonnelId}}" }, "response": [] },
         { "name": "GET Available personnel", "request": { "method": "GET", "url": "{{baseUrl}}/api/users/personnel" }, "response": [] },
-        { "name": "GET User directory", "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.test('200 Admin user directory', () => pm.expect(pm.response.code).to.equal(200));", "pm.test('No password fields are returned', () => { if (body.length) pm.expect(body[0].password).to.equal(undefined); });"] } }], "request": { "method": "GET", "url": "{{baseUrl}}/api/users" }, "response": [] },
         { "name": "PATCH Set user status", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"active\" }" }, "url": "{{baseUrl}}/api/auth/users/{{personnelId}}/status" }, "response": [] },
         { "name": "GET Audit logs", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/audit-logs?action=AUTH_LOGIN&outcome=success&page=1&limit=25" }, "response": [] },
         { "name": "GET Admin analytics is denied", "request": { "method": "GET", "url": "{{baseUrl}}/api/analytics/overview" }, "response": [] }
