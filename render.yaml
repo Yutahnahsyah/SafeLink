@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: safelink-api
+    runtime: node
+    region: singapore
+    plan: 0.5c-512mb
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: safelink-data
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: LOGIN_STATE_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: EVIDENCE_UPLOAD_DIR
+        value: /var/data/uploads/evidence
+      - key: AUDIT_OUTBOX_DIR
+        value: /var/data/audit-outbox
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false

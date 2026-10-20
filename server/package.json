@@ -4,6 +4,7 @@
   "description": "A Web-Based Verified Community Safety Reporting & Assistance System",
   "main": "server.js",
   "scripts": {
+    "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed:admin": "node scripts/seedAdmin.js"
   },

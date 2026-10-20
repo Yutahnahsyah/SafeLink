@@ -46,6 +46,9 @@ const allowedOrigins = new Set([
   ...(process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(origin => origin.trim()),
 ].filter(Boolean));
 app.use(cors({ origin: (origin, callback) => callback(null, allowedOrigins.has(origin)) }));
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 app.use('/api', apiLimiter);
 app.use('/api/public', require('./routes/publicMapRoutes'));
 

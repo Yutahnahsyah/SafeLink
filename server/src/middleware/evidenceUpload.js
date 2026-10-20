@@ -3,7 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 
-const EVIDENCE_DIRECTORY = path.resolve(__dirname, '../../uploads/evidence');
+// A managed host can mount durable storage outside the checkout. Local development
+// retains the repository-relative directory when no production path is configured.
+const EVIDENCE_DIRECTORY = process.env.EVIDENCE_UPLOAD_DIR || path.resolve(__dirname, '../../uploads/evidence');
 const MAX_EVIDENCE_FILES = 5;
 const MAX_EVIDENCE_FILE_SIZE = 20 * 1024 * 1024;
 const ALLOWED_EVIDENCE = {
