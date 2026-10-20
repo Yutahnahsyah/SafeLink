@@ -1,4 +1,3 @@
-import { Analytics } from "@vercel/analytics/react";
 import { useReveal } from "./components/Sections";
 import ClickSpark from "./components/ClickSpark";
 import { brandColors } from "./branding";
@@ -177,7 +176,6 @@ export default function App() {
         >
           <Routes />
         </ClickSpark>
-        <Analytics />
       </AuthProvider>
     </RouterProvider>
   );
