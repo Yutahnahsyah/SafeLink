@@ -5,10 +5,30 @@ const { publishIncidentUpdate } = require('../services/realtime');
 const { recordAuditEvent } = require('../utils/auditLog');
 const { createNotification } = require('../utils/notifications');
 const { canAccessIncident } = require('../utils/incidentAccess');
-const { EVIDENCE_DIRECTORY, MAX_EVIDENCE_FILES, ALLOWED_EVIDENCE } = require('../middleware/evidenceUpload');
+const {
+  EVIDENCE_DIRECTORY, MAX_EVIDENCE_FILES, ALLOWED_EVIDENCE, cloudinary, cloudinaryEnabled
+} = require('../middleware/evidenceUpload');
 
 const removeUploadedFiles = async (files = []) => {
   await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => undefined)));
+};
+
+const uploadToCloudinary = (file) => new Promise((resolve, reject) => {
+  cloudinary.uploader.upload(file.path, {
+    folder: 'safelink/evidence',
+    resource_type: 'auto',
+    type: 'authenticated',
+    use_filename: false,
+    unique_filename: true
+  }, (error, result) => error ? reject(error) : resolve(result));
+});
+
+const removeCloudinaryAssets = async (assets = []) => {
+  await Promise.all(assets.map((asset) => cloudinary.uploader.destroy(asset.public_id, {
+    resource_type: asset.resource_type,
+    type: 'authenticated',
+    invalidate: true
+  }).catch(() => undefined)));
 };
 
 const canAddEvidence = (user, incident) => (
@@ -19,6 +39,7 @@ const canAddEvidence = (user, incident) => (
 // @desc    Attach protected image/video evidence to an incident
 // @route   POST /api/incidents/:id/evidence
 const addEvidence = async (req, res) => {
+  let cloudinaryAssets = [];
   try {
     const files = req.files || [];
     if (files.length === 0) return res.status(400).json({ message: 'Attach at least one evidence file.' });
@@ -37,8 +58,16 @@ const addEvidence = async (req, res) => {
       return res.status(400).json({ message: `An incident can contain at most ${MAX_EVIDENCE_FILES} uploaded evidence files.` });
     }
 
-    const evidence = files.map((file) => ({
-      storageName: file.filename,
+    if (process.env.NODE_ENV === 'production' && !cloudinaryEnabled) {
+      await removeUploadedFiles(files);
+      return res.status(503).json({ message: 'Evidence storage is not configured.' });
+    }
+
+    if (cloudinaryEnabled) cloudinaryAssets = await Promise.all(files.map(uploadToCloudinary));
+    const evidence = files.map((file, index) => ({
+      storageName: cloudinaryEnabled ? cloudinaryAssets[index].public_id : file.filename,
+      storageProvider: cloudinaryEnabled ? 'cloudinary' : 'local',
+      storageResourceType: cloudinaryEnabled ? cloudinaryAssets[index].resource_type : undefined,
       originalName: path.basename(file.originalname),
       mimeType: file.mimetype,
       size: file.size,
@@ -46,6 +75,7 @@ const addEvidence = async (req, res) => {
     }));
     incident.evidenceFiles.push(...evidence);
     await incident.save();
+    if (cloudinaryEnabled) await removeUploadedFiles(files);
     void publishIncidentUpdate(incident);
 
     const addedEvidence = incident.evidenceFiles.slice(-evidence.length);
@@ -79,6 +109,7 @@ const addEvidence = async (req, res) => {
       }))
     });
   } catch (error) {
+    await removeCloudinaryAssets(cloudinaryAssets);
     await removeUploadedFiles(req.files);
     console.error('Evidence upload error:', error.message);
     if (error.name === 'CastError') {
@@ -111,7 +142,7 @@ const downloadEvidence = async (req, res) => {
     if (!/^[a-f\d]{24}$/i.test(req.params.evidenceId)) return res.status(400).json({ message: 'Invalid evidence ID.' });
     const incident = await Incident.findById(req.params.id)
       // Select leaf fields only: MongoDB rejects a parent and its child in one projection.
-      .select('citizen assignedAgency assignedPersonnel barangaySupport location evidenceFiles._id evidenceFiles.originalName evidenceFiles.mimeType +evidenceFiles.storageName');
+      .select('citizen assignedAgency assignedPersonnel barangaySupport location evidenceFiles._id evidenceFiles.originalName evidenceFiles.mimeType +evidenceFiles.storageName +evidenceFiles.storageProvider +evidenceFiles.storageResourceType');
     if (!incident) return res.status(404).json({ message: 'Incident not found.' });
     const hasAccess = (req.user.role === 'citizen' && incident.citizen.toString() === req.user.id)
       || (req.user.role !== 'citizen' && canAccessIncident(req.user, incident));
@@ -124,6 +155,17 @@ const downloadEvidence = async (req, res) => {
     }
     if (typeof evidence.storageName !== 'string' || !evidence.storageName) {
       return res.status(500).json({ message: 'Evidence storage metadata is unavailable.' });
+    }
+    if (evidence.storageProvider === 'cloudinary') {
+      if (!cloudinaryEnabled || !evidence.storageResourceType) return res.status(503).json({ message: 'Evidence storage is unavailable.' });
+      const format = path.extname(evidence.originalName).slice(1);
+      const downloadUrl = cloudinary.utils.private_download_url(evidence.storageName, format, {
+        resource_type: evidence.storageResourceType,
+        type: 'authenticated',
+        expires_at: Math.floor(Date.now() / 1000) + 300,
+        attachment: true
+      });
+      return res.redirect(downloadUrl);
     }
     const filePath = path.resolve(EVIDENCE_DIRECTORY, evidence.storageName);
     if (path.dirname(filePath) !== EVIDENCE_DIRECTORY) {

@@ -2,7 +2,7 @@ const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
 const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 const policies = require('../../../shared/legalPolicies.json');
@@ -32,20 +32,16 @@ const canLGUManagePersonnel = (requester, personnel) => (
   && sameCity(requester.jurisdiction?.municipalityOrCity, personnel.jurisdiction?.municipalityOrCity)
 );
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  connectionTimeout: EMAIL_SEND_TIMEOUT_MS,
-  greetingTimeout: EMAIL_SEND_TIMEOUT_MS,
-  socketTimeout: EMAIL_SEND_TIMEOUT_MS
-});
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const emailFrom = process.env.EMAIL_FROM;
 
 const sendMailWithDeadline = (mailOptions) => new Promise((resolve, reject) => {
+  if (!resend || !emailFrom) {
+    const error = new Error('Email delivery is not configured.');
+    error.code = 'EMAIL_NOT_CONFIGURED';
+    reject(error);
+    return;
+  }
   let settled = false;
   const timeout = setTimeout(() => {
     if (settled) return;
@@ -55,12 +51,18 @@ const sendMailWithDeadline = (mailOptions) => new Promise((resolve, reject) => {
     reject(error);
   }, EMAIL_SEND_TIMEOUT_MS);
 
-  transporter.sendMail(mailOptions)
-    .then((result) => {
+  resend.emails.send({ ...mailOptions, from: emailFrom })
+    .then(({ data, error }) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
-      resolve(result);
+      if (error) {
+        const deliveryError = new Error(error.message || 'Email delivery failed.');
+        deliveryError.code = error.name || 'EMAIL_DELIVERY_FAILED';
+        reject(deliveryError);
+        return;
+      }
+      resolve(data);
     })
     .catch((error) => {
       if (settled) return;
@@ -86,7 +88,6 @@ const createVerificationToken = () => {
 const sendVerificationEmail = (user, verificationToken) => {
   const verifyUrl = `${clientUrl}/activate-account?token=${verificationToken}`;
   return sendMailWithDeadline({
-    from: `"SafeLink System" <${process.env.EMAIL_USER}>`,
     to: user.email,
     subject: 'Verify Your SafeLink Citizen Account',
     html: `
@@ -499,7 +500,6 @@ const forgotPassword = async (req, res) => {
     await user.save();
 
     const mailOptions = {
-      from: `"SafeLink System" <${process.env.EMAIL_USER}>`,
       to: user.email,
       ...passwordResetEmail({ firstName: user.firstName, resetUrl }),
     };

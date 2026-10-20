@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const EvidenceFileSchema = new mongoose.Schema({
   storageName: { type: String, required: true, select: false },
+  storageProvider: { type: String, enum: ['local', 'cloudinary'], default: 'local', select: false },
+  storageResourceType: { type: String, enum: ['image', 'video', 'raw'], default: null, select: false },
   originalName: { type: String, required: true, trim: true, maxlength: 255 },
   mimeType: { type: String, required: true },
   size: { type: Number, required: true, min: 1 },

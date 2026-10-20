@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 
 // A managed host can mount durable storage outside the checkout. Local development
 // retains the repository-relative directory when no production path is configured.
@@ -16,6 +17,9 @@ const ALLOWED_EVIDENCE = {
   'video/webm': ['.webm'],
   'video/quicktime': ['.mov']
 };
+const cloudinaryEnabled = Boolean(process.env.CLOUDINARY_URL);
+
+if (cloudinaryEnabled) cloudinary.config({ secure: true });
 
 fs.mkdirSync(EVIDENCE_DIRECTORY, { recursive: true });
 
@@ -47,6 +51,8 @@ const uploadEvidence = multer({
 
 module.exports = {
   ALLOWED_EVIDENCE,
+  cloudinary,
+  cloudinaryEnabled,
   EVIDENCE_DIRECTORY,
   MAX_EVIDENCE_FILES,
   MAX_EVIDENCE_FILE_SIZE,
