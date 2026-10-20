@@ -13,7 +13,7 @@ import {
 import Footer, { CTA } from "./Footer";
 import ConnectedResponse from "./ConnectedResponse";
 import Icon from "./Icon";
-import SafetyMap from "./SafetyMap";
+import PublicResolvedMap from "./PublicResolvedMap";
 import { Link } from "../routing";
 import { emergencyContacts, emergencyContactTypes, provincialEmergencyContacts } from "../data/emergencyContacts";
 import { pangasinanLocations } from "../data/pangasinanLocations";
@@ -154,27 +154,7 @@ export function PublicMapPage() {
                 </span>
               </div>
             </div>
-            <div className="public-map-large">
-              <SafetyMap compact showFilters />
-              <div className="map-legend">
-                <span>
-                  <i className="red" />
-                  Urgent
-                </span>
-                <span>
-                  <i className="orange" />
-                  Verifying
-                </span>
-                <span>
-                  <i className="blue" />
-                  Assigned
-                </span>
-                <span>
-                  <i className="green" />
-                  Resolved
-                </span>
-              </div>
-            </div>
+            <div className="public-map-large"><PublicResolvedMap compact /></div>
           </div>
         </section>
       </main>

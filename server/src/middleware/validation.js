@@ -1,6 +1,8 @@
 const { body, param, validationResult } = require('express-validator');
 const { isWithinPangasinan } = require('../utils/pangasinanBoundary');
 const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
+const { getBarangay, validStreet } = require('../utils/registrationLocations');
+const policies = require('../../../shared/legalPolicies.json');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -11,6 +13,12 @@ const validate = (req, res, next) => {
 };
 
 const validateCitizenRegistration = [
+  body('legalAcceptance.accepted').custom((value) => value === true)
+    .withMessage('You must agree to the Terms and Conditions and acknowledge the Privacy Policy.'),
+  body('legalAcceptance.termsVersion').custom((value) => value === policies.termsVersion)
+    .withMessage('Please review and accept the current Terms and Conditions.'),
+  body('legalAcceptance.privacyVersion').custom((value) => value === policies.privacyVersion)
+    .withMessage('Please review and acknowledge the current Privacy Policy.'),
   body('firstName')
     .trim()
     .notEmpty()
@@ -52,8 +60,9 @@ const validateCitizenRegistration = [
     .notEmpty()
     .withMessage('Address object is required.'),
   body('address.barangay')
-    .notEmpty()
-    .withMessage('Barangay address is required.'),
+    .isString().withMessage('Select a barangay.').bail().trim()
+    .custom((value, { req }) => Boolean(getBarangay(req.body.address?.municipalityOrCity, value)))
+    .withMessage('Select a barangay belonging to your city or municipality.'),
   body('address.municipalityOrCity')
     .notEmpty()
     .withMessage('Municipality or city address is required.')
@@ -61,10 +70,9 @@ const validateCitizenRegistration = [
     .custom((value) => Boolean(getPangasinanZipCode(value)))
     .withMessage('Select a municipality or city in Pangasinan.'),
   body('address.street')
-    .optional({ values: 'falsy' })
-    .trim()
-    .isLength({ max: 255 })
-    .withMessage('Street must not exceed 255 characters.'),
+    .isString().withMessage('Street Address is required.').bail()
+    .custom(validStreet).withMessage('Enter a Street Address of 2–255 characters without control characters or angle brackets.')
+    .bail().trim(),
   body('address.landmark')
     .optional({ values: 'falsy' })
     .trim()
@@ -129,11 +137,10 @@ const validatePersonnelRegistration = [
 
 const validateLogin = [
   body('email')
+    .isString().bail().trim().toLowerCase()
     .isEmail()
-    .withMessage('Please provide a valid email address.')
-    .custom((value) => value.endsWith('@gmail.com'))
-    .withMessage('Only @gmail.com email addresses are allowed.'),
-  body('password').notEmpty().withMessage('Password is required.'),
+    .withMessage('Please provide a valid email address.'),
+  body('password').isString().bail().notEmpty().withMessage('Password is required.'),
   validate
 ];
 
@@ -173,6 +180,12 @@ const validateIncidentCreation = [
     .optional({ values: 'falsy' })
     .trim()
     .isLength({ max: 255 }).withMessage('Street must not exceed 255 characters.'),
+  body('location.address.zipCode')
+    .optional()
+    .isString().withMessage('ZIP code must be a string.')
+    .bail()
+    .trim()
+    .custom((value) => value === '' || /^\d{4}$/.test(value)).withMessage('ZIP code must contain four digits.'),
   body('location.address.landmark')
     .optional({ values: 'falsy' })
     .trim()
@@ -216,6 +229,10 @@ const validateIncidentProcessing = [
     .optional()
     .isIn(['LGU', 'Police'])
     .withMessage('Escalation agency must be LGU or Police.'),
+  body('handlingDecision')
+    .optional()
+    .isIn(['Barangay'])
+    .withMessage('Handling decision must be Barangay.'),
   body('assignedPersonnel')
     .optional()
     .isMongoId()

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const RouterContext = createContext(null);
 
@@ -19,15 +19,18 @@ export function RouterProvider({ children }) {
     window.addEventListener("popstate", update);
     return () => window.removeEventListener("popstate", update);
   }, []);
-  const navigate = (to, { replace = false } = {}) => {
+  const navigate = useCallback((to, { replace = false } = {}) => {
     const target = new URL(to, window.location.origin);
     window.history[replace ? "replaceState" : "pushState"](
       {},
       "",
       `${target.pathname}${target.search}${target.hash}`,
     );
+    // Redirect effects can run before the initial popstate listener attaches.
+    setLocation(readLocation());
+    window.scrollTo({ top: 0, behavior: "instant" });
     window.dispatchEvent(new PopStateEvent("popstate"));
-  };
+  }, []);
   const value = useMemo(
     () => ({ ...location, navigate }),
     [location.pathname, location.search],
@@ -70,9 +73,5 @@ export function Link({ to, onClick, children, ...props }) {
 export function Redirect({ to }) {
   const { navigate } = useRouter();
   useEffect(() => navigate(to, { replace: true }), [navigate, to]);
-  return (
-    <div className="route-pending" aria-label="Redirecting">
-      <span className="skeleton-block" />
-    </div>
-  );
+  return <div className="sl-session-loader" role="status" aria-label="Opening authorized page" aria-busy="true"><div className="sl-session-mark" aria-hidden="true" /><p>Opening your page…</p></div>;
 }

@@ -1,3 +1,4 @@
+import policies from '../../../../shared/legalPolicies.json' with { type: 'json' };
 export const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const phonePattern = /^(09|\+639)\d{9}$/;
 
@@ -8,29 +9,7 @@ export const passwordRequirements = [
   { key: "special", label: "One special character", test: (value) => /[\W_]/.test(value) },
 ];
 
-export const personnelRoles = Object.freeze({
-  barangay_personnel: {
-    label: "Barangay Personnel",
-    icon: "users",
-    copy: "Support verified response within an authorized barangay.",
-    heading: "Keep your community informed and supported.",
-    description: "Apply for barangay-level access within your official jurisdiction.",
-  },
-  lgu_personnel: {
-    label: "LGU Personnel",
-    icon: "map",
-    copy: "Coordinate municipal or city response operations.",
-    heading: "Coordinate local response with confidence.",
-    description: "Apply for municipal or city operations access through SafeLink.",
-  },
-  police_personnel: {
-    label: "Police Personnel",
-    icon: "shield",
-    copy: "Access authorized partner-response information.",
-    heading: "Stay connected to verified community incidents.",
-    description: "Apply for jurisdiction-scoped police response access.",
-  },
-});
+export const personnelRoles = Object.freeze({});
 
 export const initialRegistrationValues = Object.freeze({
   role: "",
@@ -46,12 +25,13 @@ export const initialRegistrationValues = Object.freeze({
   zipCode: "",
   password: "",
   confirmPassword: "",
+  legalAccepted: false,
 });
 
 export const citizenSteps = ["Personal", "Address", "Security"];
 export const personnelSteps = ["Role", "Identity", "Jurisdiction", "Security", "Review"];
 
-export function validateRegistration(values, mode) {
+export function validateRegistration(values, mode, barangays = []) {
   const firstName = values.firstName.trim();
   const lastName = values.lastName.trim();
   const middleInitial = values.middleInitial.trim();
@@ -66,14 +46,17 @@ export function validateRegistration(values, mode) {
     phoneNumber: !values.phoneNumber.trim() ? "Phone number is required." : !phonePattern.test(values.phoneNumber.trim()) ? "Use 09XXXXXXXXX or +639XXXXXXXXX." : "",
     email: !email ? "Email is required." : !emailPattern.test(email) || !email.endsWith("@gmail.com") ? "Enter a valid Gmail address." : "",
     municipalityOrCity: !values.municipalityOrCity ? "Municipality or city is required." : "",
-    barangay: (mode === "citizen" || values.role === "barangay_personnel") && !values.barangay.trim() ? "Barangay is required." : "",
+    barangay: mode === 'citizen' ? (!values.barangay.trim() ? 'Select your barangay.' : !barangays.some((item) => item.name === values.barangay.trim()) ? 'Select a barangay belonging to your city or municipality.' : '') : values.role === 'barangay_personnel' && !values.barangay.trim() ? 'Barangay is required.' : '',
+    street: mode === 'citizen' && (typeof values.street !== 'string' || values.street.trim().length < 2 || values.street.trim().length > 255 || !/[\p{L}\p{N}]/u.test(values.street) || /[<>\p{Cc}\p{Cf}]/u.test(values.street)) ? 'Enter a Street Address of 2–255 characters without control characters or angle brackets.' : '',
     password: passwordFailure ? `Password must contain ${passwordFailure.label.toLowerCase()}.` : "",
     confirmPassword: !values.confirmPassword ? "Confirm password is required." : values.password !== values.confirmPassword ? "Passwords do not match." : "",
+    legalAccepted: mode === 'citizen' && values.legalAccepted !== true ? 'Please agree to the Terms and Conditions and acknowledge the Privacy Policy.' : '',
   };
 }
 
 export function citizenPayload(values) {
   return {
+    legalAcceptance: { accepted: values.legalAccepted === true, termsVersion: policies.termsVersion, privacyVersion: policies.privacyVersion },
     firstName: values.firstName.trim(),
     lastName: values.lastName.trim(),
     middleInitial: values.middleInitial.trim() || undefined,

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SafeLinkMap from "./maps/SafeLinkMap";
-import { incidentApi } from "../services/safelinkApi";
+import { incidentApi, publicMapApi } from "../services/safelinkApi";
 import { useApiResource } from "../services/useApiResource";
 import { getAccessToken } from "../services/apiClient";
+
+import { SectionSkeleton, ResourceError, RefreshNotice } from './PageSkeletons';
 
 export default function SafetyMap({
   compact = false,
@@ -16,37 +18,37 @@ export default function SafetyMap({
   filterCity = "all",
   filterBarangay = "all",
   filterPriority = "all",
-  filterDate = "30",
+  publicOnly = false,
 }) {
   const [categoryFilter, setCategoryFilter] = useState(filterCategory);
   const [statusFilter, setStatusFilter] = useState(filterStatus);
   const [mapIntroDone, setMapIntroDone] = useState(false);
-  const loadMap = useCallback(() => incidentApi.map().then((result) => result.items), []);
-  const mapResult = useApiResource(loadMap, [], { enabled: Boolean(getAccessToken()), initialData: [] });
+  const loadMap = useCallback(() => (publicOnly ? publicMapApi.resolved() : incidentApi.map()).then((result) => result.items), [publicOnly]);
+  const mapResult = useApiResource(loadMap, [publicOnly], { enabled: publicOnly || Boolean(getAccessToken()), initialData: [] });
   useEffect(() => setCategoryFilter(filterCategory), [filterCategory]);
   useEffect(() => setStatusFilter(filterStatus), [filterStatus]);
 
   const visibleIncidents = useMemo(
     () =>
       (mapResult.data || []).filter((incident) => {
-        const categoryMatches =
-          categoryFilter === "all" ||
-          incident.category === categoryFilter ||
-          incident.category === categoryFilter;
+        const categoryMatches = categoryFilter === "all" || incident.category === categoryFilter;
         const statusMatches = statusFilter === "all" || incident.status === statusFilter;
         const cityMatches = filterCity === "all" || incident.municipality === filterCity;
         const barangayMatches = filterBarangay === "all" || incident.barangay === filterBarangay;
         const priorityMatches = filterPriority === "all" || incident.priority === filterPriority;
-        const dateMatches = filterDate === "all" || !filterDate;
-        return categoryMatches && statusMatches && cityMatches && barangayMatches && priorityMatches && dateMatches;
+        return categoryMatches && statusMatches && cityMatches && barangayMatches && priorityMatches;
       }),
-    [categoryFilter, statusFilter, filterCity, filterBarangay, filterPriority, filterDate, mapResult.data],
+    [categoryFilter, statusFilter, filterCity, filterBarangay, filterPriority, mapResult.data],
   );
 
+  if (mapResult.status === 'loading') return <SectionSkeleton variant="map" label="Loading community safety map" />;
+  if (mapResult.status === 'error') return <ResourceError result={mapResult} label="Could not load the safety map." />;
   return (
     <>
+      <RefreshNotice result={mapResult} />
       <SafeLinkMap
-        mode="incidents"
+        mode={publicOnly ? "public-resolved" : "community"}
+        publicResolved={publicOnly}
         items={visibleIncidents}
         compact={compact}
         interactive={interactive}
@@ -69,12 +71,8 @@ export default function SafetyMap({
             >
               <option value="all">All Incidents</option>
               <option>Suspicious activities</option>
-              <option>Missing or vulnerable persons</option>
-              <option>Harassment or unsafe encounters</option>
               <option>Dangerous road incidents</option>
-              <option>People requiring assistance</option>
               <option>Public fire or smoke incidents</option>
-              <option>People needing assistance during flooding</option>
             </select>
           </label>
           <label>
@@ -88,13 +86,10 @@ export default function SafetyMap({
               aria-label="Filter incidents by status"
             >
               <option value="all">All Statuses</option>
-              <option>Submitted</option>
-              <option>Under Barangay Review</option>
-              <option>Verified</option>
-              <option>Rejected</option>
-              <option>In Progress</option>
+              {!publicOnly && <option>Verified</option>}
+              {!publicOnly && <option>In Progress</option>}
               <option value="Resolved">Resolved</option>
-              <option>Closed</option>
+              {!publicOnly && <option>Closed</option>}
             </select>
           </label>
         </div>

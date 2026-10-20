@@ -1,6 +1,7 @@
+import { useNotificationFeed } from "./services/NotificationProvider";
 import { useCallback } from "react";
 import { requireLgu } from "./auth";
-import { incidentApi, notificationApi, personnelApi } from "./services/safelinkApi";
+import { incidentApi, personnelApi } from "./services/safelinkApi";
 import { useApiResource } from "./services/useApiResource";
 
 export const lguCapabilities = Object.freeze({
@@ -20,7 +21,7 @@ export const lguCapabilities = Object.freeze({
 
 export function useLguIncidents(user) {
   const loader = useCallback(() => { requireLgu(user); return incidentApi.list(); }, [user?.id]);
-  return useApiResource(loader, [user?.id], { enabled: Boolean(user?.id && !user?.isDevelopmentPreview), initialData: [] });
+  return useApiResource(loader, [user?.id], { enabled: Boolean(user?.id && !user?.isDevelopmentPreview), initialData: [], live: ['incidents'] });
 }
 
 export function useLguIncident(user, id) {
@@ -28,7 +29,7 @@ export function useLguIncident(user, id) {
     requireLgu(user);
     return (await incidentApi.list()).find((incident) => incident.id === id) || null;
   }, [id, user?.id]);
-  return useApiResource(loader, [id, user?.id], { enabled: Boolean(id && user?.id && !user?.isDevelopmentPreview), initialData: null });
+  return useApiResource(loader, [id, user?.id], { enabled: Boolean(id && user?.id && !user?.isDevelopmentPreview), initialData: null, live: ['incidents'] });
 }
 
 export function useLguPersonnel(user) {
@@ -37,8 +38,8 @@ export function useLguPersonnel(user) {
 }
 
 export function useLguNotifications(user) {
-  const loader = useCallback(async () => (await notificationApi.list({ page: 1, limit: 100 })).data, [user?.id]);
-  return useApiResource(loader, [user?.id], { enabled: Boolean(user?.id && !user?.isDevelopmentPreview), initialData: [] });
+  const feed = useNotificationFeed();
+  return { ...feed, available: feed.available && Boolean(user?.id), data: feed.available ? feed.data : [] };
 }
 
 export function processLguIncident(id, changes) { return incidentApi.process(id, changes); }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import "./ClickSpark.css";
 
+const editingControl = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"]';
+
 // Adapted from the React Bits ClickSpark source supplied for this integration.
 export default function ClickSpark({
   sparkColor = "#fff",
@@ -16,6 +18,7 @@ export default function ClickSpark({
   const sparksRef = useRef([]);
   const animationRef = useRef(null);
   const startRef = useRef(null);
+  const stopRef = useRef(null);
   const reducedMotionRef = useRef(false);
 
   const easeFunc = useCallback(
@@ -45,6 +48,7 @@ export default function ClickSpark({
       animationRef.current = null;
       sparksRef.current = [];
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.classList.remove("is-active");
     };
     const resize = () => {
       clear();
@@ -82,11 +86,14 @@ export default function ClickSpark({
       animationRef.current = sparksRef.current.length
         ? requestAnimationFrame(draw)
         : null;
+      if (animationRef.current === null) canvas.classList.remove("is-active");
     };
     startRef.current = () => {
+      canvas.classList.add("is-active");
       if (animationRef.current === null)
         animationRef.current = requestAnimationFrame(draw);
     };
+    stopRef.current = clear;
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     resize();
@@ -98,6 +105,7 @@ export default function ClickSpark({
     return () => {
       clear();
       startRef.current = null;
+      stopRef.current = null;
       observer.disconnect();
       motion.removeEventListener("change", updateMotion);
       window.removeEventListener("resize", resize);
@@ -111,6 +119,7 @@ export default function ClickSpark({
     if (
       reducedMotionRef.current ||
       event.detail === 0 ||
+      event.target.closest?.(editingControl) ||
       duration <= 0 ||
       sparkCount <= 0
     )
@@ -131,7 +140,9 @@ export default function ClickSpark({
   };
 
   return (
-    <div className="click-spark" onClickCapture={handleClick}>
+    <div className="click-spark" onClickCapture={handleClick}
+      onPointerOverCapture={(event) => { if (event.target.closest?.(editingControl)) stopRef.current?.(); }}
+      onFocusCapture={(event) => { if (event.target.closest?.(editingControl)) stopRef.current?.(); }}>
       <canvas
         ref={canvasRef}
         className="click-spark__canvas"

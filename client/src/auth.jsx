@@ -1,8 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "./routing";
 import { loginAccount, registerCitizenAccount } from "./services/accountApi";
 import { authApi } from "./services/safelinkApi";
-import { clearSession, getAccessToken, storedSessionUser, storeSession } from "./services/apiClient";
+import { clearSession, getAccessToken, markActivity, storeSession } from "./services/apiClient";
+import { isVerifiedAccountShape } from "./services/authPolicy";
+import CitizenSessionReminder from "./components/CitizenSessionReminder";
+
+import { NotificationProvider } from "./services/NotificationProvider";
 
 const AuthContext = createContext(null);
 
@@ -16,87 +20,90 @@ export const lguPreviewArea = isLguPreview
   ? (import.meta.env.VITE_LGU_PREVIEW_AREA || "Calasiao").trim()
   : "";
 
-const citizenPreviewUser = Object.freeze({
-  id: "development-preview",
-  role: "citizen",
-  name: "Citizen Preview",
-  isDevelopmentPreview: true,
-});
-
-const lguPreviewUser = Object.freeze({
-  id: "lgu-development-preview",
-  role: "lgu_personnel",
-  name: "LGU Preview",
-  jobTitle: `${lguPreviewArea} LGU Personnel`,
-  office: `${lguPreviewArea} LGU`,
-  jurisdiction: lguPreviewArea,
-  municipality: lguPreviewArea,
-  isDevelopmentPreview: true,
-});
-
-const adminPreviewUser = Object.freeze({
-  id: "admin-development-preview",
-  role: "admin",
-  name: "Admin Preview",
-  jobTitle: "Administrator",
-  office: "SafeLink Provincial Operations",
-  isDevelopmentPreview: true,
-});
-
 export function AuthProvider({ children }) {
-  const { pathname } = useRouter();
-  const [user, setUser] = useState(storedSessionUser);
+  const { navigate } = useRouter();
+  const [user, setUser] = useState(null);
   const [isRestoring, setIsRestoring] = useState(Boolean(getAccessToken()));
+  const [restorationError, setRestorationError] = useState(null);
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
+  const revision = useRef(0);
+  const restoration = useRef(null);
   useEffect(() => {
     let active = true;
-    if (!getAccessToken()) { setIsRestoring(false); return undefined; }
-    authApi.me().then((account) => {
-      if (!active) return;
-      setUser(account);
-      storeSession(getAccessToken(), account);
-    }).catch(() => {
-      if (!active) return;
-      clearSession();
-      setUser(null);
-    }).finally(() => { if (active) setIsRestoring(false); });
-    const expired = () => { clearSession(); setUser(null); setIsRestoring(false); };
+    const version = revision.current;
+    const token = getAccessToken();
+    const controller = new AbortController();
+    let timeout;
+    const expired = () => { revision.current += 1; controller.abort(); clearTimeout(timeout); clearSession(); setUser(null); setIsRestoring(false); setRestorationError(null); };
+    restoration.current = () => { controller.abort(); clearTimeout(timeout); };
     window.addEventListener("safelink:session-expired", expired);
-    return () => { active = false; window.removeEventListener("safelink:session-expired", expired); };
-  }, []);
-  const onAdminRoute = pathname === "/login/admin" || pathname.startsWith("/admin");
-  const onLguRoute = pathname === "/login/lgu" || pathname.startsWith("/lgu");
-  const onCitizenRoute = pathname === "/login/citizen" || pathname.startsWith("/citizen");
-  const previewUser = onAdminRoute
-    ? (isAdminPreview ? adminPreviewUser : null)
-    : onLguRoute
-      ? (isLguPreview ? lguPreviewUser : null)
-      : (isCitizenPreview ? citizenPreviewUser : null);
-  const displayUser = user || previewUser;
+    if (token) {
+      setIsRestoring(true);
+      setRestorationError(null);
+      // Bound identity verification separately from page data. Cleanup also
+      // ignores obsolete results, as recommended by react.dev/reference/react/useEffect.
+      const deadline = new Promise((_, reject) => {
+        timeout = setTimeout(() => { reject(new Error('Session verification timed out.')); controller.abort(); }, 8000);
+      });
+      Promise.race([authApi.me({ signal: controller.signal }), deadline]).then((account) => {
+        if (!active || revision.current !== version || getAccessToken() !== token) return;
+        if (!isVerifiedAccountShape(account)) throw Object.assign(new Error('Invalid authenticated account.'), { status: 401 });
+        setUser(account);
+        storeSession(token, account);
+      }).catch((error) => {
+        if (!active || revision.current !== version) return;
+        setUser(null);
+        if ([401, 403].includes(error?.status)) clearSession();
+        else setRestorationError('We could not verify your session. Check your connection and try again.');
+      }).finally(() => { clearTimeout(timeout); if (active && revision.current === version) setIsRestoring(false); });
+    } else { clearSession(); setIsRestoring(false); }
+    return () => { active = false; controller.abort(); clearTimeout(timeout); window.removeEventListener("safelink:session-expired", expired); };
+  }, [restoreAttempt]);
   const value = useMemo(
     () => ({
-      user: displayUser,
-      isAuthenticated: Boolean(user?.id),
+      user,
+      isAuthenticated: isVerifiedAccountShape(user),
       isRestoring,
-      isPreviewMode: Boolean(previewUser && !user),
-      isCitizenPreviewMode: Boolean(onCitizenRoute && isCitizenPreview && !user),
-      isLguPreviewMode: Boolean(onLguRoute && isLguPreview && !user),
-      isAdminPreviewMode: Boolean(onAdminRoute && isAdminPreview && !user),
-      async login(portal, credentials) {
-        const result = await loginAccount(portal, credentials);
+      restorationError,
+      retryRestoration() { setIsRestoring(true); setRestorationError(null); setRestoreAttempt(value => value + 1); },
+      isPreviewMode: false,
+      isCitizenPreviewMode: false,
+      isLguPreviewMode: false,
+      isAdminPreviewMode: false,
+      async login(credentials) {
+        const version = ++revision.current;
+        restoration.current?.();
+        setIsRestoring(false);
+        setRestorationError(null);
+        const result = await loginAccount(credentials);
+        if (revision.current !== version) throw new Error('Sign-in was cancelled. Please try again.');
         setUser(result.user);
+        setIsRestoring(false);
         storeSession(result.token, result.user);
+        if (result.user.role === "citizen") markActivity();
         return result.user;
       },
       register(values) { return registerCitizenAccount(values); },
       logout() {
+        revision.current += 1;
+        restoration.current?.();
+        if (getAccessToken()) void authApi.logout().catch(() => console.warn('Sign-out could not be recorded by the server.'));
         setUser(null);
+        setIsRestoring(false);
+        setRestorationError(null);
         clearSession();
       },
       updateUser() { return { error: "PROFILE_UPDATE_NOT_AVAILABLE" }; },
     }),
-    [displayUser, isRestoring, onAdminRoute, onCitizenRoute, onLguRoute, previewUser, user],
+    [isRestoring, restorationError, user],
   );
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}><NotificationProvider user={user}>
+    {children}
+    {user?.role === "citizen" && <CitizenSessionReminder userId={user.id} onTimeout={() => {
+      value.logout();
+      navigate("/login", { replace: true });
+    }} />}
+  </NotificationProvider></AuthContext.Provider>;
 }
 
 export function useAuth() {

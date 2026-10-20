@@ -5,6 +5,11 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
 const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
+const policies = require('../../../shared/legalPolicies.json');
+const { loginProtection, normalizeLoginEmail } = require('../services/loginProtection');
+const { createPasswordResetUrl, passwordResetEmail } = require('../utils/passwordResetEmail');
+// Match the existing bcrypt cost without giving unknown identifiers a cheaper password path.
+const dummyLoginHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
 
 const EMAIL_SEND_TIMEOUT_MS = 15 * 1000;
 const includeErrorDetails = process.env.NODE_ENV === 'development';
@@ -138,6 +143,7 @@ const registerCitizen = async (req, res) => {
         zipCode: getPangasinanZipCode(address.municipalityOrCity)
       },
       role: 'citizen',
+      legalAcceptance: { termsVersion: policies.termsVersion, privacyVersion: policies.privacyVersion, acceptedAt: new Date() },
   isVerified: false,
       emailVerificationToken: verification.hash,
       emailVerificationExpires: verification.expires
@@ -283,132 +289,45 @@ const verifyEmail = async (req, res) => {
 
 // @desc    Register Personnel (Barangay, LGU, Police, Admin) - Restricted to Admins/LGU
 // @route   POST /api/auth/register-personnel
-const registerPersonnel = async (req, res) => {
-  try {
-    const { firstName, lastName, middleInitial, password, role, jurisdiction, phoneNumber } = req.body;
-    const email = req.body.email.toLowerCase().trim();
+const registerPersonnel = async (req, res) => res.status(410).json({ message: 'Personnel accounts must be created through Administrator Personnel Management.' });
 
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ message: 'Account already exists with this email.' });
-    }
-
-    if (req.user.role === 'lgu_personnel' && !canLGUManagePersonnel(req.user, { role, jurisdiction })) {
-      return res.status(403).json({
-        message: 'LGU personnel can register barangay personnel only within their municipality or city.'
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    user = new User({
-      firstName,
-      lastName,
-      middleInitial: middleInitial || '',
-      email,
-      password: hashedPassword,
-      role,
-      jurisdiction,
-      phoneNumber,
-      isVerified: false,
-      status: 'pending'
-    });
-
-    await user.save();
-
-    await recordAuditEvent({
-      req,
-      targetUser: user._id,
-      action: 'PERSONNEL_REGISTRATION_SUBMITTED',
-      outcome: 'success',
-      details: { role: user.role }
-    });
-
-    res.status(201).json({
-      message: 'Personnel registration submitted successfully. Awaiting administrator approval.',
-      user: { id: user._id, email: user.email, role: user.role }
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Server error during personnel registration.' });
-  }
-};
-
-// @desc    Submit a public personnel access application
-// @route   POST /api/auth/apply-personnel
-const applyPersonnel = async (req, res) => {
-  try {
-    const { firstName, lastName, middleInitial, password, role, jurisdiction, phoneNumber } = req.body;
-    const email = req.body.email.toLowerCase().trim();
-
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ message: 'Account already exists with this email.' });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    user = new User({
-      firstName,
-      lastName,
-      middleInitial: middleInitial || '',
-      email,
-      password: hashedPassword,
-      role,
-      jurisdiction,
-      phoneNumber,
-      isVerified: false,
-      status: 'pending'
-    });
-
-    await user.save();
-
-    await recordAuditEvent({
-      req,
-      targetUser: user._id,
-      action: 'PERSONNEL_APPLICATION_SUBMITTED',
-      outcome: 'success',
-      details: { role: user.role }
-    });
-
-    res.status(201).json({
-      message: 'Personnel application submitted successfully. Awaiting administrator approval.',
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        isVerified: user.isVerified
-      }
-    });
-  } catch (err) {
-    console.error('Personnel application error:', err.message);
-    res.status(500).json({ message: 'Server error during personnel application.' });
-  }
-};
+// Historical application records remain intact; no new public applications are accepted.
+const applyPersonnel = async (req, res) => res.status(410).json({ message: 'Public personnel applications are closed. Contact your System Administrator.' });
 
 // @desc    Authenticate and Login User/Personnel
 // @route   POST /api/auth/login
+function loginCooldown(res, seconds) {
+  const minutes = Math.ceil(seconds / 60);
+  res.setHeader('Retry-After', String(seconds));
+  return res.status(429).json({ code: 'LOGIN_LOCKED', retryAfterSeconds: seconds,
+    message: `Too many unsuccessful login attempts. Please try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.` });
+}
+
+async function invalidLoginPassword(req, res, attempt, user, email) {
+  const failure = await attempt.recordFailure();
+  await recordAuditEvent({ req, targetUser: user?._id || null, action: 'AUTH_LOGIN', outcome: 'failure',
+    details: { reason: 'invalid_credentials', attemptedEmailHash: hashIdentifier(email) } });
+  if (failure.started) await recordAuditEvent({ req, targetUser: user?._id || null, action: 'AUTH_ACCOUNT_LOCKED', outcome: 'failure',
+    details: { reason: 'account_locked', cooldownSeconds: failure.cooldownSeconds } });
+  return failure.locked ? loginCooldown(res, Math.max(1, attempt.remainingSeconds())) : res.status(400).json({ message: 'Invalid credentials.' });
+}
+
 const loginUser = async (req, res) => {
+  let attempt;
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const { password } = req.body;
-    const email = req.body.email.toLowerCase().trim();
+    const email = normalizeLoginEmail(req.body.email);
+    attempt = await loginProtection.acquire(email);
+    if (attempt.remainingSeconds()) {
+      await recordAuditEvent({ req, action: 'AUTH_LOGIN', outcome: 'failure', details: { reason: 'account_locked' } });
+      return loginCooldown(res, Math.max(1, attempt.remainingSeconds()));
+    }
 
     const user = await User.findOne({ email });
-    if (!user) {
-      await recordAuditEvent({
-        req,
-        action: 'AUTH_LOGIN',
-        outcome: 'failure',
-        details: {
-          reason: 'invalid_credentials',
-          attemptedEmailHash: hashIdentifier(email)
-        }
-      });
-      return res.status(400).json({ message: 'Invalid credentials.' });
-    }
+    // Verify the password before exposing any account-status information.
+    const passwordMatches = await bcrypt.compare(password, user?.password || dummyLoginHash);
+    if (!user || !passwordMatches) return await invalidLoginPassword(req, res, attempt, user, email);
 
     if (!user.isVerified) {
       await recordAuditEvent({
@@ -429,27 +348,15 @@ const loginUser = async (req, res) => {
       }
     }
 
-    if (user.status === 'suspended') {
+    if (user.status !== 'active') {
       await recordAuditEvent({
         req,
         targetUser: user._id,
         action: 'AUTH_LOGIN',
         outcome: 'failure',
-        details: { reason: 'account_suspended' }
+        details: { reason: user.status === 'suspended' ? 'account_suspended' : 'account_not_verified' }
       });
-      return res.status(403).json({ message: 'Access denied. Your account has been suspended due to a violation.' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      await recordAuditEvent({
-        req,
-        targetUser: user._id,
-        action: 'AUTH_LOGIN',
-        outcome: 'failure',
-        details: { reason: 'invalid_credentials' }
-      });
-      return res.status(400).json({ message: 'Invalid credentials.' });
+      return res.status(403).json({ message: user.status === 'suspended' ? 'Access denied. Your account has been suspended. Contact your account administrator.' : 'Your account is pending administrator approval.' });
     }
 
     const token = jwt.sign(
@@ -457,6 +364,11 @@ const loginUser = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
+
+    const loginTime = new Date();
+    await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: loginTime, updatedAt: loginTime } });
+    // Only a verified, active account with a correct password reaches this reset.
+    await attempt.reset();
 
     await recordAuditEvent({
       req,
@@ -482,8 +394,17 @@ const loginUser = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error(err.message);
+    console.error('LOGIN_FAILED', err.code || err.name);
+    if (err.code === 'LOGIN_BUSY') {
+      res.setHeader('Retry-After', '1');
+      return res.status(429).json({ code: 'LOGIN_BUSY', retryAfterSeconds: 1, message: 'Sign-in is being processed. Please try again shortly.' });
+    }
+    if (err.code === 'LOGIN_STATE_UNAVAILABLE') {
+      return res.status(503).json({ code: 'SERVER_ERROR', message: 'SafeLink sign-in is temporarily unavailable. Please try again later.' });
+    }
     res.status(500).json({ message: 'Server error during login.' });
+  } finally {
+    if (attempt) await attempt.release().catch(() => console.error('LOGIN_LEASE_RELEASE_FAILED'));
   }
 };
 
@@ -510,7 +431,7 @@ const getPendingPersonnel = async (req, res) => {
       query['jurisdiction.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
     }
 
-    const pendingUsers = await User.find(query).select('-password');
+    const pendingUsers = await User.find(query).select('_id firstName lastName middleInitial email role jurisdiction phoneNumber status isVerified createdAt');
 
     res.json(pendingUsers);
   } catch (err) {
@@ -571,31 +492,23 @@ const forgotPassword = async (req, res) => {
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetUrl = createPasswordResetUrl({ token: resetToken });
 
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    // Create frontend/API reset link URL
-    const resetUrl = `${clientUrl}/reset-password?token=${resetToken}`;
-
     const mailOptions = {
       from: `"SafeLink System" <${process.env.EMAIL_USER}>`,
       to: user.email,
-      subject: 'SafeLink Password Reset Request',
-      html: `
-        <h3>Password Reset Request</h3>
-        <p>You requested a password reset for your SafeLink account.</p>
-        <p>Please click the link below to reset your password. This link is valid for 15 minutes:</p>
-        <a href="${resetUrl}" target="_blank">${resetUrl}</a>
-        <p>If you didn't request this, please ignore this email.</p>
-      `
+      ...passwordResetEmail({ firstName: user.firstName, resetUrl }),
     };
 
     try {
       await sendMailWithDeadline(mailOptions);
     } catch (emailError) {
-      console.error('Password reset email error:', emailError.message);
+      // SMTP errors may include message contents, reset URLs, or credentials.
+      console.error('PASSWORD_RESET_EMAIL_DELIVERY_FAILED');
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
       await user.save();
@@ -603,13 +516,12 @@ const forgotPassword = async (req, res) => {
         code: 'EMAIL_DELIVERY_FAILED',
         message: 'SafeLink could not send the password-reset email. Please try again shortly.',
         retryable: true,
-        ...developmentErrorDetails(emailError)
       });
     }
 
     res.status(200).json({ message: 'Password reset instructions sent to your email.' });
   } catch (err) {
-    console.error('Email send error:', err.message);
+    console.error('PASSWORD_RESET_EMAIL_FAILED');
     res.status(500).json({ message: 'Server error sending password reset email.' });
   }
 };
@@ -642,13 +554,13 @@ const resetPassword = async (req, res) => {
       req,
       actor: user._id,
       targetUser: user._id,
-      action: 'AUTH_PASSWORD_RESET_COMPLETED',
+      action: user.role === 'lgu_personnel' ? 'LGU_PASSWORD_RESET' : 'AUTH_PASSWORD_RESET_COMPLETED',
       outcome: 'success'
     });
 
     res.status(200).json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
   } catch (err) {
-    console.error('Password reset error:', err.message);
+    console.error('PASSWORD_RESET_FAILED');
     res.status(500).json({ message: 'Server error during password reset.' });
   }
 };
@@ -695,7 +607,9 @@ const updateUserStatus = async (req, res) => {
     await recordAuditEvent({
       req,
       targetUser: targetUser._id,
-      action: 'USER_STATUS_CHANGED',
+      action: targetUser.role === 'lgu_personnel' && previousStatus !== status
+        ? (status === 'active' ? 'LGU_ACCOUNT_ENABLED' : status === 'suspended' ? 'LGU_ACCOUNT_DISABLED' : 'LGU_ACCOUNT_UPDATED')
+        : 'USER_STATUS_CHANGED',
       outcome: 'success',
       details: { previousStatus, newStatus: status }
     });
@@ -762,7 +676,31 @@ const deleteUser = async (req, res) => {
   }
 };
 
+async function changePassword(req, res) {
+  res.set('Cache-Control', 'no-store');
+  const { currentPassword, newPassword, confirmPassword } = req.body || {};
+  const errors = [];
+  if (typeof currentPassword !== 'string' || !currentPassword) errors.push({ path: 'currentPassword', msg: 'Enter your current password.' });
+  if (typeof newPassword !== 'string' || newPassword.length < 8 || Buffer.byteLength(newPassword) > 72 || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[\W_]/.test(newPassword)) errors.push({ path: 'newPassword', msg: 'Use 8 or more characters, up to 72 bytes, with an uppercase letter, number, and special character.' });
+  if (newPassword !== confirmPassword) errors.push({ path: 'confirmPassword', msg: 'Passwords do not match.' });
+  if (errors.length) return res.status(400).json({ message: 'Please correct the highlighted fields.', errors });
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({ message: 'Your session has expired.' });
+    if (!await bcrypt.compare(currentPassword, user.password)) return res.status(400).json({ message: 'Current password is incorrect.', errors: [{ path: 'currentPassword', msg: 'Current password is incorrect.' }] });
+    if (await bcrypt.compare(newPassword, user.password)) return res.status(400).json({ message: 'Choose a different new password.', errors: [{ path: 'newPassword', msg: 'Choose a different new password.' }] });
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+    await recordAuditEvent({ req, targetUser: user._id, action: user.role === 'lgu_personnel' ? 'LGU_PASSWORD_CHANGED' : 'AUTH_PASSWORD_CHANGED', outcome: 'success' });
+    // Preserve the application's existing JWT expiration policy.
+    return res.json({ message: 'Password changed successfully.' });
+  } catch { return res.status(500).json({ message: 'Unable to update your password.' }); }
+}
+
 module.exports = {
+  changePassword,
   registerCitizen,
   verifyEmail,
   resendVerification,

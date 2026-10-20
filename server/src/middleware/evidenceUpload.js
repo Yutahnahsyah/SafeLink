@@ -44,6 +44,7 @@ const uploadEvidence = multer({
 });
 
 module.exports = {
+  ALLOWED_EVIDENCE,
   EVIDENCE_DIRECTORY,
   MAX_EVIDENCE_FILES,
   MAX_EVIDENCE_FILE_SIZE,

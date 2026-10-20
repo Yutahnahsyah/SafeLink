@@ -1,6 +1,14 @@
 const mongoose = require('mongoose');
 
+// Optional on legacy accounts; registration alone supplies server-generated records.
+const LegalAcceptanceSchema = new mongoose.Schema({
+  termsVersion: { type: String, required: true, immutable: true },
+  privacyVersion: { type: String, required: true, immutable: true },
+  acceptedAt: { type: Date, required: true, immutable: true }
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema({
+  legalAcceptance: { type: LegalAcceptanceSchema, default: undefined, immutable: true, select: false },
   firstName: {
     type: String,
     required: true,
@@ -89,6 +97,11 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  updatedAt: { type: Date, default: Date.now },
+  lastLoginAt: { type: Date, default: null }
 });
+UserSchema.pre('save', function () { this.updatedAt = new Date(); });
+
+UserSchema.index({ createdAt: -1, _id: -1 });
 
 module.exports = mongoose.model('User', UserSchema);

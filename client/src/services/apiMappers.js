@@ -1,3 +1,5 @@
+import { communityIncidentColor } from './communityIncidentMarkers.js';
+
 const dateTime = (value) => value ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "";
 
 export function mapUserFromApi(user = {}) {
@@ -14,12 +16,21 @@ export function mapUserFromApi(user = {}) {
 
 export function formatIncidentLocation(location = {}) {
   const address = location.address || {};
-  return [address.landmark, address.street, address.barangay, address.municipalityOrCity, address.zipCode].filter(Boolean).join(", ");
+  const seen = new Set();
+  return [address.landmark, address.street, address.barangay, address.municipalityOrCity, address.zipCode]
+    .flatMap((value) => typeof value === 'string' ? value.split(',') : [])
+    .map((value) => value.trim()).filter((value) => {
+      const key = value.normalize('NFC').toLowerCase().replace(/\s+/g, ' ');
+      if (!key || seen.has(key)) return false;
+      seen.add(key); return true;
+    }).join(', ');
 }
 
 export function mapIncidentFromApi(incident = {}) {
   const history = Array.isArray(incident.responseHistory) ? incident.responseHistory : [];
   const latest = history.at(-1);
+  const resolution = ['Resolved', 'Closed'].includes(incident.status)
+    ? history.findLast((item) => item.newStatus === 'Resolved' || (item.eventType === 'status_changed' && item.status === 'Resolved')) : null;
   const latitude = Number(incident.location?.latitude);
   const longitude = Number(incident.location?.longitude);
   return {
@@ -39,6 +50,7 @@ export function mapIncidentFromApi(incident = {}) {
     coords: Number.isFinite(latitude) && Number.isFinite(longitude) ? [longitude, latitude] : null,
     submittedAt: dateTime(incident.createdAt),
     latestUpdate: latest?.notes || "",
+    resolution: resolution ? { message: (resolution.notes || '').replace(/^Status changed from .+? to Resolved\.\s*Remarks:\s*/u, ''), timestamp: dateTime(resolution.timestamp) } : null,
     statusHistory: history.map((item) => ({
       id: item._id,
       status: item.newStatus || item.status,
@@ -67,8 +79,16 @@ export function mapMapFeature(feature = {}) {
     location: [properties.barangay, properties.municipalityOrCity].filter(Boolean).join(", "),
     municipality: properties.municipalityOrCity,
     barangay: properties.barangay,
+    reportedDate: properties.reportedDate || '',
+    resolvedDate: properties.resolvedDate || '',
     coords: feature.geometry?.coordinates || null,
     submittedAt: dateTime(properties.createdAt),
+    count: properties.count || 1,
+    countLabel: properties.countLabel || '',
+    areaLevel: properties.areaLevel || '',
+    publicApproved: properties.publicApproved === true,
+    isAggregate: Boolean(properties.areaLevel),
+    color: communityIncidentColor(properties.incidentType),
   };
 }
 

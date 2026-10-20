@@ -3,37 +3,43 @@ import Icon from "../Icon";
 import { pangasinanLocations } from "../../data/pangasinanLocations";
 import { passwordRequirements } from "./registrationConfig";
 
+export function RegistrationFeedback({ id, invalid, error, helper }) {
+  return <span className="registration-feedback">{invalid
+    ? <span className="field-error" id={`${id}-error`} role="alert">{error}</span>
+    : helper ? <small id={`${id}-help`} className="registration-location-helper">{helper}</small> : null}</span>;
+}
+
 export function RegistrationField({ id, label, optional = false, error, touched, className = "", ...props }) {
   const invalid = Boolean(touched && error);
-  return <label className={`${className} ${invalid ? "has-error" : touched ? "is-valid" : ""}`} htmlFor={id}>
-    <span className="registration-label">{label}{optional && <small>Optional</small>}</span>
-    <input id={id} aria-invalid={invalid} aria-describedby={invalid ? `${id}-error` : undefined} {...props} />
-    {invalid && <span className="field-error" id={`${id}-error`} role="alert">{error}</span>}
+  return <label className={`registration-field ${className} ${invalid ? "has-error" : ""}`} htmlFor={id}>
+    <span id={`${id}-label`} className="registration-label">{label}{optional && <small>Optional</small>}</span>
+    <input id={id} aria-labelledby={`${id}-label`} aria-invalid={invalid} aria-describedby={invalid ? `${id}-error` : undefined} {...props} />
+    <RegistrationFeedback id={id} invalid={invalid} error={error} />
   </label>;
 }
 
 export function MunicipalityField({ value, onChange, onBlur, error, touched }) {
   const invalid = Boolean(touched && error);
-  return <label className={invalid ? "has-error" : touched ? "is-valid" : ""} htmlFor="registration-municipality">
-    <span className="registration-label">Municipality / City</span>
-    <select id="registration-municipality" value={value} onChange={onChange} onBlur={onBlur} aria-invalid={invalid} aria-describedby={invalid ? "registration-municipality-error" : undefined}>
+  return <label className={`registration-field ${invalid ? "has-error" : ""}`} htmlFor="registration-municipality">
+    <span id="registration-municipality-label" className="registration-label">Municipality / City</span>
+    <select id="registration-municipality" aria-labelledby="registration-municipality-label" value={value} onChange={onChange} onBlur={onBlur} aria-invalid={invalid} aria-describedby={invalid ? "registration-municipality-error" : undefined}>
       <option value="">Select municipality or city</option>
       {pangasinanLocations.map(({ name }) => <option value={name} key={name}>{name}</option>)}
     </select>
-    {invalid && <span className="field-error" id="registration-municipality-error" role="alert">{error}</span>}
+    <RegistrationFeedback id="registration-municipality" invalid={invalid} error={error} />
   </label>;
 }
 
 export function RegistrationPasswordField({ id, label, error, touched, ...props }) {
   const [visible, setVisible] = useState(false);
   const invalid = Boolean(touched && error);
-  return <div className={`password-field ${invalid ? "has-error" : touched ? "is-valid" : ""}`}>
-    <label htmlFor={id}>{label}</label>
+  return <div className={`registration-field password-field ${invalid ? "has-error" : ""}`}>
+    <label className="registration-label" htmlFor={id}>{label}</label>
     <div className="password-input">
       <input id={id} type={visible ? "text" : "password"} aria-invalid={invalid} aria-describedby={invalid ? `${id}-error` : undefined} {...props} />
       <button type="button" className="password-toggle" onClick={() => setVisible((current) => !current)} aria-label={`${visible ? "Hide" : "Show"} ${label.toLowerCase()}`}><Icon name="eye" size={18} /></button>
     </div>
-    {invalid && <span className="field-error" id={`${id}-error`} role="alert">{error}</span>}
+    <RegistrationFeedback id={id} invalid={invalid} error={error} />
   </div>;
 }
 

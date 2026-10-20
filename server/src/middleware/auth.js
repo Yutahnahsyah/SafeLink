@@ -14,14 +14,21 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(payload.id).select('_id role jurisdiction status isVerified');
+    const user = await User.findById(payload.id).select('_id firstName lastName role jurisdiction status isVerified');
 
     if (!user || !user.isVerified || user.status !== 'active') {
       return res.status(401).json({ message: 'Access denied. Your account is no longer active.' });
     }
 
+    if (['barangay_personnel', 'lgu_personnel', 'police_personnel'].includes(user.role)
+      && (!user.jurisdiction?.municipalityOrCity?.trim()
+        || (user.role === 'barangay_personnel' && !user.jurisdiction?.barangay?.trim()))) {
+      return res.status(403).json({ message: 'Access denied. Ask your administrator to assign your jurisdiction.' });
+    }
+
     req.user = {
       id: user._id.toString(),
+      name: [user.firstName, user.lastName].filter(Boolean).join(' '),
       role: user.role,
       jurisdiction: user.jurisdiction
     };

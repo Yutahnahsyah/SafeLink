@@ -3,23 +3,7 @@ import Icon from "../Icon";
 import { Link } from "../../routing";
 import { authApi } from "../../services/safelinkApi";
 import { MunicipalityField, PasswordRequirements, RegistrationField, RegistrationPasswordField } from "./RegistrationFields";
-import { personnelRoles } from "./registrationConfig";
-
-export function RegisterRoleSelector({ onSelect }) {
-  return <section className="registration-choice-grid" aria-label="Choose how you will use SafeLink">
-    <button type="button" onClick={() => onSelect("citizen")}><span><Icon name="report" size={24} /></span><div><strong>Citizen</strong><p>Report and track community safety concerns.</p></div><Icon name="arrow" size={17} /></button>
-    <button type="button" onClick={() => onSelect("personnel")}><span><Icon name="shield" size={24} /></span><div><strong>Authorized Personnel</strong><p>Apply for Barangay, LGU, or Police access.</p></div><Icon name="arrow" size={17} /></button>
-  </section>;
-}
-
-export function PersonnelRoleStep({ value, onSelect, error }) {
-  return <section className="registration-role-grid" aria-label="Choose personnel role">
-    {Object.entries(personnelRoles).map(([role, config]) => <button className={value === role ? "is-selected" : ""} type="button" aria-pressed={value === role} onClick={() => onSelect(role)} key={role}>
-      <span><Icon name={config.icon} size={22} /></span><strong>{config.label}</strong><p>{config.copy}</p><i>{value === role ? <Icon name="check" size={14} /> : null}</i>
-    </button>)}
-    {error && <p className="form-error registration-grid-error" role="alert">{error}</p>}
-  </section>;
-}
+import CitizenLocationFields from './CitizenLocationFields';
 
 export function PersonalInfoStep({ values, errors, touched, update, touch }) {
   return <div className="auth-form auth-form--grid registration-form-grid">
@@ -31,22 +15,13 @@ export function PersonalInfoStep({ values, errors, touched, update, touch }) {
   </div>;
 }
 
-export function AddressStep({ values, errors, touched, update, touch }) {
+export function AddressStep({ values, errors, touched, update, touch, barangays, selectStreet }) {
   return <div className="auth-form auth-form--grid registration-form-grid">
+    <p className="registration-province-note full"><Icon name="pin" size={18} /> Province: <strong>Pangasinan</strong></p>
     <MunicipalityField value={values.municipalityOrCity} onChange={update("municipalityOrCity")} onBlur={() => touch("municipalityOrCity")} error={errors.municipalityOrCity} touched={touched.municipalityOrCity} />
-    <RegistrationField id="registration-barangay" label="Barangay" value={values.barangay} onChange={update("barangay")} onBlur={() => touch("barangay")} error={errors.barangay} touched={touched.barangay} autoComplete="address-level3" />
-    <RegistrationField id="registration-street" label="Street" optional value={values.street} onChange={update("street")} onBlur={() => touch("street")} autoComplete="street-address" />
+    <CitizenLocationFields values={values} errors={errors} touched={touched} update={update} touch={touch} barangays={barangays} selectStreet={selectStreet} />
     <RegistrationField id="registration-landmark" label="Nearby Landmark" optional value={values.landmark} onChange={update("landmark")} onBlur={() => touch("landmark")} />
     <RegistrationField id="registration-zip" className="full" label="ZIP Code" value={values.zipCode} readOnly aria-readonly="true" autoComplete="postal-code" />
-  </div>;
-}
-
-export function JurisdictionStep({ values, errors, touched, update, touch }) {
-  const needsBarangay = values.role === "barangay_personnel";
-  return <div className="auth-form auth-form--grid registration-form-grid">
-    <p className="registration-jurisdiction-note full"><Icon name="shield" size={17} /><span><strong>Jurisdiction-scoped access</strong>Your SafeLink access will be restricted to your authorized jurisdiction.</span></p>
-    <MunicipalityField value={values.municipalityOrCity} onChange={update("municipalityOrCity")} onBlur={() => touch("municipalityOrCity")} error={errors.municipalityOrCity} touched={touched.municipalityOrCity} />
-    {needsBarangay && <RegistrationField id="registration-barangay" label="Barangay" value={values.barangay} onChange={update("barangay")} onBlur={() => touch("barangay")} error={errors.barangay} touched={touched.barangay} autoComplete="address-level3" />}
   </div>;
 }
 
@@ -57,24 +32,7 @@ export function SecurityStep({ values, errors, touched, update, touch }) {
   </div>;
 }
 
-export function RegistrationReview({ values, edit }) {
-  const role = personnelRoles[values.role];
-  const name = [values.firstName, values.middleInitial ? `${values.middleInitial}.` : "", values.lastName].filter(Boolean).join(" ");
-  const jurisdiction = [values.role === "barangay_personnel" ? values.barangay : "", values.municipalityOrCity, "Pangasinan"].filter(Boolean).join(", ");
-  return <section className="registration-review">
-    <dl>
-      <div><dt>Account Type</dt><dd>{role?.label}</dd></div>
-      <div><dt>Name</dt><dd>{name}</dd></div>
-      <div><dt>Email</dt><dd>{values.email}</dd></div>
-      <div><dt>Jurisdiction</dt><dd>{jurisdiction}</dd></div>
-      <div><dt>Account Status After Submission</dt><dd><span className="registration-pending-badge">Pending Administrator Approval</span></dd></div>
-    </dl>
-    <div><button type="button" onClick={() => edit(1)}>Edit Personal Information</button><button type="button" onClick={() => edit(2)}>Edit Jurisdiction</button></div>
-  </section>;
-}
-
-export function RegistrationSuccess({ mode, email, deliveryFailed = false }) {
-  const personnel = mode === "personnel";
+export function RegistrationSuccess({ email, deliveryFailed = false }) {
   const [delivery, setDelivery] = useState(deliveryFailed ? "failed" : "sent");
   const [resending, setResending] = useState(false);
   const resend = async () => {
@@ -84,12 +42,10 @@ export function RegistrationSuccess({ mode, email, deliveryFailed = false }) {
     finally { setResending(false); }
   };
   return <section className="registration-success" role="status">
-    <span><Icon name={!personnel && delivery === "failed" ? "priority" : "check"} size={30} /></span>
-    {personnel && <b>Pending Review</b>}
-    <h3>{personnel ? "Application submitted" : delivery === "failed" ? "Account created—email not sent" : "Account created"}</h3>
-    <p>{personnel ? "Your personnel account is awaiting SafeLink administrator approval." : delivery === "failed" ? "Your account was created, but we couldn't send the verification email. You can try sending it again." : delivery === "cooldown" ? "Please wait a moment before requesting another verification email." : "Please verify your email before signing in."}</p>
-    {personnel && <small>You will be able to access the personnel workspace after your account has been verified and approved.</small>}
-    {!personnel && delivery !== "sent" && <button className="button" type="button" disabled={resending} onClick={resend}>{resending ? "Sending…" : "Resend verification email"}</button>}
-    <Link className="button" to={personnel ? "/login" : "/login/citizen"}>Return to Sign In <Icon name="arrow" size={16} /></Link>
+    <span><Icon name={delivery === "failed" ? "priority" : "check"} size={30} /></span>
+    <h3>{delivery === "failed" ? "Account created?email not sent" : "Account created"}</h3>
+    <p>{delivery === "failed" ? "Your account was created, but we couldn't send the verification email. You can try sending it again." : delivery === "cooldown" ? "Please wait a moment before requesting another verification email." : "Please verify your email before signing in."}</p>
+    {delivery !== "sent" && <button className="button" type="button" disabled={resending} onClick={resend}>{resending ? "Sending?" : "Resend verification email"}</button>}
+    <Link className="button" to="/login">Return to Sign In <Icon name="arrow" size={16} /></Link>
   </section>;
 }

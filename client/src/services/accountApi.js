@@ -1,32 +1,24 @@
 import { ApiError } from "./apiClient";
 import { mapUserFromApi } from "./apiMappers";
+import { isVerifiedAccountShape } from "./authPolicy";
 import { authApi, personnelApi } from "./safelinkApi";
 
 export const accountApiCapabilities = Object.freeze({
   loginCitizen: true, loginBarangay: true, loginLgu: true, loginPolice: true, loginAdmin: true,
-  registerCitizen: true, applyPersonnel: true, verifyCitizenEmail: true,
+  registerCitizen: true, applyPersonnel: false, verifyCitizenEmail: true,
   createBarangayPersonnel: true, createLguPersonnel: true, createPolicePersonnel: true,
   pendingPersonnel: true, approvePersonnel: true,
 });
 
-const portalRoles = Object.freeze({
-  citizen: "citizen",
-  barangay: "barangay_personnel",
-  lgu: "lgu_personnel",
-  police: "police_personnel",
-  admin: "admin",
-});
-
-export async function loginAccount(portal, credentials) {
-  const expectedRole = portalRoles[portal];
-  if (!expectedRole) throw new ApiError("ROLE_NOT_SUPPORTED", "This SafeLink role is not supported.");
+export async function loginAccount(credentials) {
   const payload = await authApi.login({ email: credentials.email.trim().toLowerCase(), password: credentials.password });
-  if (payload?.user?.role !== expectedRole) throw new ApiError("ROLE_MISMATCH", "This account belongs to a different SafeLink workspace.", 403);
-  return { token: payload.token, user: mapUserFromApi(payload.user) };
+  const user = mapUserFromApi(payload?.user);
+  if (!payload?.token || !isVerifiedAccountShape(user)) throw new ApiError("ROLE_MISMATCH", "This account has no authorized SafeLink workspace.", 403);
+  return { token: payload.token, user };
 }
 
 export function registerCitizenAccount(values) { return authApi.registerCitizen(values); }
-export function applyPersonnelAccount(values) { return authApi.applyPersonnel(values); }
+export function applyPersonnelAccount() { return Promise.reject(new ApiError("PUBLIC_REGISTRATION_DISABLED", "Personnel accounts are created by the System Administrator.", 410)); }
 
 export function verifyCitizenEmail(search = "") {
   const token = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("token");
@@ -37,6 +29,7 @@ export function verifyCitizenEmail(search = "") {
 export function fetchPendingPersonnel() { return personnelApi.pending(); }
 
 export function createPersonnelAccount(type, values) {
+  if (type === 'lgu') return personnelApi.createLgu(values);
   const role = { barangay: "barangay_personnel", lgu: "lgu_personnel", police: "police_personnel" }[type];
   if (!role) return Promise.reject(new ApiError("ROLE_NOT_SUPPORTED", "This personnel role is not supported."));
   return personnelApi.create({ ...values, role });

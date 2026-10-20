@@ -1,10 +1,11 @@
 const fs = require('fs/promises');
 const path = require('path');
 const Incident = require('../models/incident');
+const { publishIncidentUpdate } = require('../services/realtime');
 const { recordAuditEvent } = require('../utils/auditLog');
 const { createNotification } = require('../utils/notifications');
 const { canAccessIncident } = require('../utils/incidentAccess');
-const { EVIDENCE_DIRECTORY, MAX_EVIDENCE_FILES } = require('../middleware/evidenceUpload');
+const { EVIDENCE_DIRECTORY, MAX_EVIDENCE_FILES, ALLOWED_EVIDENCE } = require('../middleware/evidenceUpload');
 
 const removeUploadedFiles = async (files = []) => {
   await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => undefined)));
@@ -45,6 +46,7 @@ const addEvidence = async (req, res) => {
     }));
     incident.evidenceFiles.push(...evidence);
     await incident.save();
+    void publishIncidentUpdate(incident);
 
     const addedEvidence = incident.evidenceFiles.slice(-evidence.length);
     await recordAuditEvent({
@@ -89,9 +91,27 @@ const addEvidence = async (req, res) => {
 // @desc    Download a protected evidence file
 // @route   GET /api/incidents/:id/evidence/:evidenceId
 const downloadEvidence = async (req, res) => {
+  res.set({ 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.vary('Authorization');
+  const retrievalError = (error) => {
+    if (res.destroyed) return;
+    if (res.headersSent) return res.destroy();
+    res.removeHeader('Content-Disposition');
+    res.removeHeader('Content-Length');
+    res.type('application/json');
+    if (error.code === 'ENOENT' || error.status === 404) {
+      return res.status(404).json({ message: 'Evidence file is unavailable.' });
+    }
+    if (error.status === 416) return res.status(416).json({ message: 'Requested evidence range is not available.' });
+    console.error('Evidence retrieval error:', error.name, error.code || 'unknown');
+    return res.status(500).json({ message: 'Server error retrieving evidence.' });
+  };
   try {
+    if (!/^[a-f\d]{24}$/i.test(req.params.id)) return res.status(400).json({ message: 'Invalid incident ID.' });
+    if (!/^[a-f\d]{24}$/i.test(req.params.evidenceId)) return res.status(400).json({ message: 'Invalid evidence ID.' });
     const incident = await Incident.findById(req.params.id)
-      .select('citizen assignedAgency assignedPersonnel barangaySupport location evidenceFiles +evidenceFiles.storageName');
+      // Select leaf fields only: MongoDB rejects a parent and its child in one projection.
+      .select('citizen assignedAgency assignedPersonnel barangaySupport location evidenceFiles._id evidenceFiles.originalName evidenceFiles.mimeType +evidenceFiles.storageName');
     if (!incident) return res.status(404).json({ message: 'Incident not found.' });
     const hasAccess = (req.user.role === 'citizen' && incident.citizen.toString() === req.user.id)
       || (req.user.role !== 'citizen' && canAccessIncident(req.user, incident));
@@ -99,6 +119,12 @@ const downloadEvidence = async (req, res) => {
 
     const evidence = incident.evidenceFiles.id(req.params.evidenceId);
     if (!evidence) return res.status(404).json({ message: 'Evidence file not found.' });
+    if (!Object.hasOwn(ALLOWED_EVIDENCE, evidence.mimeType)) {
+      return res.status(415).json({ message: 'This evidence format is not supported.' });
+    }
+    if (typeof evidence.storageName !== 'string' || !evidence.storageName) {
+      return res.status(500).json({ message: 'Evidence storage metadata is unavailable.' });
+    }
     const filePath = path.resolve(EVIDENCE_DIRECTORY, evidence.storageName);
     if (path.dirname(filePath) !== EVIDENCE_DIRECTORY) {
       return res.status(400).json({ message: 'Invalid evidence file.' });
@@ -106,11 +132,14 @@ const downloadEvidence = async (req, res) => {
 
     await fs.access(filePath);
     res.type(evidence.mimeType);
-    return res.download(filePath, evidence.originalName);
+    // Express invokes this callback for asynchronous send/stat/stream failures.
+    return res.download(filePath, path.basename(evidence.originalName || 'incident-evidence'), {
+      cacheControl: false,
+      lastModified: false,
+      headers: { 'Content-Type': evidence.mimeType }
+    }, (error) => { if (error) retrievalError(error); });
   } catch (error) {
-    if (error.code === 'ENOENT') return res.status(404).json({ message: 'Evidence file is unavailable.' });
-    if (error.name === 'CastError') return res.status(400).json({ message: 'Invalid incident or evidence ID.' });
-    return res.status(400).json({ message: 'Invalid evidence ID.' });
+    return retrievalError(error);
   }
 };
 

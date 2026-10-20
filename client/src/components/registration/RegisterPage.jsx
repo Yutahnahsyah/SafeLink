@@ -1,18 +1,18 @@
 import { useMemo, useRef, useState } from "react";
-import { registerCitizenAccount, applyPersonnelAccount } from "../../services/accountApi";
-import { Link } from "../../routing";
-import { AddressStep, JurisdictionStep, PersonalInfoStep, PersonnelRoleStep, RegisterRoleSelector, RegistrationReview, RegistrationSuccess, SecurityStep } from "./RegistrationSteps";
+import { registerCitizenAccount } from "../../services/accountApi";
+import { Link, useRouter } from "../../routing";
+import { AddressStep, PersonalInfoStep, RegistrationSuccess, SecurityStep } from "./RegistrationSteps";
 import { RegistrationActions, RegistrationShell, RegistrationStepper } from "./RegistrationShell";
-import { citizenPayload, citizenSteps, initialRegistrationValues, personnelPayload, personnelRoles, personnelSteps, validateRegistration } from "./registrationConfig";
-import { getPangasinanZipCode } from "../../data/pangasinanLocations";
+import { citizenPayload, citizenSteps, initialRegistrationValues, validateRegistration } from "./registrationConfig";
+import { updateRegistrationValue } from '../../services/registrationLocationState';
+import { useRegistrationLocations } from '../../services/useRegistrationLocations';
+import LegalDocumentModal from './LegalDocumentModal';
 import "./RegistrationFlow.css";
 
 const fieldsByStep = {
-  citizen: [["firstName", "lastName", "middleInitial", "phoneNumber", "email"], ["municipalityOrCity", "barangay"], ["password", "confirmPassword"]],
-  personnel: [["role"], ["firstName", "lastName", "middleInitial", "phoneNumber", "email"], ["municipalityOrCity", "barangay"], ["password", "confirmPassword"], []],
+  citizen: [["firstName", "lastName", "middleInitial", "phoneNumber", "email"], ["municipalityOrCity", "barangay", "street"], ["password", "confirmPassword", "legalAccepted"]],
 };
 
-const selectorContext = { key: "selector", eyebrow: "SafeLink Registration", heading: "Join a trusted community safety network.", description: "Create a Citizen account or apply for authorized personnel access.", notice: "Administrator accounts are created only through internal SafeLink administration." };
 const citizenContext = { key: "citizen", eyebrow: "Citizen Registration", heading: "Community safety starts with trusted information.", description: "Submit reports, follow verified updates, and stay connected with local response activity.", notice: "Citizen accounts require email verification before sign in." };
 
 function messageFor(error, mode) {
@@ -25,35 +25,39 @@ function messageFor(error, mode) {
 
 export default function RegisterPage() {
   const topRef = useRef(null);
-  const [mode, setMode] = useState("");
+  const mode = "citizen";
+  const { navigate } = useRouter();
   const [step, setStep] = useState(0);
   const [values, setValues] = useState({ ...initialRegistrationValues });
   const [touched, setTouched] = useState({});
   const [loading, setLoading] = useState(false);
   const [completion, setCompletion] = useState(null);
   const [serverError, setServerError] = useState("");
-  const errors = useMemo(() => validateRegistration(values, mode), [mode, values]);
-  const steps = mode === "personnel" ? personnelSteps : citizenSteps;
+  const [serverFields, setServerFields] = useState({});
+  const [legalDocument, setLegalDocument] = useState(null);
+  const barangays = useRegistrationLocations('barangays', values.municipalityOrCity, '', mode === 'citizen');
+  const errors = useMemo(() => ({ ...validateRegistration(values, mode, barangays.data), ...serverFields }), [mode, values, barangays.data, serverFields]);
+  const steps = citizenSteps;
   const stepFields = mode ? fieldsByStep[mode][step] : [];
   const stepValid = stepFields.every((field) => !errors[field]);
-  const personnelConfig = personnelRoles[values.role];
-  const context = mode === "citizen" ? citizenContext : mode === "personnel" && personnelConfig ? { key: values.role, eyebrow: `${personnelConfig.label} Application`, heading: personnelConfig.heading, description: personnelConfig.description, notice: "Applications remain pending until an authorized administrator approves access." } : selectorContext;
+  const context = citizenContext;
 
-  const scrollTop = () => window.requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  const scrollTop = () => window.requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: "start" }));
   const update = (key) => (eventOrValue) => {
-    const value = typeof eventOrValue === "string" ? eventOrValue : eventOrValue.target.value;
-    setValues((current) => ({
-      ...current,
-      [key]: value,
-      ...(key === "municipalityOrCity" ? { zipCode: getPangasinanZipCode(value) } : {}),
-    }));
+    const value = ['string', 'boolean'].includes(typeof eventOrValue) ? eventOrValue : eventOrValue.target.value;
+    setValues((current) => updateRegistrationValue(current, key, value, mode));
+    setServerFields((current) => Object.fromEntries(Object.entries(current).filter(([field]) => field !== key && !(key === 'municipalityOrCity' && ['barangay', 'street'].includes(field)) && !(key === 'barangay' && field === 'street'))));
     setServerError("");
+  };
+  const selectStreet = (street) => {
+    setValues((current) => ({ ...current, street, streetSuggestionContext: `${current.municipalityOrCity}:${current.barangay}` }));
+    setServerFields((current) => { const next = { ...current }; delete next.street; return next; });
+    setTouched((current) => ({ ...current, street: true }));
   };
   const touch = (key) => setTouched((current) => ({ ...current, [key]: true }));
   const markStepTouched = () => setTouched((current) => ({ ...current, ...Object.fromEntries(stepFields.map((field) => [field, true])) }));
-  const chooseMode = (nextMode) => { setMode(nextMode); setStep(0); setServerError(""); scrollTop(); };
   const next = () => { markStepTouched(); if (!stepValid) return; setStep((current) => current + 1); scrollTop(); };
-  const back = () => { if (step === 0) { setMode(""); } else { setStep((current) => current - 1); } setServerError(""); scrollTop(); };
+  const back = () => { if (step === 0) { navigate("/login"); } else { setStep((current) => current - 1); } setServerError(""); scrollTop(); };
   const edit = (target) => { setStep(target); setServerError(""); scrollTop(); };
   const submit = async (event) => {
     event.preventDefault();
@@ -64,40 +68,45 @@ export default function RegisterPage() {
     setLoading(true);
     setServerError("");
     try {
-      if (mode === "citizen") await registerCitizenAccount(citizenPayload(values));
-      else await applyPersonnelAccount(personnelPayload(values));
+      await registerCitizenAccount(citizenPayload(values));
       setCompletion({ email: values.email.trim().toLowerCase(), deliveryFailed: false });
       scrollTop();
     } catch (error) {
       if (mode === "citizen" && error?.code === "EMAIL_DELIVERY_FAILED" && error?.data?.accountCreated) {
         setCompletion({ email: values.email.trim().toLowerCase(), deliveryFailed: true });
         scrollTop();
-      } else setServerError(messageFor(error, mode));
+      } else {
+        const fields = Object.fromEntries((error.fieldErrors || []).map(({ field, message }) => [field.startsWith('legalAcceptance') ? 'legalAccepted' : field.replace(/^address\./, ''), message]));
+        setServerFields(fields);
+        if (fields.legalAccepted) setStep(2);
+        if (mode === 'citizen' && ['municipalityOrCity', 'barangay', 'street'].some((field) => fields[field])) setStep(1);
+        setServerError(messageFor(error, mode));
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const title = !mode ? "How will you use SafeLink?" : mode === "citizen" ? "Create your Citizen account" : "Apply for Personnel Access";
-  const copy = !mode ? "Choose the account path that matches how you will use the platform." : mode === "citizen" ? "A short, secure setup for reporting and tracking community concerns." : "Provide your identity and authorized jurisdiction for administrator review.";
-
-  return <RegistrationShell context={context} title={title} copy={copy}>
+  return <RegistrationShell context={context} title="Create your Citizen account" copy="Register as a Citizen to report concerns and follow verified community updates.">
     <div ref={topRef} className="registration-scroll-anchor" />
-    {completion ? <RegistrationSuccess mode={mode} email={completion.email} deliveryFailed={completion.deliveryFailed} /> : !mode ? <>
-      <RegisterRoleSelector onSelect={chooseMode} />
-      <p className="auth-switch">Already registered? <Link to="/login">Return to Sign In</Link></p>
-    </> : <form className="registration-flow" onSubmit={(event) => { if (step === steps.length - 1) submit(event); else { event.preventDefault(); next(); } }} noValidate>
+    {completion ? <RegistrationSuccess mode="citizen" email={completion.email} deliveryFailed={completion.deliveryFailed} /> : <form className="registration-flow" onSubmit={(event) => { if (step === steps.length - 1) submit(event); else { event.preventDefault(); next(); } }} noValidate>
       <RegistrationStepper steps={steps} current={step} />
       <div className="registration-step" key={`${mode}-${step}`}>
-        {mode === "personnel" && step === 0 && <PersonnelRoleStep value={values.role} onSelect={update("role")} error={touched.role ? errors.role : ""} />}
-        {((mode === "citizen" && step === 0) || (mode === "personnel" && step === 1)) && <PersonalInfoStep values={values} errors={errors} touched={touched} update={update} touch={touch} />}
-        {mode === "citizen" && step === 1 && <AddressStep values={values} errors={errors} touched={touched} update={update} touch={touch} />}
-        {mode === "personnel" && step === 2 && <JurisdictionStep values={values} errors={errors} touched={touched} update={update} touch={touch} />}
-        {((mode === "citizen" && step === 2) || (mode === "personnel" && step === 3)) && <SecurityStep values={values} errors={errors} touched={touched} update={update} touch={touch} />}
-        {mode === "personnel" && step === 4 && <RegistrationReview values={values} edit={edit} />}
+        {step === 0 && <PersonalInfoStep values={values} errors={errors} touched={touched} update={update} touch={touch} />}
+        {step === 2 && <SecurityStep values={values} errors={errors} touched={touched} update={update} touch={touch} />}
+        {mode === "citizen" && step === 1 && <AddressStep values={values} errors={errors} touched={touched} update={update} touch={touch} barangays={barangays} selectStreet={selectStreet} />}
       </div>
+      {step === 2 && <div className="registration-agreement">
+        <div className="registration-agreement-row">
+          <input id="registration-legal-acceptance" type="checkbox" required checked={values.legalAccepted} onChange={(event) => update('legalAccepted')(event.target.checked)} onBlur={() => touch('legalAccepted')} aria-labelledby="registration-agreement-label" aria-invalid={Boolean(touched.legalAccepted && errors.legalAccepted)} aria-describedby={touched.legalAccepted && errors.legalAccepted ? 'registration-agreement-error' : undefined} />
+          <div id="registration-agreement-label"><label htmlFor="registration-legal-acceptance">I have read and agree to the </label><button type="button" className="registration-legal-link" aria-haspopup="dialog" aria-controls="registration-legal-dialog" onClick={() => setLegalDocument('terms')}>Terms and Conditions</button> and acknowledge the <button type="button" className="registration-legal-link" aria-haspopup="dialog" aria-controls="registration-legal-dialog" onClick={() => setLegalDocument('privacy')}>Privacy Policy</button>.</div>
+        </div>
+        {touched.legalAccepted && errors.legalAccepted && <p id="registration-agreement-error" className="field-error" role="alert">{errors.legalAccepted}</p>}
+      </div>}
       {serverError && <p className="form-error" role="alert">{serverError}</p>}
-      <RegistrationActions back={back} next={next} nextDisabled={!stepValid} submit={step === steps.length - 1} loading={loading} nextLabel={step === steps.length - 1 ? mode === "citizen" ? "Create Citizen Account" : "Submit Application" : "Continue"} />
+      <RegistrationActions back={back} next={next} submit={step === steps.length - 1} loading={loading} nextLabel={step === steps.length - 1 ? "Create Citizen Account" : "Continue"} />
     </form>}
+    <p className="auth-switch">Already registered? <Link to="/login">Sign In</Link></p>
+    {legalDocument && <LegalDocumentModal document={legalDocument} onDismiss={() => setLegalDocument(null)} />}
   </RegistrationShell>;
 }

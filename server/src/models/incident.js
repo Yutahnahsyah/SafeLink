@@ -24,6 +24,7 @@ const ResponseHistorySchema = new mongoose.Schema({
       'closure_confirmation_requested',
       'closure_confirmed',
       'priority_confirmed',
+      'barangay_handling_confirmed',
       'note_added'
     ],
     default: 'note_added'
@@ -141,6 +142,11 @@ const IncidentSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  // Separate publication decision; workflow verification alone never makes a report public.
+  communityMapApprovedAt: { type: Date, default: null },
+  communityMapApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  communityMapPublicationStatus: { type: String, enum: ['pending', 'published', 'held', 'hidden'], default: 'pending' },
+  communityMapPublicationReason: { type: String, default: null },
   assignedAgency: {
     type: String,
     enum: ['Barangay', 'LGU', 'Police', 'Unassigned'],
@@ -237,6 +243,7 @@ const IncidentSchema = new mongoose.Schema({
 }, { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } });
 
 IncidentSchema.index({ incidentType: 1, 'location.address.barangay': 1, 'location.address.municipalityOrCity': 1, createdAt: -1 });
+IncidentSchema.index({ createdAt: -1 });
 IncidentSchema.index({ 'location.geoPoint': '2dsphere' }, { sparse: true });
 
 module.exports = mongoose.model('Incident', IncidentSchema);

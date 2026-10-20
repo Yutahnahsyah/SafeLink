@@ -1,7 +1,10 @@
-export const API_BASE_URL = String(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+// Development always uses Vite's same-origin proxy, including shared tunnel URLs.
+// Production may still explicitly configure a separately hosted API.
+export const API_BASE_URL = String(import.meta.env?.DEV ? "/api" : import.meta.env?.VITE_API_URL || "/api").replace(/\/+$/, "");
 
 const TOKEN_KEY = "safelink_access_token";
 const USER_KEY = "safelink_user";
+const ACTIVITY_KEY = "safelink_last_activity";
 
 export function getAccessToken() {
   try { return window.sessionStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; }
@@ -14,10 +17,19 @@ export function storeSession(token, user) {
   } catch { /* Storage can be unavailable in hardened browsers. */ }
 }
 
+export function getLastActivity() {
+  try { return Number(window.sessionStorage.getItem(ACTIVITY_KEY)) || 0; } catch { return 0; }
+}
+
+export function markActivity() {
+  try { window.sessionStorage.setItem(ACTIVITY_KEY, String(Date.now())); } catch { /* Storage can be unavailable. */ }
+}
+
 export function clearSession() {
   try {
     window.sessionStorage.removeItem(TOKEN_KEY);
     window.sessionStorage.removeItem(USER_KEY);
+    window.sessionStorage.removeItem(ACTIVITY_KEY);
   } catch { /* Nothing else to clear. */ }
 }
 
@@ -88,7 +100,7 @@ export async function apiRequest(path, { method = "GET", body, auth = true, resp
   const fieldErrors = Array.isArray(payload?.errors) ? payload.errors.map((item) => ({ field: item.path || item.param || "", message: item.msg || "Invalid value." })) : [];
   const message = String(payload?.message || fieldErrors[0]?.message || "SafeLink could not complete this request.");
   const code = typeof payload?.code === "string" ? payload.code : codeFor(response.status, message);
-  if (response.status === 401 && auth) {
+  if (response.status === 401 && auth && getAccessToken() === token) {
     clearSession();
     window.dispatchEvent(new CustomEvent("safelink:session-expired"));
   }

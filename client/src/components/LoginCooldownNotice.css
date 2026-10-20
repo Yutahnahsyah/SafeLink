@@ -1,0 +1,3 @@
+.login-cooldown-notice { margin:12px 0; padding:12px 14px; border:1px solid #b9dde4; border-radius:10px; background:#f0fafb; color:#174c63; font-size:13px; line-height:1.6; }
+.login-cooldown-notice p { margin:0; }
+.login-cooldown-notice > span { display:block; margin-top:5px; color:#087e89; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; }

@@ -1,7 +1,9 @@
 const Notification = require('../models/notification');
+const { publishNotification } = require('../services/realtime');
 
 const getNotifications = async (req, res) => {
   try {
+    if (req.query.sort !== undefined && req.query.sort !== 'newest') return res.status(400).json({ message: 'Invalid notification order.' });
     const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 25, 1), 100);
     const query = { recipient: req.user.id };
@@ -13,7 +15,7 @@ const getNotifications = async (req, res) => {
     }
 
     const [notifications, total, unread] = await Promise.all([
-      Notification.find(query).populate('incident', 'incidentType status severity').sort({ read: 1, priority: 1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+      Notification.find(query).populate('incident', 'incidentType status severity').sort(req.query.sort === 'newest' ? { createdAt: -1, _id: -1 } : { read: 1, priority: 1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
       Notification.countDocuments(query),
       Notification.countDocuments({ recipient: req.user.id, read: false })
     ]);
@@ -36,6 +38,7 @@ const markNotificationRead = async (req, res) => {
       notification.read = true;
       notification.readAt = new Date();
       await notification.save();
+      publishNotification(req.user.id, 'notification:read', notification._id);
     }
     return res.json(notification);
   } catch (error) {
@@ -49,6 +52,7 @@ const markAllNotificationsRead = async (req, res) => {
       { recipient: req.user.id, read: false },
       { $set: { read: true, readAt: new Date() } }
     );
+    if (result.modifiedCount) publishNotification(req.user.id, 'notification:read');
     return res.json({ message: 'Notifications marked as read.', modifiedCount: result.modifiedCount });
   } catch (error) {
     console.error('Notification update error:', error.message);

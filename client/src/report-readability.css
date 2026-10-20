@@ -1,0 +1,98 @@
+/* Scoped to the Barangay queue/dashboard and Citizen tracking details. */
+:is(.partner-app--readable, .citizen-report-tracking) {
+  --report-body: 1rem;
+  --report-meta: .875rem;
+  --report-section: 1.375rem;
+  --report-muted: #526874;
+}
+.partner-app--readable { --partner-muted: var(--report-muted); }
+.partner-app--readable .partner-hero { min-height: 0; padding: clamp(22px, 3vw, 36px); }
+.partner-app--readable .partner-hero > div { min-width: 0; overflow-wrap: anywhere; }
+.partner-app--readable .partner-hero h1 { font-size: clamp(1.625rem, 2.6vw, 2.125rem); line-height: 1.25; }
+.partner-app--readable .partner-hero small { font-size: .8125rem; line-height: 1.5; letter-spacing: .06em; }
+.partner-app--readable .partner-hero p { font-size: var(--report-body); line-height: 1.6; }
+.partner-app--readable .partner-grid { grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); gap: 24px; }
+.partner-app--readable .partner-grid:not(.partner-grid--incidents) { grid-template-rows: auto 1fr; }
+.partner-app--readable .partner-grid > section { padding: clamp(18px, 2vw, 28px); }
+.partner-app--readable .partner-grid :is(p, small, strong, label, button) { overflow-wrap: anywhere; }
+.partner-app--readable .partner-grid > section > div > small:first-child { color: var(--report-muted); font-size: .8125rem; line-height: 1.5; letter-spacing: .06em; }
+.partner-app--readable .partner-grid h2 { font-size: var(--report-section); line-height: 1.35; margin-bottom: 10px; }
+.partner-app--readable .partner-grid > section > div > p { color: var(--report-muted); font-size: var(--report-body); line-height: 1.65; margin-bottom: 16px; }
+.partner-app--readable .partner-grid article { gap: 12px; padding: 20px; margin-top: 18px; min-width: 0; }
+.partner-app--readable .partner-grid article > strong { font-size: 1.0625rem; line-height: 1.45; }
+.partner-app--readable .partner-grid article > small { color: var(--report-muted); font-size: var(--report-meta); line-height: 1.6; }
+.partner-app--readable .partner-grid article label { font-size: var(--report-meta); line-height: 1.5; }
+.partner-app--readable .partner-grid article :is(select, textarea) { min-width: 0; min-height: 44px; font-size: var(--report-body); }
+.partner-app--readable .partner-grid button { min-height: 44px; max-width: 100%; padding: 10px 16px; font-size: var(--report-meta); line-height: 1.5; }
+.partner-app--readable .partner-grid--incidents { grid-template-columns: minmax(0, 1fr); max-width: 960px; margin-inline: auto; }
+.partner-app--readable .partner-grid--incidents > section:first-child { grid-row: auto; }
+.partner-app--readable .barangay-account-copy small { font-size: .8125rem; color: var(--report-muted); }
+.partner-app--readable .barangay-sidebar { overflow-y: auto; }
+
+.citizen-report-tracking .citizen-main { min-width: 0; }
+.citizen-report-tracking .citizen-content { container: report-content / inline-size; }
+.citizen-report-tracking .citizen-topbar { height: auto; min-height: 80px; }
+.citizen-report-tracking .citizen-topbar h1 { max-width: none; white-space: normal; overflow-wrap: anywhere; font-size: clamp(1.25rem, 2vw, 1.75rem); line-height: 1.35; }
+.citizen-report-tracking .citizen-topbar > div > span { font-size: var(--report-meta); }
+.citizen-report-tracking :is(.tracking-heading, .tracking-grid, .tracking-timeline, .report-details) { min-width: 0; }
+.citizen-report-tracking :is(.tracking-heading, .tracking-grid, .tracking-timeline) :is(p, strong, small, h2, dt, dd) { overflow-wrap: anywhere; }
+.citizen-report-tracking .tracking-heading { flex-wrap: wrap; gap: 16px; }
+.citizen-report-tracking .tracking-heading > div { min-width: 0; flex: 1 1 280px; }
+.citizen-report-tracking .tracking-heading h2 { font-size: clamp(1.5rem, 2.5vw, 2rem); line-height: 1.35; }
+.citizen-report-tracking .tracking-heading p { font-size: var(--report-body); line-height: 1.65; color: var(--report-muted); }
+.citizen-report-tracking .tracking-heading > a { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--report-meta); }
+.citizen-report-tracking .tracking-heading .citizen-status { font-size: var(--report-meta); white-space: normal; line-height: 1.5; }
+.citizen-report-tracking :is(.tracking-card, .tracking-grid > *) { padding: clamp(18px, 2.5vw, 28px); min-width: 0; }
+.citizen-report-tracking :is(.tracking-card, .tracking-grid) h2 { font-size: var(--report-section); line-height: 1.4; }
+.citizen-report-tracking .tracking-timeline { grid-template-columns: minmax(0, 1fr); gap: 0; overflow: visible; padding: 0; }
+.citizen-report-tracking .tracking-timeline > div { min-width: 0; grid-template-columns: 40px minmax(0, 1fr); align-items: start; justify-items: start; gap: 16px; padding: 0 0 28px; text-align: left; }
+.citizen-report-tracking .tracking-timeline > div:last-child { padding-bottom: 0; }
+.citizen-report-tracking .tracking-timeline > div::before { top: 0; bottom: 0; left: 19px; width: 2px; height: auto; }
+.citizen-report-tracking .tracking-timeline > div:first-child::before { display: block; }
+.citizen-report-tracking .tracking-timeline > div:last-child::before { display: none; }
+.citizen-report-tracking .tracking-timeline > div > span { width: 40px; height: 40px; font-size: var(--report-meta); color: #526874; }
+.citizen-report-tracking .tracking-timeline > div:is(.complete, .current) > span { color: #fff; }
+.citizen-report-tracking .tracking-timeline > div.complete > span { background: #087d85; border-color: #087d85; }
+.citizen-report-tracking .tracking-timeline > div div { min-width: 0; max-width: none; gap: 5px; }
+.citizen-report-tracking .tracking-timeline strong { font-size: var(--report-body); line-height: 1.5; }
+.citizen-report-tracking .tracking-timeline small { font-size: var(--report-meta); line-height: 1.6; color: var(--report-muted); }
+.citizen-report-tracking .tracking-timeline p { font-size: var(--report-meta); line-height: 1.65; color: var(--report-muted); }
+.citizen-report-tracking .tracking-grid { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 24px; }
+.citizen-report-tracking .report-details { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.citizen-report-tracking .report-details > div { min-width: 0; align-content: start; }
+.citizen-report-tracking .report-details dt { font-size: var(--report-meta); line-height: 1.5; font-weight: 700; color: var(--report-muted); }
+.citizen-report-tracking .report-details dd { font-size: var(--report-body); line-height: 1.65; }
+.citizen-report-tracking .privacy-card p,
+.citizen-report-tracking .alternate-status-card p { font-size: var(--report-body); line-height: 1.65; color: var(--report-muted); }
+.citizen-report-tracking .report-response-history { list-style: none; padding: 0 0 0 18px; border-left: 2px solid #b8dfe1; }
+.citizen-report-tracking .report-response-history li { display: grid; gap: 6px; padding-bottom: 24px; overflow-wrap: anywhere; }
+.citizen-report-tracking .report-response-history strong { font-size: var(--report-body); }
+.citizen-report-tracking .report-response-history time { font-size: var(--report-meta); color: var(--report-muted); }
+.citizen-report-tracking .report-response-history p { margin: 0; white-space: pre-wrap; font-size: var(--report-body); line-height: 1.65; color: var(--report-muted); }
+.citizen-report-tracking .resolution-outcome p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--report-body); line-height: 1.65; color: var(--report-muted); }
+.citizen-report-tracking .resolution-outcome time { font-size: var(--report-meta); color: var(--report-muted); }
+@container report-content (min-width: 600px) {
+  .citizen-report-tracking .report-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .citizen-report-tracking .report-details > div:last-child { grid-column: 1 / -1; }
+}
+@container report-content (min-width: 900px) {
+  .citizen-report-tracking .tracking-grid { grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); }
+}
+@container report-content (min-width: 1100px) {
+  .citizen-report-tracking .tracking-timeline { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .citizen-report-tracking .tracking-timeline > div { grid-template-columns: minmax(0, 1fr); justify-items: center; align-content: start; gap: 16px; padding: 0 10px; text-align: center; }
+  .citizen-report-tracking .tracking-timeline > div::before { top: 19px; bottom: auto; left: -50%; width: 100%; height: 2px; display: block; }
+  .citizen-report-tracking .tracking-timeline > div:first-child::before { display: none; }
+  .citizen-report-tracking .tracking-timeline > div:last-child::before { display: block; }
+}
+@media (max-width: 1200px) {
+  .partner-app--readable .partner-grid { grid-template-columns: minmax(0, 1fr); }
+  .partner-app--readable .partner-grid > section:first-child { grid-row: auto; }
+  .partner-app--readable .partner-grid:not(.partner-grid--incidents) { grid-template-rows: none; }
+}
+@media (max-width: 760px) {
+  .partner-app--readable .partner-content { width: calc(100% - 32px); }
+  .partner-app--readable .partner-grid > section { grid-template-columns: minmax(0, 1fr); }
+  .partner-app--readable .partner-grid article { padding: 16px; }
+  .partner-app--readable .barangay-menu-toggle { width: 44px; height: 44px; }
+}

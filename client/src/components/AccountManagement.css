@@ -1,0 +1,81 @@
+.av-page--accounts .av-account-grid { grid-template-columns:minmax(0,3fr) minmax(0,2fr); align-items:start; gap:16px; }
+.av-page--accounts .av-account-grid > .av-panel,.av-page--accounts .av-account-insights { grid-column:auto; }
+.av-account-insights { display:grid; align-content:start; gap:14px; min-width:0; }
+.av-page--accounts .av-panel > header { min-height:74px; padding:15px 17px; gap:11px; }
+.av-page--accounts .av-panel h3 { font-size:16px; line-height:1.35; letter-spacing:-.015em; }
+.av-page--accounts .av-panel header p { font-size:12px; line-height:1.5; }
+.av-page--accounts .av-role-distribution .av-donut-wrap { min-height:0; gap:17px; padding:20px 17px; }
+.av-page--accounts .av-role-distribution .av-donut { width:142px; height:142px; flex-basis:142px; animation-duration:320ms; }
+.av-page--accounts .av-role-distribution .av-donut > div { width:94px; height:94px; }
+.av-page--accounts .av-role-distribution .av-donut strong { font-size:24px; }
+.av-page--accounts .av-role-distribution .av-legend { gap:10px; max-height:none; overflow:visible; }
+.av-page--accounts .av-role-distribution .av-legend li { gap:6px; font-size:11px; line-height:1.4; }
+.av-page--accounts .av-role-distribution .av-legend span { white-space:normal; overflow-wrap:anywhere; }
+.av-overview-body { padding:18px; color:#24476a; }
+.av-verification-share > div:first-child { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:12px; font-weight:650; }
+.av-verification-share strong { color:#087e89; font-size:21px; letter-spacing:-.02em; }
+.av-overview-meter,.av-status-track { display:flex; height:8px; overflow:hidden; border-radius:6px; background:#eaf2f5; }
+.av-overview-meter { margin-top:10px; }
+.av-overview-meter i { height:100%; border-radius:inherit; background:linear-gradient(90deg,#078f9b,#22c7c2); transition:width 240ms ease; }
+.av-verification-share p { margin:8px 0 0; color:#728a9c; font-size:11px; line-height:1.5; }
+.av-access-share { margin-top:17px; padding-top:15px; border-top:1px solid #e9eff3; }
+.av-access-share h4 { margin:0 0 11px; color:#24476a; font-size:12px; font-weight:650; }
+.av-status-track i { height:100%; }
+.av-access-share ul { display:grid; gap:8px; margin:12px 0 0; padding:0; list-style:none; }
+.av-access-share li,.av-access-share li > span { display:flex; align-items:center; gap:7px; }
+.av-access-share li { justify-content:space-between; color:#59758b; font-size:11px; }
+.av-access-share li i { width:7px; height:7px; flex:0 0 7px; border-radius:50%; }
+.av-access-share li strong { color:#24476a; font-size:12px; font-weight:650; }
+.av-overview-state { display:grid; justify-items:center; gap:8px; padding:22px 18px; color:#718799; text-align:center; font-size:12px; line-height:1.5; }
+.av-overview-state p { margin:0; }
+.av-overview-state button { border:1px solid #b8dce1; border-radius:6px; padding:6px 12px; background:#fff; color:#087e89; font:inherit; cursor:pointer; }
+.av-page--accounts .av-account-activity .av-list > div { min-height:60px; padding:10px 0; }
+.av-page--accounts .av-account-activity .av-list strong { font-size:13px; }
+.av-page--accounts .av-account-activity .av-list small { line-height:1.5; }
+.av-page--accounts .av-account-activity .av-list .av-icon { width:36px; height:36px; flex-basis:36px; border-radius:10px; }
+.av-page--accounts .av-account-activity time { white-space:nowrap; }
+@media (max-width:1100px) {
+  .av-page--accounts .av-account-grid { grid-template-columns:minmax(0,1fr); }
+  .av-account-insights { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
+}
+@media (max-width:680px) {
+  .av-account-insights { grid-template-columns:minmax(0,1fr); }
+  .av-page--accounts .av-panel > header { padding:13px; min-height:68px; }
+  .av-page--accounts .av-role-distribution .av-donut-wrap { flex-direction:row; gap:14px; }
+  .av-page--accounts .av-role-distribution .av-donut { width:116px; height:116px; flex-basis:116px; }
+  .av-page--accounts .av-role-distribution .av-donut > div { width:78px; height:78px; }
+  .av-overview-body { padding:16px; }
+}
+@media (max-width:360px) { .av-page--accounts .av-role-distribution .av-donut-wrap { flex-direction:column; } }
+.av-account-actions { display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
+.av-page--accounts .av-account-actions button { min-height:32px; padding:5px 9px; font-size:11px; white-space:nowrap; }
+.av-page--accounts .av-main-panel { min-width:0; container-type:inline-size; container-name:account-directory; }
+.av-page--accounts .av-account-table table { width:100%; min-width:0; table-layout:fixed; }
+.av-page--accounts .av-account-table :is(th,td) { padding:12px 8px; vertical-align:top; overflow-wrap:anywhere; }
+.av-page--accounts .av-account-table th { font-size:11px; }
+.av-page--accounts .av-account-table th:nth-child(1) { width:25%; }
+.av-page--accounts .av-account-table th:nth-child(2) { width:14%; }
+.av-page--accounts .av-account-table th:nth-child(3) { width:14%; }
+.av-page--accounts .av-account-table th:nth-child(4) { width:16%; }
+.av-page--accounts .av-account-table th:nth-child(5) { width:11%; }
+.av-page--accounts .av-account-table th:nth-child(6) { width:20%; }
+.av-page--accounts .av-account-table .av-badge { max-width:100%; box-sizing:border-box; padding:5px 7px; font-size:11px; white-space:normal; }
+.av-page--accounts .av-account-table .av-account-actions { min-width:0; align-items:stretch; }
+.av-page--accounts .av-account-table .av-account-actions > button { width:100%; max-width:120px; min-width:0; white-space:normal; overflow-wrap:anywhere; }
+@container account-directory (max-width:580px) {
+  .av-page--accounts .av-account-table table,.av-page--accounts .av-account-table tbody { display:block; }
+  .av-page--accounts .av-account-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); }
+  .av-page--accounts .av-account-table tbody tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:12px; gap:12px 16px; border-top:1px solid #e7eef3; }
+  .av-page--accounts .av-account-table tbody td { display:block; min-width:0; border:0; padding:0; }
+  .av-page--accounts .av-account-table tbody td:first-child,.av-page--accounts .av-account-table tbody td:last-child { grid-column:1/-1; }
+  .av-page--accounts .av-account-table td::before { content:attr(data-label); display:block; margin-bottom:5px; color:#62809a; font-size:11px; font-weight:600; }
+  .av-page--accounts .av-account-table .av-account-actions { flex-direction:row; flex-wrap:wrap; gap:8px; }
+  .av-page--accounts .av-account-table .av-account-actions > button { width:auto; max-width:100%; min-height:36px; padding:7px 12px; }
+}
+.av-account-recovery { box-sizing:border-box; border:1px solid #dbe7eb; color:#173e5c; max-width:calc(100vw - 32px); }
+.av-account-recovery::backdrop { background:#061e37a8; }
+.av-account-recovery button:disabled { opacity:.5; cursor:wait; }
+.av-account-recovery strong { overflow-wrap:anywhere; }
+.av-account-recovery[open] { animation:av-recovery-enter 220ms ease; }
+@keyframes av-recovery-enter { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@media(prefers-reduced-motion:reduce) { .av-account-recovery[open] { animation:none; } }

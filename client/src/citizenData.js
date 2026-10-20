@@ -1,6 +1,7 @@
+import { useNotificationFeed } from "./services/NotificationProvider";
 import { useCallback } from "react";
 import { requireCitizen } from "./auth";
-import { incidentApi, notificationApi } from "./services/safelinkApi";
+import { incidentApi } from "./services/safelinkApi";
 import { useApiResource } from "./services/useApiResource";
 
 export const citizenCapabilities = Object.freeze({
@@ -15,7 +16,7 @@ export const citizenCapabilities = Object.freeze({
 export function useCitizenReports(user) {
   const enabled = user?.role === "citizen" && !user?.isDevelopmentPreview;
   const loader = useCallback(() => { requireCitizen(user); return incidentApi.list(); }, [user?.id]);
-  return useApiResource(loader, [user?.id], { enabled, initialData: [] });
+  return useApiResource(loader, [user?.id], { enabled, initialData: [], live: ['incidents'] });
 }
 
 export function useCitizenReport(user, id) {
@@ -24,12 +25,12 @@ export function useCitizenReport(user, id) {
     const incidents = await incidentApi.list();
     return incidents.find((incident) => incident.id === id) || null;
   }, [id, user?.id]);
-  return useApiResource(loader, [id, user?.id], { enabled: Boolean(id && user?.role === "citizen" && !user?.isDevelopmentPreview), initialData: null });
+  return useApiResource(loader, [id, user?.id], { enabled: Boolean(id && user?.role === "citizen" && !user?.isDevelopmentPreview), initialData: null, live: ['incidents'] });
 }
 
 export function useCitizenNotifications(user) {
-  const loader = useCallback(async () => (await notificationApi.list({ page: 1, limit: 100 })).data, [user?.id]);
-  return useApiResource(loader, [user?.id], { enabled: Boolean(user?.id && !user?.isDevelopmentPreview), initialData: [] });
+  const feed = useNotificationFeed();
+  return { ...feed, available: feed.available && Boolean(user?.id), data: feed.available ? feed.data : [] };
 }
 
 export async function submitCitizenReport(user, values) {

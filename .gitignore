@@ -1,1 +1,5 @@
 node_modules/
+server/var/audit-outbox/
+/qa-stage1/
+/backups/
+/client/*.log

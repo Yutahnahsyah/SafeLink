@@ -1,0 +1,24 @@
+.registration-location-field { position:relative; min-width:0; color:#17354b; }
+.location-required { color:#087c84; }
+.registration-location-field > label.registration-label { justify-content:flex-start; gap:4px; }
+.registration-location-input { display:flex; align-items:center; position:relative; }
+.registration-location-input > svg { position:absolute; left:13px; color:#65818b; pointer-events:none; }
+.location-selection-indicator { position:absolute; right:12px; color:#087d85; display:flex; pointer-events:none; }
+.registration-location-helper { display:block; color:#5c7683; font-size:11px; line-height:18px; font-weight:400; }
+/* Body portal: no ancestor transform, overflow or stacking context can clip it. */
+.registration-location-popup { position:fixed; z-index:1300; display:flex; flex-direction:column; min-width:0; padding:6px; overflow:auto; overscroll-behavior:contain; background:#fff; border:1px solid #d2e4e8; border-radius:12px; box-shadow:0 15px 40px #0a2f4b26; font:400 13px/1.5 "DM Sans",sans-serif; animation:location-dropdown-in 180ms ease; }
+.registration-location-popup.is-closing { animation:location-dropdown-out 180ms ease forwards; pointer-events:none; }
+.registration-location-popup ul { position:relative; flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; scrollbar-gutter:stable; margin:0; padding:0; list-style:none; }
+.registration-location-popup li { display:flex; align-items:center; gap:8px; min-height:44px; padding:10px 12px; border-radius:8px; color:#17354b; cursor:pointer; transition:background 180ms,color 180ms; }
+.registration-location-popup li > span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.registration-location-popup li svg { flex:0 0 auto; }
+.registration-location-popup li[aria-selected=true],.registration-location-popup li.is-highlighted { background:#e4f6f6; color:#075d68; }
+.registration-location-popup mark { background:#d0f1f2; color:inherit; font-weight:800; padding:0; }
+.registration-location-popup p { padding:10px; margin:0; color:#587380; font-size:12px; line-height:1.6; }
+.registration-location-popup button,.location-retry { min-height:44px; padding:10px 12px; border:0; background:#e7f6f7; color:#086c76; border-radius:8px; cursor:pointer; font:700 12px/1.5 "DM Sans",sans-serif; }
+.registration-location-popup :is(a,button):focus-visible { outline:2px solid #007d85; outline-offset:-2px; }
+.location-source { flex:0 0 auto; display:block; margin:5px 7px; color:#496d7b; font-size:10px; }
+.registration-province-note { display:flex; align-items:center; gap:9px; margin:0; padding:13px 16px; background:#edf7fa; border:1px solid #d8eaf0; border-radius:12px; color:#24566a; font-size:13px; }
+@keyframes location-dropdown-in { from { opacity:0; } to { opacity:1; } }
+@keyframes location-dropdown-out { to { opacity:0; } }
+@media(prefers-reduced-motion:reduce) { .registration-location-popup,.registration-location-popup.is-closing { animation:none; }.registration-location-popup li { transition:none; } }

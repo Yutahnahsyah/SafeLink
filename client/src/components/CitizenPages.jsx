@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { SectionSkeleton, ResourceError, RefreshNotice } from './PageSkeletons';
+import ChangePasswordForm from "./ChangePasswordForm";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CitizenShell from "./CitizenShell";
 import Icon from "./Icon";
+import { OpenNotificationsButton } from "./NotificationBell";
 import SafetyMap from "./SafetyMap";
+import SafeLinkMap from "./maps/SafeLinkMap";
 import LocationPickerMap from "./maps/LocationPickerMap";
 import { useAuth } from "../auth";
 import { Link, useRouter } from "../routing";
@@ -11,10 +15,15 @@ import {
   useCitizenReports,
   submitCitizenReport,
 } from "../citizenData";
-import { reverseGeocode } from "../services/reverseGeocode";
-import { getPangasinanZipCode, pangasinanLocations } from "../data/pangasinanLocations";
+import { useIncidentLocation } from "../services/useIncidentLocation";
+import { useRegistrationLocations } from "../services/useRegistrationLocations";
+import { pangasinanLocations } from "../data/pangasinanLocations";
+import { COMMUNITY_MARKER_COLORS, isVisibleCommunityIncident } from "../services/communityIncidentMarkers";
 import ProtectedEvidence from "./ProtectedEvidence";
-import { notificationApi } from "../services/safelinkApi";
+import { incidentApi } from "../services/safelinkApi";
+import { useApiResource } from "../services/useApiResource";
+import "./CitizenMap.css";
+import "./CitizenDashboard.css";
 
 const statuses = [
   "Submitted",
@@ -35,12 +44,6 @@ const categories = [
   "People needing assistance during flooding",
 ];
 const reportSteps = ["Details", "Location", "Evidence", "Review"];
-const pangasinanBounds = {
-  minLatitude: 15.7,
-  maxLatitude: 16.7,
-  minLongitude: 119.7,
-  maxLongitude: 120.8,
-};
 
 const statusClass = (status = "") =>
   `citizen-status status-${status.toLowerCase().replaceAll(" ", "-").replaceAll("/", "-")}`;
@@ -184,6 +187,7 @@ export function DashboardPage() {
     <CitizenShell
       title="Community Safety"
       eyebrow={`${greeting}, ${firstName}`}
+      className="citizen-dashboard"
     >
       <div className="dashboard-command-center">
         <DepthSurface className="command-welcome bento-panel">
@@ -253,7 +257,7 @@ export function DashboardPage() {
           </div>
         </DepthSurface>
 
-        <section className="command-activity citizen-journey bento-panel">
+        <section className="command-activity citizen-journey bento-panel"><RefreshNotice result={reportResult} />
           <header className="bento-header">
             <div>
               <span className="bento-eyebrow">Personal progress</span>
@@ -261,7 +265,7 @@ export function DashboardPage() {
             </div>
             <Link to="/citizen/reports">View reports</Link>
           </header>
-          {reportResult.available && latestReport ? (
+          {reportResult.status === "loading" ? <SectionSkeleton variant="list" label="Loading report progress" /> : reportResult.status === "error" ? <ResourceError result={reportResult} label="Could not load report progress." /> : reportResult.available && latestReport ? (
             <div className="citizen-journey-body">
               <Link className="citizen-latest-report" to={`/citizen/reports/${encodeURIComponent(latestReport.id)}`}>
                 <span><Icon name="track" size={18} /></span>
@@ -319,15 +323,15 @@ export function DashboardPage() {
           </div>
         </section>
 
-        <section className="command-notifications bento-panel">
+        <section className="command-notifications bento-panel"><RefreshNotice result={notificationResult} />
           <header className="bento-header">
             <div>
               <span className="bento-eyebrow">Status center</span>
               <h2>Latest Updates</h2>
             </div>
-            <Link to="/citizen/notifications">View all</Link>
+            <OpenNotificationsButton>View all</OpenNotificationsButton>
           </header>
-          {notificationResult.available && notifications.length ? (
+          {notificationResult.status === "loading" ? <SectionSkeleton variant="list" label="Loading latest updates" /> : notificationResult.status === "error" ? <ResourceError result={notificationResult} /> : notificationResult.available && notifications.length ? (
             <div className="command-notification-list">
               {notifications.slice(0, 3).map((item) => (
                 <article key={item.id} className={item.unread ? "unread" : ""}>
@@ -363,12 +367,13 @@ export function DashboardPage() {
             <div>
               <span className="bento-eyebrow">Private submissions</span>
               <h2>My Recent Reports</h2>
+              {reportResult.status === 'success' && <p className="citizen-report-counts" aria-live="polite">{reports.length} reports · {reports.filter((report) => !['Resolved', 'Closed', 'Rejected'].includes(report.status)).length} active · {reports.filter((report) => ['Resolved', 'Closed'].includes(report.status)).length} resolved</p>}
             </div>
             <Link to="/citizen/reports">
               View all <Icon name="arrow" size={14} />
             </Link>
           </header>
-          {reportResult.available && reports.length ? (
+          {reportResult.status === 'loading' ? <SectionSkeleton variant="table" rows={3} columns={6} label="Loading recent reports" /> : reportResult.status === 'error' ? <ResourceError result={reportResult} label="Could not load recent reports." /> : reportResult.available && reports.length ? (
             <ReportTable reports={reports.slice(0, 3)} />
           ) : (
             <DashboardEmpty
@@ -446,7 +451,7 @@ export function MyReportsPage() {
             </select>
           </label>
         </div>
-        {!result.available ? (
+        <RefreshNotice result={result} />{result.status === "loading" ? <SectionSkeleton variant="table" rows={5} columns={6} label="Loading citizen reports" /> : result.status === "error" ? <ResourceError result={result} /> : !result.available ? (
           <ApiUnavailable feature="Citizen reports" />
         ) : filtered.length ? (
           <ReportTable reports={filtered} />
@@ -472,9 +477,7 @@ export function TrackReportPage({ id }) {
     return (
       <CitizenShell title="Report details" eyebrow="Incident tracking">
         <section className="citizen-card">
-          <EmptyState icon={result.status === "error" ? "priority" : "report"} title={result.status === "error" ? "Unable to load report" : "Loading report"}>
-            {result.status === "error" ? result.error?.message || "Please try again." : "Retrieving the latest authorized report details…"}
-          </EmptyState>
+          {result.status === "loading" ? <SectionSkeleton variant="form" label="Loading report details" /> : <ResourceError result={result} label="Unable to load report." />}
         </section>
       </CitizenShell>
     );
@@ -498,7 +501,7 @@ export function TrackReportPage({ id }) {
     );
   const current = statuses.indexOf(report.status);
   return (
-    <CitizenShell title={report.id} eyebrow="Incident tracking">
+    <CitizenShell title={report.id} eyebrow="Incident tracking" className="citizen-report-tracking">
       <div className="tracking-heading">
         <div>
           <span className={statusClass(report.status)}>{report.status}</span>
@@ -509,6 +512,7 @@ export function TrackReportPage({ id }) {
         </div>
         <Link to="/citizen/reports">Back to reports</Link>
       </div>
+      {result.refreshError && <RefreshNotice result={result} />}
       {alternateStatuses.includes(report.status) && (
         <div
           className={`alternate-status-card ${report.status === "Rejected" ? "is-rejected" : ""}`}
@@ -523,13 +527,16 @@ export function TrackReportPage({ id }) {
           </div>
         </div>
       )}
+      {['Resolved', 'Closed'].includes(report.status) && <section className="citizen-card tracking-card resolution-outcome">
+        <h2>Resolution outcome</h2><p>{report.resolution?.message || 'No resolution remarks were recorded for this older report.'}</p>
+        {report.resolution?.timestamp && <time>{report.resolution.timestamp}</time>}
+      </section>}
       <section className="citizen-card tracking-card">
         <h2>Status history</h2>
         <div className="tracking-timeline">
           {statuses.map((stage, index) => {
-            const history = report.statusHistory?.find(
-              (entry) => entry.status === stage,
-            );
+            const history = report.statusHistory?.findLast((entry) => entry.status === stage && ['submitted', 'status_changed'].includes(entry.eventType))
+              || report.statusHistory?.findLast((entry) => entry.status === stage);
             return (
               <div
                 className={`${index < current ? "complete" : ""} ${index === current ? "current" : ""}`}
@@ -558,6 +565,13 @@ export function TrackReportPage({ id }) {
             );
           })}
         </div>
+      </section>
+      <section className="citizen-card tracking-card">
+        <h2>Response updates</h2>
+        <ol className="report-response-history">{report.statusHistory?.map((entry, index) => <li key={entry.id || index}>
+          <strong>{entry.status}</strong><time>{entry.timestamp || 'Time not recorded'}</time><p>{entry.message}</p>
+        </li>)}</ol>
+        {!report.statusHistory?.length && <p>No response updates recorded.</p>}
       </section>
       <div className="tracking-grid">
         <section className="citizen-card">
@@ -624,13 +638,6 @@ export function ReportIncidentPage() {
   const [errors, setErrors] = useState({});
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [locating, setLocating] = useState(false);
-  const [geocoding, setGeocoding] = useState(false);
-  const [locationFeedback, setLocationFeedback] = useState(null);
-  const [mapFocus, setMapFocus] = useState(null);
-  const [selectionRevision, setSelectionRevision] = useState(0);
-  const geocodeControllerRef = useRef(null);
-  const locationEditRevisionRef = useRef(0);
   const locationIntroPlayedRef = useRef(false);
   const [values, setValues] = useState({
     type: "",
@@ -659,79 +666,9 @@ export function ReportIncidentPage() {
     setErrors((current) => ({ ...current, [key]: "" }));
     setNotice("");
   };
-  const setLocationText = (event) => {
-    locationEditRevisionRef.current += 1;
-    set("location")(event);
-  };
-  const setMunicipality = (event) => {
-    const municipalityOrCity = event.target.value;
-    setValues((current) => ({
-      ...current,
-      municipalityOrCity,
-      zipCode: getPangasinanZipCode(municipalityOrCity),
-    }));
-    setErrors((current) => ({ ...current, municipalityOrCity: "" }));
-    setNotice("");
-  };
-  useEffect(() => () => geocodeControllerRef.current?.abort(), []);
-  const findReadableLocation = ({ latitude, longitude }, source) => {
-    geocodeControllerRef.current?.abort();
-    const controller = new AbortController();
-    const editRevision = locationEditRevisionRef.current;
-    geocodeControllerRef.current = controller;
-    setGeocoding(true);
-    setLocationFeedback({ type: "loading", text: "Finding address…" });
-    reverseGeocode({ latitude, longitude, signal: controller.signal })
-      .then((locationText) => {
-        if (controller.signal.aborted) return;
-        if (locationEditRevisionRef.current === editRevision) {
-          setValues((current) => ({ ...current, location: locationText }));
-          setErrors((current) => ({ ...current, location: "" }));
-        }
-        setLocationFeedback({
-          type: "success",
-          text:
-            source === "current"
-              ? "Location detected."
-              : "Pinned location updated.",
-        });
-      })
-      .catch((error) => {
-        if (error?.name === "AbortError") return;
-        setLocationFeedback({
-          type: "error",
-          text: "We found your location, but couldn't determine the address. You can enter the location or nearby landmark manually.",
-        });
-      })
-      .finally(() => {
-        if (geocodeControllerRef.current === controller) setGeocoding(false);
-      });
-  };
-  const setCoordinates = ({ latitude, longitude }, source = "manual") => {
-    const inside =
-      latitude >= pangasinanBounds.minLatitude &&
-      latitude <= pangasinanBounds.maxLatitude &&
-      longitude >= pangasinanBounds.minLongitude &&
-      longitude <= pangasinanBounds.maxLongitude;
-    if (!inside) {
-      setErrors((current) => ({ ...current, coordinates: "" }));
-      setLocationFeedback({
-        type: "error",
-        text: "That point is outside Pangasinan. Choose another location on the map.",
-      });
-      return false;
-    }
-    setValues((current) => ({
-      ...current,
-      location: "",
-      latitude: latitude.toFixed(6),
-      longitude: longitude.toFixed(6),
-    }));
-    setErrors((current) => ({ ...current, location: "", coordinates: "" }));
-    setSelectionRevision((current) => current + 1);
-    findReadableLocation({ latitude, longitude }, source);
-    return true;
-  };
+  const { locating, geocoding, locationFeedback, mapFocus, selectionRevision, useLocation, setCoordinates, editAddress, setMunicipality } =
+    useIncidentLocation({ values, setValues, setErrors, setNotice });
+  const barangays = useRegistrationLocations('barangays', values.municipalityOrCity);
   const validate = (target = step) => {
     const next = {};
     if (target === 1) {
@@ -746,6 +683,7 @@ export function ReportIncidentPage() {
       if (!values.municipalityOrCity)
         next.municipalityOrCity = "Select a municipality or city.";
       if (!values.barangay.trim()) next.barangay = "Enter the barangay.";
+      if (values.zipCode && !/^\d{4}$/.test(values.zipCode)) next.zipCode = "Enter a four-digit ZIP code or leave it blank.";
       if (!values.latitude || !values.longitude)
         next.coordinates =
           "Choose the incident position on the map or use your current location.";
@@ -759,44 +697,6 @@ export function ReportIncidentPage() {
     if (next > step && !validate(step)) return;
     setStep(next);
     setNotice("");
-  };
-  const useLocation = () => {
-    if (!navigator.geolocation) {
-      const text =
-        "We couldn't detect your current location. Please select the location manually on the map.";
-      setErrors((current) => ({ ...current, coordinates: "" }));
-      setLocationFeedback({ type: "error", text });
-      return;
-    }
-    setLocating(true);
-    setLocationFeedback({
-      type: "loading",
-      text: "Detecting your current location…",
-    });
-    setErrors((current) => ({ ...current, coordinates: "" }));
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setLocating(false);
-        const location = {
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-        };
-        if (setCoordinates(location, "current"))
-          setMapFocus({ ...location, id: Date.now() });
-      },
-      (error) => {
-        setLocating(false);
-        const text =
-          error.code === 1
-            ? "Location access was denied. You can still click the map to select the incident location manually."
-            : error.code === 3
-              ? "Location detection took too long. Try again or select the location manually."
-              : "We couldn't detect your current location. Please select the location manually on the map.";
-        setErrors((current) => ({ ...current, coordinates: "" }));
-        setLocationFeedback({ type: "error", text });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-    );
   };
   const addFiles = (event) => {
     const selected = [...event.target.files];
@@ -929,7 +829,7 @@ export function ReportIncidentPage() {
             {errors.description && <small>{errors.description}</small>}
           </label>
           <label>
-            Date *
+            Date of Incident
             <input
               type="date"
               max={new Date().toISOString().slice(0, 10)}
@@ -939,7 +839,7 @@ export function ReportIncidentPage() {
             {errors.date && <small>{errors.date}</small>}
           </label>
           <label>
-            Time *
+            Time of Incident
             <input type="time" value={values.time} onChange={set("time")} />
             {errors.time && <small>{errors.time}</small>}
           </label>
@@ -964,7 +864,7 @@ export function ReportIncidentPage() {
             <div className="input-action">
               <input
                 value={values.location}
-                onChange={setLocationText}
+                onChange={editAddress("location")}
                 placeholder="Nearby landmark, street, or other useful location detail"
                 aria-invalid={Boolean(errors.location)}
               />
@@ -985,6 +885,7 @@ export function ReportIncidentPage() {
                     : "Use current location"}
               </button>
             </div>
+            <span className="location-picker-help">Using current location replaces the address and map pin. Review all detected fields before continuing.</span>
             {errors.location && <small>{errors.location}</small>}
           </label>
           <label>
@@ -997,21 +898,28 @@ export function ReportIncidentPage() {
           </label>
           <label>
             Barangay *
-            <input value={values.barangay} onChange={set("barangay")} autoComplete="address-level3" />
+            {barangays.status === "error" ? <>
+              <input value={values.barangay} onChange={editAddress("barangay")} autoComplete="address-level3" aria-invalid={Boolean(errors.barangay)} />
+              <small>Barangay options are unavailable. Enter the barangay manually, or <button type="button" onClick={barangays.retry}>retry loading options</button>.</small>
+            </> : <select value={values.barangay} onChange={editAddress("barangay")} disabled={!values.municipalityOrCity || barangays.status === "loading"} aria-invalid={Boolean(errors.barangay)}>
+              <option value="">{barangays.status === "loading" ? "Loading barangays…" : "Select barangay"}</option>
+              {barangays.data.map(({ name }) => <option value={name} key={name}>{name}</option>)}
+            </select>}
             {errors.barangay && <small>{errors.barangay}</small>}
           </label>
           <label>
             Street <span>(optional)</span>
-            <input value={values.street} onChange={set("street")} autoComplete="street-address" />
+            <input value={values.street} onChange={editAddress("street")} autoComplete="street-address" />
           </label>
           <label>
-            ZIP Code <span>(auto-filled)</span>
-            <input value={values.zipCode} readOnly aria-readonly="true" autoComplete="postal-code" />
+            ZIP Code <span>(auto-filled, editable)</span>
+            <input value={values.zipCode} onChange={editAddress("zipCode")} inputMode="numeric" maxLength={4} autoComplete="postal-code" aria-invalid={Boolean(errors.zipCode)} />
+            {errors.zipCode && <small>{errors.zipCode}</small>}
           </label>
           <div className="location-picker full">
             <div className="location-picker-heading">
               <span>Map location</span>
-              <small>Click the map to pin where the incident happened.</small>
+              <small>Click the map to update the pin and detected address.</small>
             </div>
             <div className="location-picker-frame">
               <LocationPickerMap
@@ -1086,7 +994,7 @@ export function ReportIncidentPage() {
             >
               Back
             </button>
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={locating || geocoding}>
               Continue to evidence <Icon name="arrow" size={16} />
             </button>
           </div>
@@ -1243,124 +1151,63 @@ export function ReportIncidentPage() {
 }
 
 export function CitizenMapPage() {
-  const [filters, setFilters] = useState({ category: "all", status: "all" });
-  const set = (key) => (event) =>
-    setFilters((current) => ({ ...current, [key]: event.target.value }));
+  const { user } = useAuth();
+  const [filters, setFilters] = useState({ category: "", status: "", municipality: "", period: "30", from: "", to: "" });
+  const [mapVersion, setMapVersion] = useState(0);
+  const set = (key) => (event) => setFilters((current) => ({ ...current, [key]: event.target.value }));
+  const query = useMemo(() => {
+    const values = { incidentType: filters.category, status: filters.status, municipality: filters.municipality };
+    if (filters.period === "custom") { values.from = filters.from; values.to = filters.to; }
+    else if (filters.period !== "all") {
+      const date = new Date(Date.now() - (Number(filters.period) - 1) * 86400000);
+      const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date).map((part) => [part.type, part.value]));
+      values.from = `${parts.year}-${parts.month}-${parts.day}`;
+    }
+    return values;
+  }, [filters]);
+  const loadMap = useCallback(() => incidentApi.map(query), [query]);
+  const result = useApiResource(loadMap, [user?.id, query], { enabled: Boolean(user?.id), initialData: { items: [], metadata: null } });
+  const items = result.status === "success" && !result.refreshError ? (result.data?.items || []).filter(isVisibleCommunityIncident) : [];
+  const summary = result.data?.metadata;
+  const clearFilters = () => setFilters({ category: "", status: "", municipality: "", period: "30", from: "", to: "" });
   return (
     <CitizenShell
-      title="Pangasinan Safety Map"
-      eyebrow="Privacy-protected community view"
+      title="Community Safety Map"
+      eyebrow="Published community activity"
     >
-      <div className="page-actions">
+      <div className="page-actions community-map-heading">
         <div>
-          <h2>Community safety overview</h2>
-          <p>
-            Generalized locations only. Reporter identities, contact details,
-            and evidence are never shown.
-          </p>
+          <h2>Community Safety Map</h2>
+          <p>Explore reported community safety incidents across Pangasinan.</p>
         </div>
       </div>
-      <p className="data-disclosure" role="note">
-        <Icon name="shield" size={17} /> The map shows privacy-safe incident
-        markers returned for your authorized account. Reporter identities and evidence are excluded.
-      </p>
-      <section className="citizen-card map-page-card">
-        <div className="map-page-filters">
-          <select
-            value={filters.category}
-            onChange={set("category")}
-            aria-label="Filter incidents by category"
-          >
-            <option value="all">All categories</option>
-            {categories.map((category) => <option key={category}>{category}</option>)}
-          </select>
-          <select
-            value={filters.status}
-            onChange={set("status")}
-            aria-label="Filter incidents by status"
-          >
-            <option value="all">All statuses</option>
-            {statuses.map((status) => (
-              <option key={status}>{status}</option>
-            ))}
-          </select>
-          <div className="map-legend" aria-label="Map legend">
-            <span>
-              <i className="legend-active" /> Active / under review
-            </span>
-            <span>
-              <i className="legend-resolved" /> Resolved
-            </span>
-          </div>
-        </div>
-        <div className="citizen-map-large">
-          <SafetyMap
-            compact
-            filterCategory={filters.category}
-            filterStatus={filters.status}
-          />
-        </div>
+      <p className="data-disclosure" role="note"><Icon name="shield" size={17} /> Only approved resolved reports appear at generalized locations. Exact locations, reporter details, and evidence stay private.</p>
+      <section className="community-map-stats" aria-label="Published report summary">
+        {[["Publicly Visible Reports", summary?.visibleReports], ["Active Reports", summary?.activeReports], ["Resolved Reports", summary?.resolvedReports], ["Municipalities With Published Reports", summary?.municipalities]].map(([label, value]) => <div className="citizen-card" key={label}><small>{label}</small><strong>{result.status === "loading" ? "…" : value === null && summary ? "—" : value ?? 0}</strong></div>)}
       </section>
-    </CitizenShell>
-  );
-}
-
-export function NotificationsPage() {
-  const { user } = useAuth();
-  const result = useCitizenNotifications(user);
-  const items = result.data || [];
-  const [notificationError, setNotificationError] = useState("");
-  const markAllRead = async () => {
-    setNotificationError("");
-    try { await notificationApi.markAllRead(); result.retry(); }
-    catch (error) { setNotificationError(error?.message || "Unable to update notifications."); }
-  };
-  const markRead = (item) => {
-    if (item.unread) notificationApi.markRead(item.id).catch((error) => setNotificationError(error?.message || "Unable to update this notification."));
-  };
-  return (
-    <CitizenShell title="Notifications" eyebrow="Report and account updates">
-      <div className="page-actions">
-        <div>
-          <h2>Your updates</h2>
-          <p>
-            Report status, information requests, and account security notices.
-          </p>
+      <section className="citizen-card map-page-card community-map-page">
+        <div className="community-map-filters" aria-label="Community map filters">
+          <label>Category<select value={filters.category} onChange={set("category")}><option value="">All Categories</option>{["Suspicious activities", "Dangerous road incidents", "Public fire or smoke incidents"].map((category) => <option key={category}>{category}</option>)}</select></label>
+          <label>Status<select value={filters.status} onChange={set("status")}><option value="">All Statuses</option>{["Verified", "In Progress", "Resolved", "Closed"].map((status) => <option key={status}>{status}</option>)}</select></label>
+          <label>Municipality or City<select value={filters.municipality} onChange={set("municipality")}><option value="">All Municipalities</option>{pangasinanLocations.map((place) => <option key={place.name}>{place.name}</option>)}</select></label>
+          <label>Date reported<select value={filters.period} onChange={set("period")}><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option><option value="custom">Custom Date Range</option><option value="all">All Dates</option></select></label>
+          {filters.period === "custom" && <><label>From<input type="date" value={filters.from} max={filters.to || undefined} onChange={set("from")} /></label><label>To<input type="date" value={filters.to} min={filters.from || undefined} onChange={set("to")} /></label></>}
+          <button className="button button-muted" type="button" onClick={clearFilters}>Clear Filters</button>
+          <button className="button button-muted" type="button" onClick={() => setMapVersion((value) => value + 1)}>Reset Map View</button>
         </div>
-        {items.some((item) => item.unread) && <button className="button button-muted" onClick={markAllRead}>Mark all as read</button>}
-      </div>
-      {notificationError && <p className="form-error" role="alert">{notificationError}</p>}
-      <section className="citizen-card notification-list">
-        {!result.available ? (
-          <ApiUnavailable feature="Notifications" />
-        ) : items.length ? (
-          items.map((item) => (
-            <Link
-              key={item.id}
-              className={item.unread ? "unread" : ""}
-              onClick={() => markRead(item)}
-              to={
-                item.reportId
-                  ? `/citizen/reports/${encodeURIComponent(item.reportId)}`
-                  : "/citizen/notifications"
-              }
-            >
-              <span>
-                <Icon name={item.type === "resolved" ? "check" : "bell"} />
-                {item.unread && <i />}
-              </span>
-              <div>
-                <strong>{item.title}</strong>
-                <p>{item.body}</p>
-                <small>{item.timestamp}</small>
-              </div>
-            </Link>
-          ))
-        ) : (
-          <EmptyState icon="bell" title="You’re all caught up">
-            New report and account updates will appear here.
-          </EmptyState>
-        )}
+        {result.status === "error" && <div className="community-map-state" role="alert">Community map data could not be loaded. <button type="button" className="button" onClick={result.retry}>Retry</button></div>}
+        {result.status === "loading" && <div className="community-map-state" role="status"><span className="skeleton-block" /> Loading published reports…</div>}
+        {result.status === "success" && !items.length && <div className="community-map-state" role="status">No approved resolved reports match the current filters.</div>}
+        <div className="citizen-map-large">
+          <SafeLinkMap key={mapVersion} mode="community" items={items} compact />
+        </div>
+        <div className="community-map-legend" aria-label="Map legend">{[
+          ["Suspicious activities", "", COMMUNITY_MARKER_COLORS.suspicious],
+          ["Road incidents", "is-road", COMMUNITY_MARKER_COLORS.road],
+          ["Fire or smoke", "is-fire", COMMUNITY_MARKER_COLORS.fire],
+          ["Mixed categories", "is-mixed", COMMUNITY_MARKER_COLORS.mixed],
+          ["Multiple nearby areas", "is-cluster", COMMUNITY_MARKER_COLORS.nearby],
+        ].map(([label, className, color]) => <span key={label}><i className={`community-legend-dot ${className}`} style={{ backgroundColor: color }} /> {label}</span>)}<small>Colors show incident categories. Select a circle to browse every resolved report in its generalized area.</small></div>
       </section>
     </CitizenShell>
   );
@@ -1435,12 +1282,13 @@ export function ProfilePage() {
           <dl>
             <div>
               <dt>City / Municipality</dt>
-              <dd>{user?.city || user?.municipality || "Not available"}</dd>
+              <dd>{user?.address?.municipalityOrCity || user?.city || user?.municipality || "Not available"}</dd>
             </div>
             <div>
               <dt>Barangay</dt>
-              <dd>{user?.barangay || "Not available"}</dd>
+              <dd>{user?.address?.barangay || user?.barangay || "Not available"}</dd>
             </div>
+            <div><dt>Residential Street Address</dt><dd>{user?.address?.street || "Not provided"}</dd></div>
           </dl>
         </section>
       </div>
@@ -1457,14 +1305,14 @@ export function SettingsPage() {
   const { navigate } = useRouter();
   const doLogout = () => {
     logout();
-    navigate("/login/citizen", { replace: true });
+    navigate("/login", { replace: true });
   };
   const sections = [
     [
       "shield",
       "Security",
       "Account & Password",
-      "Password changes are not exposed by the current frontend API. Request a secure reset email using the supported recovery flow.",
+      "Change your password voluntarily below, or request a secure recovery link if needed.",
       <Link className="button button-muted" to="/forgot-password">
         Reset password
       </Link>,
@@ -1484,6 +1332,7 @@ export function SettingsPage() {
   ];
   return (
     <CitizenShell title="Settings" eyebrow="Account, privacy, and security">
+      <ChangePasswordForm />
       <div className="settings-intro">
         <div>
           <span>Citizen preferences</span>

@@ -1,0 +1,15 @@
+.admin-profile-menu > button { max-width:300px; }
+.admin-profile-menu > button strong { max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.admin-app .admin-profile-menu > button > svg { transform:none; transition:transform 180ms ease; }
+.admin-app .admin-profile-menu > button[aria-expanded="true"] > svg { transform:rotate(180deg); }
+.admin-profile-menu > button:focus-visible,.admin-profile-dropdown [role="menuitem"]:focus-visible { outline:3px solid #18bdc8; outline-offset:3px; }
+.admin-profile-dropdown { position:absolute; z-index:1200; right:0; top:calc(100% + 10px); width:240px; max-width:calc(100vw - 32px); padding:7px; border:1px solid #d7e7ec; border-radius:14px; background:#fff; box-shadow:0 16px 38px #07274426; transform-origin:top right; animation:admin-account-enter 180ms ease; }
+.admin-profile-dropdown [role="menuitem"] { display:flex; align-items:center; gap:11px; width:100%; min-height:44px; padding:11px 12px; border:0; border-radius:9px; background:transparent; color:#173e5c; text-align:left; text-decoration:none; font:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:background 180ms ease,color 180ms ease; }
+.admin-profile-dropdown [role="menuitem"] svg { color:#07858f; flex-shrink:0; }
+.admin-profile-dropdown [role="menuitem"]:hover,.admin-profile-dropdown [role="menuitem"]:focus { background:#eaf8f9; color:#066b79; }
+.admin-profile-dropdown .admin-profile-signout { margin-top:5px; border-top:1px solid #e7eff3; border-radius:0 0 9px 9px; color:#a93649; }
+.admin-profile-dropdown .admin-profile-signout svg { color:inherit; }
+.admin-password-page { max-width:680px; }
+.admin-password-page .lgu-password-form { width:100%; box-sizing:border-box; margin:0; max-width:none; }
+@keyframes admin-account-enter { from { opacity:0; transform:translateY(-5px) scale(.98); } to { opacity:1; transform:none; } }
+@media(prefers-reduced-motion:reduce) { .admin-profile-dropdown { animation:none; }.admin-profile-menu > button > svg,.admin-profile-dropdown [role="menuitem"] { transition:none; } }

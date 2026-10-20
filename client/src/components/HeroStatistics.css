@@ -1,0 +1,6 @@
+/* Keep the original hero-stats rules in styles.css, including the mobile grid. */
+.hero-statistics-block { position: relative; display: flow-root; width: 100%; }
+.hero-statistics-feedback { position: absolute; bottom: 14px; left: 0; width: 100%; margin: 0; padding: 0 8px; color: #a6bccd; font: 400 11px/1.4 Inter, sans-serif; text-align: center; }
+.hero-statistics-feedback button { padding: 0 3px; border: 0; background: transparent; color: #5de3df; font: inherit; text-decoration: underline; cursor: pointer; }
+.hero-statistics-feedback button:focus-visible { outline: 2px solid #5de3df; outline-offset: 3px; }
+@media (max-width: 540px) { .hero-statistics-feedback { bottom: 5px; font-size: 10px; } }

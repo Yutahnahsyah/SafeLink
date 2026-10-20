@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { requireAdmin } from "./auth";
-import { analyticsApi, auditApi, incidentApi, notificationApi, personnelApi } from "./services/safelinkApi";
+import { analyticsApi, incidentApi, notificationApi, personnelApi } from "./services/safelinkApi";
 import { useApiResource } from "./services/useApiResource";
+import { useAuditResource } from "./services/useAuditResource";
 
 export const adminCapabilities = Object.freeze({
   reports: true, reportDetails: true, reviewDecision: true, priorityUpdate: true,
@@ -37,9 +38,8 @@ export function useAdminAnalytics(user) {
   return useApiResource(loader, [user?.id], { enabled: Boolean(user?.id && !user?.isDevelopmentPreview), initialData: null });
 }
 
-export function useAuditLogs(user) {
-  const loader = useCallback(() => auditApi.list({ page: 1, limit: 100 }), [user?.id]);
-  return useApiResource(loader, [user?.id], { enabled: Boolean(user?.id && !user?.isDevelopmentPreview), initialData: { data: [], pagination: {} } });
+export function useAuditLogs(user, filters = { view: "recent", page: 1, limit: 6 }) {
+  return useAuditResource(user, filters);
 }
 
 export function processAdminIncident(id, changes) { return incidentApi.process(id, changes); }

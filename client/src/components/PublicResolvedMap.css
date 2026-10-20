@@ -1,0 +1,13 @@
+﻿/* Original map-frame dimensions and backgrounds remain in styles.css. */
+.hero-map-shell.public-map-original { margin-top: 56px; }
+.public-incident-circle { background: transparent; border: 0; }
+.public-incident-circle > span { display: block; box-sizing: border-box; width: 14px; height: 14px; border: 1.5px solid #fff; border-radius: 50%; box-shadow: 0 1px 4px #082d4766; }
+.public-incident-circle:focus-visible { outline: 2px solid #092f48; outline-offset: 4px; border-radius: 50%; }
+.public-incident-legend { position: absolute; z-index: 850; left: 14px; bottom: 14px; display: grid; gap: 6px; max-width: calc(100% - 70px); padding: 10px 12px; border: 1px solid #cadce2; border-radius: 8px; background: #ffffffed; color: #26495c; box-shadow: 0 2px 9px #052f4524; pointer-events: none; font: 500 10px/1.4 Inter, sans-serif; text-align: left; }
+.public-incident-legend span { display: flex; align-items: center; gap: 7px; }
+.public-incident-legend i { flex-shrink: 0; width: 9px; height: 9px; border: 1px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #53738430; }
+.public-map-feedback { position: absolute; z-index: 850; top: 65px; left: 50%; width: max-content; max-width: calc(100% - 40px); padding: 8px 12px; border: 1px solid #c9dfe4; border-radius: 8px; background: #fffffff2; color: #264c60; transform: translateX(-50%); font: 500 11px/1.5 Inter, sans-serif; text-align: center; box-shadow: 0 2px 8px #082f4620; }
+.public-map-feedback button { margin-left: 5px; padding: 2px 5px; border: 0; border-radius: 3px; background: transparent; color: #056b76; text-decoration: underline; cursor: pointer; font: inherit; }
+.public-map-feedback button:focus-visible { outline: 2px solid #087d85; outline-offset: 2px; }
+.public-map-large { position: relative; }
+@media (max-width: 540px) { .hero-map-shell.public-map-original { margin-top: 36px; } .public-incident-legend { left: 10px; bottom: 12px; gap: 5px; padding: 8px 10px; font-size: 9px; } }

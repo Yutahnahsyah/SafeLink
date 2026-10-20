@@ -1,5 +1,6 @@
 const samePlace = (first, second) => (
-  first?.trim().toLowerCase() === second?.trim().toLowerCase()
+  typeof first === 'string' && typeof second === 'string' && Boolean(first.trim() && second.trim())
+    && first.trim().toLowerCase() === second.trim().toLowerCase()
 );
 
 const canCoverIncidentLocation = (user, incident) => {
@@ -19,6 +20,7 @@ const isAssignedPersonnel = (user, incident) => (
 );
 
 const canAccessIncident = (user, incident) => {
+  if (user.role === 'police_personnel') return canCoverIncidentLocation(user, incident) && isAssignedPersonnel(user, incident);
   if (user.role === 'lgu_personnel') return canCoverIncidentLocation(user, incident);
   if (user.role === 'barangay_personnel') {
     if (!canCoverIncidentLocation(user, incident)) return false;

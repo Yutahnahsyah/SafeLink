@@ -47,6 +47,32 @@ button {
   border: 0;
 }
 
+/* Native control cursors, with zero specificity so component loading/disabled
+   states can keep their own feedback. Do not set a cursor on page containers. */
+:where(input:not([type]), input[type="text"], input[type="email"],
+  input[type="password"], input[type="search"], input[type="tel"],
+  input[type="url"], input[type="number"], textarea,
+  [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]) {
+  cursor: text;
+  /* Follow each field's foreground on both light and dark surfaces. */
+  caret-color: currentColor;
+}
+
+:where(button, a[href], select, summary, input[type="button"],
+  input[type="submit"], input[type="reset"], input[type="checkbox"],
+  input[type="radio"],
+  [role="button"], [role="option"]) {
+  cursor: pointer;
+}
+
+:where(input[type="file"])::file-selector-button {
+  cursor: pointer;
+}
+
+:where(button:disabled, input:disabled, textarea:disabled, select:disabled) {
+  cursor: not-allowed;
+}
+
 .container {
   width: min(1180px, calc(100% - 48px));
   margin-inline: auto;

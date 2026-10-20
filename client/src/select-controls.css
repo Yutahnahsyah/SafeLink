@@ -1,0 +1,87 @@
+/* One owner for single-select chrome. #root deliberately outranks the page
+   focus rules so outlines and shadows cannot stack. Native menus stay native;
+   multiple/size listboxes keep their browser styling. */
+#root select:not([multiple]):not([size]) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 40px 10px 12px;
+  border: 1px solid #cfdae0;
+  border-radius: 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235c7683' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+
+#root select:not([multiple]):not([size]):where(:enabled:hover:not([aria-invalid="true"])) {
+  border-color: #9ab8be;
+}
+
+/* Inset outlines follow the radius and remain visible inside overflow containers.
+   They change neither the control's dimensions nor the native popup position. */
+#root :is(select:not([multiple]):not([size]), .registration-location-input input[role="combobox"]):focus {
+  border-color: #087d85;
+  outline: 2px solid #087d85;
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+#root :is(select:not([multiple]):not([size]), .registration-location-input input[role="combobox"])[aria-invalid="true"] {
+  border-color: #b62c45;
+  background-color: #fffafb;
+  outline-color: #b62c45;
+}
+
+#root select:not([multiple]):not([size]):disabled {
+  cursor: not-allowed;
+  border-color: #d5e2e4;
+  color: #607783;
+  background-color: #f0f5f7;
+  opacity: 1;
+}
+
+/* Keep the public map's existing dark surface and a readable arrow. */
+#root .map-filters select:not([multiple]):not([size]) {
+  border-color: #385366;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23dce9f4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+#root .map-filters select:not([multiple]):not([size]):focus {
+  border-color: #5de3df;
+  outline-color: #5de3df;
+}
+#root .map-filters select:not([multiple]):not([size])[aria-invalid="true"] {
+  border-color: #b62c45;
+  background-color: #14283c;
+  outline-color: #b62c45;
+}
+#root .map-filters select:not([multiple]):not([size]):disabled {
+  color: #9aafbd;
+  background-color: #14283c;
+}
+
+/* Avoid mobile browsers zooming the page when a dropdown receives focus. */
+@media (max-width: 600px) {
+  #root :is(select:not([multiple]):not([size]), .registration-location-input input[role="combobox"]) {
+    font-size: 16px;
+  }
+}
+
+@media (forced-colors: active) {
+  #root select:not([multiple]):not([size]),
+  #root .map-filters select:not([multiple]):not([size]) {
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+    appearance: auto;
+    background-image: none;
+    padding-right: 12px;
+  }
+  #root :is(select:not([multiple]):not([size]), .registration-location-input input[role="combobox"]):focus,
+  #root .map-filters select:not([multiple]):not([size]):focus {
+    outline-color: Highlight;
+  }
+}

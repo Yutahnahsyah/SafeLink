@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import AdminShell from "./AdminShell";
+import { RecentAuditEvents, AuditLogsView } from "./AuditMonitoring";
 import Icon from "./Icon";
 import SafeLinkMap from "./maps/SafeLinkMap";
 import { Link, useRouter } from "../routing";
@@ -78,13 +79,12 @@ export function AdminGovernancePage() {
   const { user } = useAuth();
   const personnelResult = useAdminPersonnel(user);
   const auditResult = useAuditLogs(user);
-  const auditItems = auditResult.data?.data || [];
+
   return <AdminShell title="Platform Governance" eyebrow="SafeLink administration">
     <section className="admin-briefing-strip"><div><span><i /> Governance workspace</span><h2>Manage accounts. Review audit history.</h2><p>Incident review, verification, referral, and response are handled by Barangay and LGU personnel.</p></div><div><Link className="button" to="/admin/personnel">Personnel approvals <Icon name="arrow" size={15} /></Link><Link to="/admin/audit-logs">Open audit logs</Link></div></section>
     <div className="admin-bento">
       <section className="admin-card admin-personnel-panel"><PanelHeader eyebrow="Account governance" title="Personnel Approvals" to="/admin/personnel" /><CompactPersonnel result={personnelResult} /></section>
-      <section className="admin-card admin-activity-panel"><PanelHeader eyebrow="System accountability" title="Recent Audit Events" to="/admin/audit-logs" />{auditResult.status === "loading" ? <DataState result={auditResult} icon="history" /> : auditResult.status === "error" ? <DataState result={auditResult} icon="history" error="We couldn't load audit logs." /> : auditItems.length ? <div className="admin-compact-list">{auditItems.slice(0, 3).map((item) => <div key={item.id || item._id}><span><strong>{item.action}</strong><small>{item.createdAt || item.timestamp || "Recorded event"}</small></span></div>)}</div> : <DataState result={{ available: true }} icon="history" empty="No audit events have been recorded yet." />}</section>
-      <section className="admin-card admin-quick-panel"><PanelHeader eyebrow="Administrator tools" title="Quick Actions" /><div><Link to="/admin/personnel"><Icon name="users" /><span><strong>Personnel accounts</strong><small>Approve and manage responder accounts</small></span><Icon name="arrow" size={14} /></Link><Link to="/admin/users"><Icon name="shield" /><span><strong>User maintenance</strong><small>Update account access when necessary</small></span><Icon name="arrow" size={14} /></Link><Link to="/admin/audit-logs"><Icon name="history" /><span><strong>Audit logs</strong><small>Review recorded authentication and system activity</small></span><Icon name="arrow" size={14} /></Link></div></section>
+      <section className="admin-card admin-activity-panel"><PanelHeader eyebrow="System accountability" title="Recent Audit Events" to="/admin/audit-logs" /><RecentAuditEvents result={auditResult} /></section>
     </div>
   </AdminShell>;
 }
@@ -302,11 +302,7 @@ export function AdminNotificationsPage() {
 
 export function AdminAuditLogsPage() {
   const { user } = useAuth();
-  const result = useAuditLogs(user);
-  const logs = result.data?.data || [];
-  const actorName = (actor) => actor ? [actor.firstName, actor.lastName].filter(Boolean).join(" ") || actor.email || "System" : "System";
-  const formatTime = (value) => value ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Time unavailable";
-  return <AdminShell title="Audit Logs" eyebrow="Immutable operational history"><PageHeading eyebrow="Security and accountability" title="Administrator audit trail">Review backend-recorded authentication, account, and incident actions.</PageHeading><section className="admin-card">{result.status === "loading" || result.status === "error" ? <DataState result={result} icon="history" unavailable="Audit logs are unavailable." error="We couldn't load the audit trail." /> : logs.length ? <div className="admin-personnel-list">{logs.map((log) => <article key={log._id || log.id}><span><Icon name={log.outcome === "failure" ? "priority" : "history"} /></span><div><strong>{String(log.action || "Recorded action").replaceAll("_", " ")}</strong><small>{actorName(log.actor)} · {log.actor?.role || "system"}</small><p>{log.details?.message || log.reason || `Outcome: ${log.outcome || "recorded"}`} · {formatTime(log.createdAt)}</p></div><b className={statusClass(log.outcome || "recorded")}>{log.outcome || "recorded"}</b></article>)}</div> : <DataState result={{ available: true }} icon="history" empty="No audit records were returned." />}</section></AdminShell>;
+  return <AdminShell title="Audit Logs" eyebrow="Immutable operational history"><AuditLogsView user={user} /></AdminShell>;
 }
 
 export function AdminUsersPage() {
@@ -322,12 +318,4 @@ export function AdminProfilePage() {
   const name = user?.name || user?.fullName || "Administrator";
   const initials = name.split(" ").map((part) => part[0]).slice(0, 2).join("");
   return <AdminShell title="Profile" eyebrow="Administrator account"><section className="admin-profile-hero"><div>{initials}</div><span><small>Authorized Administrator</small><h2>{name}</h2><p>{user?.jobTitle || "Administrator"}</p><b><Icon name="shield" size={14} /> {user?.isDevelopmentPreview ? "Display-only preview account" : user?.accountStatus || "Account status unavailable"}</b></span></section><div className="admin-profile-grid"><section className="admin-card"><PanelHeader eyebrow="Identity" title="Account information" /><dl><div><dt>Name</dt><dd>{name}</dd></div><div><dt>Role</dt><dd>{user?.jobTitle || "Administrator"}</dd></div><div><dt>Email</dt><dd>{user?.email || "Not available"}</dd></div><div><dt>Account status</dt><dd>{user?.accountStatus || (user?.isDevelopmentPreview ? "Development preview" : "Not available")}</dd></div></dl></section><section className="admin-card"><PanelHeader eyebrow="Authority" title="Operational scope" /><dl><div><dt>Coverage</dt><dd>Pangasinan province-wide</dd></div><div><dt>Workspace</dt><dd>Review, routing, approvals, and monitoring</dd></div></dl></section></div><p className="admin-page-disclosure"><Icon name="shield" size={15} /> Profile editing remains read-only until a supported Administrator profile API is connected.</p></AdminShell>;
-}
-
-export function AdminSettingsPage() {
-  const { logout } = useAuth();
-  const { navigate } = useRouter();
-  const signOut = () => { logout(); navigate("/login/admin", { replace: true }); };
-  const sections = [["users", "Account", "Administrator identity and role details are managed by the approved account workflow."], ["shield", "Security", "Password and security changes require a supported authenticated endpoint."], ["bell", "Notifications", "Delivery preferences will appear when the API supports persistent settings."], ["shield", "Privacy", "Operational access should remain limited to information required for review and routing."]];
-  return <AdminShell title="Settings" eyebrow="Account and workspace"><PageHeading eyebrow="Administrator controls" title="Account, security, notifications, privacy, and session">Unavailable settings are intentionally not represented as functional switches.</PageHeading><div className="admin-settings-grid">{sections.map(([icon, title, text]) => <section className="admin-card" key={title}><span><Icon name={icon} /></span><div><small>Administrator</small><h2>{title}</h2><p>{text}</p></div></section>)}<section className="admin-card is-session"><span><Icon name="arrow" /></span><div><small>Session</small><h2>Sign out</h2><p>End the current Administrator workspace session on this device.</p><button className="button danger-button" onClick={signOut}>Logout</button></div></section></div></AdminShell>;
 }

@@ -30,7 +30,7 @@ export function RegistrationStepper({ steps, current }) {
 export function RegistrationActions({ back, next, nextLabel = "Continue", nextDisabled = false, loading = false, submit = false }) {
   return <div className="registration-actions">
     <button className="registration-back" type="button" onClick={back} disabled={loading}>Back</button>
-    <button className="button" type={submit ? "submit" : "button"} onClick={submit ? undefined : next} disabled={nextDisabled || loading}>
+    <button className="button" type={submit ? "submit" : "button"} onClick={submit ? undefined : (event) => { event.preventDefault(); next(); }} disabled={nextDisabled || loading}>
       {loading ? <><span className="button-spinner" aria-hidden="true" />Submitting...</> : <>{nextLabel}<Icon name="arrow" size={16} /></>}
     </button>
   </div>;

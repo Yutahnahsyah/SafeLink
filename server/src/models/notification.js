@@ -22,6 +22,8 @@ const NotificationSchema = new mongoose.Schema({
       'barangay_escalation_requested',
       'lgu_intervention',
       'status_changed',
+      'response_updated',
+      'escalation_acknowledged',
       'severity_changed',
       'priority_confirmed',
       'personnel_assigned',
@@ -45,5 +47,6 @@ const NotificationSchema = new mongoose.Schema({
 }, { versionKey: false });
 
 NotificationSchema.index({ recipient: 1, read: 1, createdAt: -1 });
+NotificationSchema.index({ recipient: 1, createdAt: -1, _id: -1 });
 
 module.exports = mongoose.model('Notification', NotificationSchema);

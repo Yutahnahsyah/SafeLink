@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
-import SafetyMap from "./SafetyMap";
+import PublicResolvedMap from "./PublicResolvedMap";
 import { features, roles } from "../data";
 
 function SectionTitle({ label, title, text, centered = false }) {
@@ -212,17 +212,17 @@ export function CommunityMap() {
           <SectionTitle
             label="Community safety map"
             title="Know what’s happening around your community"
-            text="View reported incidents, monitor their status, and understand safety concerns in your area."
+            text="Explore resolved, publicly approved safety concerns at generalized locations across Pangasinan."
           />
           <ul className="check-list">
             <li>
-              <Icon name="check" /> Filter by incident category
+              <Icon name="check" /> Category-colored resolved reports
             </li>
             <li>
-              <Icon name="check" /> Track verified status updates
+              <Icon name="check" /> See completed community responses
             </li>
             <li>
-              <Icon name="check" /> Explore nearby safety concerns
+              <Icon name="check" /> Explore privacy-safe public locations
             </li>
           </ul>
           <a className="button" href="#home">
@@ -231,27 +231,12 @@ export function CommunityMap() {
         </div>
         <div className="community-map-card observe">
           <div className="map-tools">
-            <button className="active">All incidents</button>
-            <button>Active</button>
-            <button>Resolved</button>
+            <span>Publicly approved resolved reports</span>
           </div>
-          <SafetyMap compact />
+          <PublicResolvedMap compact />
           <div className="map-legend">
             <span>
-              <i className="red" />
-              Urgent
-            </span>
-            <span>
-              <i className="orange" />
-              Verifying
-            </span>
-            <span>
-              <i className="blue" />
-              Assigned
-            </span>
-            <span>
-              <i className="green" />
-              Resolved
+              Resolved reports only
             </span>
           </div>
         </div>
@@ -342,7 +327,7 @@ export function Analytics() {
           <div className="dashboard">
             <div className="dashboard-top">
               <div>
-                <small>Community overview</small>
+                <small>Illustrative analytics · Example data</small>
                 <strong>Safety operations</strong>
               </div>
               <span>Last 30 days</span>

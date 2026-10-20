@@ -4,6 +4,8 @@ import { GeoJSON, MapContainer, Marker, Popup, TileLayer, ZoomControl, useMap, u
 import "leaflet/dist/leaflet.css";
 import { MapSkeleton } from "../Skeleton";
 import "./SafeLinkMap.css";
+import { clusterPublicIncidents } from '../../services/publicIncidentMarkers';
+import CommunityMarkers from './CommunityMarkers';
 
 const PANGASINAN_CENTER = [16.04, 120.32];
 const PANGASINAN_BOUNDS = [[15.74, 119.82], [16.27, 120.83]];
@@ -100,7 +102,7 @@ function MapLifecycle({ onMapClick }) {
   return null;
 }
 
-function PangasinanMapController({ ready, onBoundaryReveal, onComplete, onPhaseChange }) {
+function PangasinanMapController({ ready, onBoundaryReveal, onComplete, onPhaseChange, quick = false }) {
   const map = useMap();
   const hasAnimated = useRef(false);
 
@@ -117,7 +119,7 @@ function PangasinanMapController({ ready, onBoundaryReveal, onComplete, onPhaseC
       onPhaseChange(phase);
     };
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (quick || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       map.fitBounds(PANGASINAN_BOUNDS, { padding: [28, 28], maxZoom: 11 });
       map.setMaxBounds(PANGASINAN_PAN_BOUNDS);
       onBoundaryReveal();
@@ -183,7 +185,7 @@ function PangasinanMapController({ ready, onBoundaryReveal, onComplete, onPhaseC
       map.off("moveend", settle);
       if (!completed) hasAnimated.current = false;
     };
-  }, [map, onBoundaryReveal, onComplete, onPhaseChange, ready]);
+  }, [map, onBoundaryReveal, onComplete, onPhaseChange, ready, quick]);
 
   return null;
 }
@@ -306,6 +308,31 @@ function IncidentMarker({ incident, index, heroMode, onSelectIncident }) {
   );
 }
 
+function PublicResolvedMarkers({ items }) {
+  const map = useMapEvents({ zoomend: () => setZoom(map.getZoom()) });
+  const [zoom, setZoom] = useState(map.getZoom());
+  const groups = useMemo(() => clusterPublicIncidents(items, map, zoom), [items, map, zoom]);
+  return groups.map(group => <Marker key={`${group.id}-${group.count}`} position={group.position} keyboard
+    icon={L.divIcon({ className: 'public-incident-circle',
+      html: `<span style="background:${group.color}"></span>`,
+      iconSize: [14, 14], iconAnchor: [7 - group.offset, 7], popupAnchor: [group.offset, -10] })}
+    title={`${group.category} · ${group.count} resolved ${group.count === 1 ? 'report' : 'reports'}`}>
+    <Popup className="incident-popup community-popup" maxWidth={285}>
+      <div className="incident-popup-content">
+        {group.count > 1 && <small>{group.count} resolved reports in this generalized area</small>}
+        {group.members.map(entry => <div className="community-popup-entry" key={entry.id}>
+          <strong>{entry.category}</strong>
+          <span>{[entry.barangay, entry.municipality].filter(Boolean).join(', ')}, Pangasinan</span>
+          <span className="community-resolved-badge">Resolved</span>
+          <small>Reported {entry.reportedDate} · Resolved {entry.resolvedDate}</small>
+          {entry.count > 1 && <small>{entry.count} reports with these dates</small>}
+        </div>)}
+        <small>Generalized location. Exact incident locations stay private.</small>
+      </div>
+    </Popup>
+  </Marker>);
+}
+
 function NetworkMarker({ location }) {
   const color = networkColors[location.category] || networkColors.community;
   const icon = useMemo(
@@ -345,6 +372,7 @@ export default function SafeLinkMap({
   compact = false,
   interactive = true,
   heroMode = false,
+  publicResolved = false,
   mapRef,
   onMapClick,
   onReady,
@@ -459,7 +487,7 @@ export default function SafeLinkMap({
         keyboard={interactive}
         scrollWheelZoom={false}
         attributionControl
-        aria-label={focusView ? `Authorized incident map for ${focusView.label || "assigned LGU jurisdiction"}` : isNetwork ? "Illustrative SafeLink response network in Pangasinan" : "Map of sample community incidents in Pangasinan"}
+        aria-label={focusView ? `Authorized incident map for ${focusView.label || "assigned LGU jurisdiction"}` : isNetwork ? "Illustrative SafeLink response network in Pangasinan" : publicResolved ? "Publicly approved resolved incidents across Pangasinan at generalized locations" : "Community incidents in Pangasinan"}
       >
         <TileLayer
           key={usingFallback ? "osm" : "carto"}
@@ -491,6 +519,7 @@ export default function SafeLinkMap({
           onComplete={finishInitialAnimation}
           onPhaseChange={updateIntroPhase}
         /> : <PangasinanMapController
+          quick={publicResolved}
           ready={tilesLoaded && inViewport}
           onBoundaryReveal={revealBoundary}
           onComplete={finishInitialAnimation}
@@ -533,7 +562,7 @@ export default function SafeLinkMap({
             weight: compact ? 2.15 : 2.6,
           }}
         />}
-        {initialAnimationDone && (isNetwork
+        {initialAnimationDone && (mode === "public-resolved" ? <PublicResolvedMarkers items={items} /> : mode === "community" ? <CommunityMarkers items={items} /> : isNetwork
           ? items.map((location) => <NetworkMarker key={location.id} location={location} />)
           : items.map((incident, index) => (
               <IncidentMarker

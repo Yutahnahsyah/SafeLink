@@ -109,6 +109,22 @@
   opacity: 0;
   animation: marker-in 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) var(--marker-delay, 0ms) forwards;
 }
+.community-map-marker { display: grid; place-items: center; border: 0; background: transparent; }
+.community-map-marker > span {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--marker, #087d85);
+  box-shadow: 0 1px 5px rgba(5, 40, 61, .35);
+  animation: marker-in .3s ease both;
+}
+.community-map-marker.is-cluster > span { width: 20px; height: 20px; box-shadow: 0 0 0 3px rgba(6, 98, 139, .18), 0 2px 7px rgba(5, 40, 61, .3); }
+.community-map-marker:focus-visible > span { outline: 2px solid #07344b; outline-offset: 4px; }
+.community-map-marker:focus { outline: none; }
 .safelink-marker-icon:focus { outline: none; }
 .safelink-marker-icon:focus-visible .map-marker { outline: 3px solid #07344b; outline-offset: 3px; }
 .network-map-marker .network-marker-dot { inset: 3px; border-width: 3px; }
@@ -161,6 +177,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .community-map-marker > span { animation: none; }
   .safelink-map-root .map-surface,
   .pangasinan-boundary,
   .jurisdiction-boundary,
@@ -169,3 +186,12 @@
     transition-duration: 0.01ms;
   }
 }
+.community-resolved-badge { display: inline-flex; width: fit-content; padding: 4px 9px; border-radius: 999px; color: #087647; background: #def5e8; font-size: 12px; font-weight: 800; }
+.community-popup .incident-popup-content { max-height: 340px; overflow-y: auto; }
+.safelink-leaflet-map--community .community-popup .incident-popup-content { max-height: none; overflow: visible; }
+.safelink-leaflet-map--community .community-popup .incident-popup-content small { font-size: 11px; line-height: 1.45; }
+.community-popup-entry { display: grid; gap: 4px; padding: 7px 0; border-bottom: 1px solid #dce9eb; }
+.community-popup-pages { display: grid; gap: 6px; padding: 8px 0; }
+.community-popup-pages button { min-height: 32px; padding: 6px 9px; border: 1px solid #c8dfe4; border-radius: 6px; background: #f0f8f9; color: #075d80; font: inherit; cursor: pointer; }
+.community-popup-pages button:disabled { opacity: .5; cursor: not-allowed; }
+.community-popup-pages button:focus-visible, .community-popup .incident-popup-content:focus-visible { outline: 2px solid #087d85; outline-offset: -2px; }

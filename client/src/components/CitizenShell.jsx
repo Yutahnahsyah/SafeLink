@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import BrandLogo from "./BrandLogo";
 import Icon from "./Icon";
+import NotificationBell from "./NotificationBell";
 import { Link, useRouter } from "../routing";
 import { useAuth } from "../auth";
 
@@ -9,10 +10,9 @@ const items = [
   ["/citizen/report", "report", "Report Incident"],
   ["/citizen/reports", "history", "My Reports"],
   ["/citizen/safety-map", "map", "Safety Map"],
-  ["/citizen/notifications", "bell", "Notifications"],
 ];
 
-export default function CitizenShell({ title, eyebrow, children }) {
+export default function CitizenShell({ title, eyebrow, children, className = "" }) {
   const { pathname, navigate } = useRouter();
   const { user, logout, isPreviewMode } = useAuth();
   const [open, setOpen] = useState(false);
@@ -37,10 +37,10 @@ export default function CitizenShell({ title, eyebrow, children }) {
   const doLogout = () => {
     setProfileOpen(false);
     logout();
-    navigate("/login/citizen", { replace: true });
+    navigate("/login", { replace: true });
   };
   return (
-    <div className="citizen-app">
+    <div className={`citizen-app ${className}`}>
       <aside className={`citizen-sidebar ${open ? "is-open" : ""}`}>
         <div className="sidebar-brand">
           <BrandLogo href="/citizen/dashboard" variant="dashboard" />
@@ -95,13 +95,7 @@ export default function CitizenShell({ title, eyebrow, children }) {
                 Development Preview
               </span>
             )}
-            <Link
-              className="top-notification"
-              to="/citizen/notifications"
-              aria-label="Notifications"
-            >
-              <Icon name="bell" />
-            </Link>
+            <NotificationBell />
             <div
               className="profile-menu"
               ref={profileRef}

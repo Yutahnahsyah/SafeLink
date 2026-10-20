@@ -1,11 +1,29 @@
 import { apiRequest, queryString } from "./apiClient";
 import { mapIncidentFromApi, mapMapFeature, mapNotificationFromApi, mapPersonnelFromApi, mapUserFromApi } from "./apiMappers";
 
+export const locationApi = {
+  barangays: (municipality, options = {}) => apiRequest(`locations/barangays${queryString({ municipality })}`, { ...options, auth: false }),
+  streets: (municipality, barangay, options = {}) => apiRequest(`locations/streets${queryString({ municipality, barangay })}`, { ...options, auth: false }),
+};
+
+export const publicMapApi = {
+  resolved: async (filters = {}) => {
+    const payload = await apiRequest(`public/resolved-incidents${queryString(filters)}`, { auth: false });
+    return { items: (payload.features || []).map(mapMapFeature), metadata: payload.metadata, options: payload.options };
+  },
+};
+
+export const publicStatisticsApi = {
+  overview: () => apiRequest('public/statistics', { auth: false }),
+};
+
 export const authApi = {
+  changePassword: (values) => apiRequest('auth/change-password', { method: 'POST', body: values }),
+  logout: () => apiRequest('auth/logout', { method: 'POST' }),
   login: (credentials) => apiRequest("auth/login", { method: "POST", body: credentials, auth: false }),
   registerCitizen: (values) => apiRequest("auth/register-citizen", { method: "POST", body: values, auth: false }),
   applyPersonnel: (values) => apiRequest("auth/apply-personnel", { method: "POST", body: values, auth: false }),
-  me: async () => mapUserFromApi((await apiRequest("auth/me")).user),
+  me: async (options = {}) => mapUserFromApi((await apiRequest("auth/me", options)).user),
   verifyEmail: (token) => apiRequest(`auth/verify-email/${encodeURIComponent(token)}`, { auth: false }),
   resendVerification: (email) => apiRequest("auth/resend-verification", { method: "POST", body: { email }, auth: false }),
   forgotPassword: (email) => apiRequest("auth/forgot-password", { method: "POST", body: { email }, auth: false }),
@@ -18,7 +36,7 @@ export const incidentApi = {
   process: async (id, body) => mapIncidentFromApi((await apiRequest(`incidents/${encodeURIComponent(id)}/process`, { method: "PATCH", body })).incident),
   map: async (filters = {}) => {
     const payload = await apiRequest(`incidents/map${queryString(filters)}`);
-    return { items: (payload.features || []).map(mapMapFeature), metadata: payload.metadata };
+    return { items: (payload.features || []).map(mapMapFeature), metadata: payload.metadata, options: payload.options };
   },
   boundary: () => apiRequest("incidents/map/boundary"),
   uploadEvidence: async (id, files) => {
@@ -30,8 +48,8 @@ export const incidentApi = {
 };
 
 export const notificationApi = {
-  list: async (filters = {}) => {
-    const payload = await apiRequest(`notifications${queryString(filters)}`);
+  list: async (filters = {}, options = {}) => {
+    const payload = await apiRequest(`notifications${queryString(filters)}`, options);
     return { ...payload, data: (payload.data || []).map(mapNotificationFromApi) };
   },
   markRead: (id) => apiRequest(`notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" }),
@@ -43,14 +61,31 @@ export const analyticsApi = {
 };
 
 export const personnelApi = {
+  directory: (filters) => apiRequest(`admin/personnel-accounts${queryString(filters)}`),
+  createPersonnel: (values) => apiRequest('admin/personnel-accounts', { method: 'POST', body: values }),
+  updatePersonnel: (id, values) => apiRequest(`admin/personnel-accounts/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }),
+  resetPersonnelPassword: (id) => apiRequest(`admin/personnel-accounts/${encodeURIComponent(id)}/password-reset`, { method: 'POST' }),
+  createLgu: (values) => apiRequest('admin/lgu-accounts', { method: 'POST', body: values }),
+  updateLgu: (id, values) => apiRequest(`admin/lgu-accounts/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }),
+  resetLguPassword: (id) => apiRequest(`admin/lgu-accounts/${encodeURIComponent(id)}/password-reset`, { method: 'POST' }),
   pending: async () => (await apiRequest("auth/pending-personnel")).map(mapPersonnelFromApi),
   active: async () => (await apiRequest("users/personnel")).map(mapPersonnelFromApi),
   approve: (id) => apiRequest(`auth/approve-personnel/${encodeURIComponent(id)}`, { method: "PUT" }),
-  create: (values) => apiRequest("auth/register-personnel", { method: "POST", body: values }),
+  create: (values) => apiRequest("admin/personnel-accounts", { method: "POST", body: values }),
   setStatus: (id, status) => apiRequest(`auth/users/${encodeURIComponent(id)}/status`, { method: "PATCH", body: { status } }),
   remove: (id) => apiRequest(`auth/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
 
 export const auditApi = {
-  list: (filters = {}) => apiRequest(`admin/audit-logs${queryString(filters)}`),
+  list: (filters = {}, options = {}) => apiRequest(`admin/audit-logs${queryString(filters)}`, options),
+  detail: (id, options = {}) => apiRequest(`admin/audit-logs/${encodeURIComponent(id)}`, options),
+  exportRecent: () => apiRequest('admin/audit-logs/export', { responseType: 'blob' }),
+};
+
+export const adminOverviewApi = {
+  governance: (options = {}) => apiRequest('admin/governance-overview', options),
+  users: (filters = {}, options = {}) => apiRequest(`admin/users${queryString(filters)}`, options),
+  incidents: (days = 30) => apiRequest(`admin/incident-analytics${queryString({ days })}`),
+  communityMapQueue: (page = 1) => apiRequest(`admin/community-map/queue${queryString({ page })}`),
+  setCommunityMapApproval: (id, approved) => apiRequest(`admin/community-map/${encodeURIComponent(id)}`, { method: 'PATCH', body: { approved } }),
 };

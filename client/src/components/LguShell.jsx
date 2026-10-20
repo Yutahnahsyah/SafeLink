@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import BrandLogo from "./BrandLogo";
 import Icon from "./Icon";
+import NotificationBell from "./NotificationBell";
 import { Link, useRouter } from "../routing";
 import { useAuth } from "../auth";
 import { getLguJurisdiction } from "../lguScope";
@@ -13,7 +14,6 @@ const items = [
   ["/lgu/resolved", "check", "Resolved"],
   ["/lgu/personnel", "users", "Personnel"],
   ["/lgu/map", "map", "Safety Map"],
-  ["/lgu/notifications", "bell", "Notifications"],
 ];
 
 export default function LguShell({ title, eyebrow, children }) {
@@ -45,7 +45,7 @@ export default function LguShell({ title, eyebrow, children }) {
   const initials = name.split(" ").map((part) => part[0]).slice(0, 2).join("");
   const doLogout = () => {
     logout();
-    navigate("/login/lgu", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -75,7 +75,7 @@ export default function LguShell({ title, eyebrow, children }) {
           <div><span>{eyebrow || "LGU Operations"}</span><h1>{title}</h1></div>
           <div className="citizen-top-actions">
             {isLguPreviewMode && <span className="preview-mode-badge lgu-preview-badge" role="status">Development Preview</span>}
-            <Link className="top-notification" to="/lgu/notifications" aria-label="LGU notifications"><Icon name="bell" /></Link>
+            <NotificationBell />
             <div className="profile-menu" ref={profileRef} onKeyDown={(event) => {
               if (event.key === "Escape" && profileOpen) { setProfileOpen(false); profileButtonRef.current?.focus(); }
             }}>
@@ -86,7 +86,7 @@ export default function LguShell({ title, eyebrow, children }) {
               </button>
               {profileOpen && <div className="profile-dropdown" id="lgu-account-menu">
                 <Link to="/lgu/profile"><Icon name="users" /> Profile</Link>
-                <Link to="/lgu/settings"><Icon name="shield" /> Settings</Link>
+                <Link to="/lgu/settings"><Icon name="shield" /> Account Settings / Change Password</Link>
                 <button onClick={doLogout}><Icon name="arrow" /> Logout</button>
               </div>}
             </div>

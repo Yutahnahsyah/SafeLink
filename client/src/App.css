@@ -2871,7 +2871,9 @@
 .command-welcome { grid-column:1/-1; grid-row:1; min-height:236px; padding:38px 40px; border-radius:25px; background:radial-gradient(circle at 82% 24%,rgba(101,222,224,.24),transparent 24rem),linear-gradient(120deg,#061c33,#07525d 72%,#08777b); }
 .command-welcome h2 { max-width:720px; font-size:clamp(29px,3vw,42px); line-height:1.12; }
 .command-welcome p { max-width:650px; font-size:13px; }
-.command-actions { grid-template-columns:minmax(220px,1.2fr) minmax(190px,1fr); }
+@media (min-width:681px) {
+  .command-actions { grid-template-columns:minmax(220px,1.2fr) minmax(190px,1fr); }
+}
 .command-action--primary { min-height:78px; transform:scale(1.025); transform-origin:center right; }
 .command-activity { grid-column:1/8; grid-row:2; min-height:222px; }
 .command-safety { grid-column:8/13; grid-row:2; min-height:222px; }
@@ -2928,9 +2930,11 @@
 .citizen-journey-steps .is-complete::after { background:#7bd2d1 !important; }
 .citizen-journey-steps .is-current span { border-color:#17aaa9; box-shadow:0 0 0 5px rgba(23,170,169,.1); }
 .command-safety { grid-column:8 / 13; grid-row:2; }
-.command-map { grid-column:1 / 9; grid-row:3; }
-.command-notifications { grid-column:9 / 13; grid-row:3; }
-.command-reports { grid-column:1 / -1; grid-row:4; }
+@media (min-width:981px) {
+  .command-map { grid-column:1 / 9; grid-row:3; }
+  .command-notifications { grid-column:9 / 13; grid-row:3; }
+  .command-reports { grid-column:1 / -1; grid-row:4; }
+}
 @media (max-width:980px) {
   .citizen-journey,.command-safety { grid-column:auto; grid-row:auto; }
   .command-map,.command-notifications,.command-reports { grid-row:auto; }

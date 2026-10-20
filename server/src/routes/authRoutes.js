@@ -4,11 +4,16 @@ const router = express.Router();
 
 const failedLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 5,
+  limit: (() => { const value = Number(process.env.LOGIN_IP_FAILURE_LIMIT); return Number.isInteger(value) && value > 0 ? value : 100; })(),
   skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { message: 'Too many unsuccessful login attempts. Please try again in 15 minutes.' }
+  handler(req, res) {
+    const seconds = Math.max(1, Math.ceil(((req.rateLimit.resetTime?.getTime() || Date.now() + 900000) - Date.now()) / 1000));
+    res.setHeader('Retry-After', String(seconds));
+    res.status(429).json({ code: 'NETWORK_RATE_LIMITED', retryAfterSeconds: seconds,
+      message: 'Too many sign-in requests from this connection. Please try again later.' });
+  }
 });
 
 const {
@@ -29,12 +34,12 @@ const {
 
 const {
   verifyAdminOrLGU,
+  verifyAdmin,
   verifyToken
 } = require('../middleware/auth');
 
 const {
   validateCitizenRegistration,
-  validatePersonnelRegistration,
   validateLogin,
   validateForgotPassword,
   validateResetPassword
@@ -46,20 +51,27 @@ router.post('/register-citizen', validateCitizenRegistration, registerCitizen);
 router.get('/verify-email/:token', verifyEmail);
 router.post('/resend-verification', validateForgotPassword, resendVerification);
 
-// POST Personnel Register (LGU, Admin)
-router.post('/register-personnel', verifyAdminOrLGU, validatePersonnelRegistration, registerPersonnel);
+// Retired provisioning alias; administrators use /api/admin/personnel-accounts.
+router.post('/register-personnel', verifyAdmin, registerPersonnel);
 
-// POST Personnel Application (Public; always pending administrator approval)
-router.post('/apply-personnel', validatePersonnelRegistration, applyPersonnel);
+// Retired public application endpoint; historical records remain intact.
+router.post('/apply-personnel', applyPersonnel);
+
+router.post('/change-password', verifyToken, require('../controllers/authController').changePassword);
 
 // POST User Login (Citizen, Barangay, LGU, Police, Admin)
 router.post('/login', failedLoginLimiter, validateLogin, loginUser);
 router.get('/me', verifyToken, getCurrentUser);
+// Records an authenticated sign-out request; JWTs retain their existing expiry semantics.
+router.post('/logout', verifyToken, async (req, res) => {
+  await require('../utils/auditLog').recordAuditEvent({ req, action: 'AUTH_LOGOUT', outcome: 'success' });
+  res.status(204).end();
+});
 
-// GET Personnel Pending Accounts (LGU, Admin)
-router.get('/pending-personnel', verifyAdminOrLGU, getPendingPersonnel);
-// PUT Personnel Approve Account (LGU, Admin)
-router.put('/approve-personnel/:id', verifyAdminOrLGU, approvePersonnel);
+// Historical personnel applications remain available to administrators.
+router.get('/pending-personnel', verifyAdmin, getPendingPersonnel);
+// Historical approval is administrator-only.
+router.put('/approve-personnel/:id', verifyAdmin, approvePersonnel);
 // PATCH User Suspension (LGU, Admin)
 router.patch('/users/:id/status', verifyToken, updateUserStatus);
 

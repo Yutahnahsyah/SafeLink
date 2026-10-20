@@ -17,7 +17,7 @@ export function CTA() {
             more effectively.
           </p>
           <div>
-            <Link className="button button-light" to="/login/citizen?next=/citizen/report">
+            <Link className="button button-light" to="/login?next=/citizen/report">
               Report an incident <Icon name="arrow" size={17} />
             </Link>
             <Link className="button button-outline" to="/register">
@@ -53,7 +53,9 @@ export default function Footer() {
             <strong>Support</strong>
             <Link to="/safety">Safety information</Link>
             <Link to="/faq">FAQ</Link>
-            <Link to="/login">Citizen login</Link>
+            <Link to="/terms-and-conditions">Terms and Conditions</Link>
+            <Link to="/privacy-policy">Privacy Policy</Link>
+            <Link to="/login">Sign In</Link>
             <Link to="/register">Register</Link>
           </div>
         </div>

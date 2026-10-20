@@ -1,0 +1,46 @@
+.lgu-account-management { padding:24px; margin:20px 0; color:#16354c; border:1px solid #dbe7eb; border-radius:20px; background:#fff; }
+.lgu-directory-header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:24px; }
+.lgu-directory-header span { color:#087e86; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.lgu-directory-header h2 { margin:6px 0; }.lgu-directory-header p { color:#5a7080; margin:0; }
+.lgu-directory-filters { display:grid; grid-template-columns:2fr 1.5fr 1fr 1fr 1fr; gap:14px; margin-bottom:24px; }
+.lgu-directory-filters label,.lgu-account-grid label,.lgu-password-form label { display:flex; flex-direction:column; gap:8px; font-size:13px; font-weight:600; }
+.lgu-directory-filters input,.lgu-directory-filters select,.lgu-account-grid input,.lgu-account-grid select,.lgu-password-form input { width:100%; min-height:44px; padding:10px 12px; border:1px solid #c9dce2; border-radius:10px; background:#fff; color:#16354c; font:inherit; box-sizing:border-box; transition:border-color 220ms ease,box-shadow 220ms ease; }
+.lgu-account-grid input[readonly] { background:#f1f6f8; }
+.lgu-account-grid input:focus,.lgu-directory-filters input:focus,.lgu-directory-filters select:focus,.lgu-password-form input:focus { outline:2px solid #07858f; outline-offset:2px; }
+.lgu-account-grid [aria-invalid=true],.lgu-password-form [aria-invalid=true] { border-color:#b32b45; }
+.lgu-account-dialog { width:min(700px,calc(100vw - 32px)); max-height:calc(100dvh - 48px); box-sizing:border-box; overflow:auto; padding:28px; border:1px solid #dbe7eb; border-radius:22px; box-shadow:0 30px 90px #082b4b40; color:#16354c; animation:lgu-account-enter 250ms ease; }
+.lgu-account-dialog::backdrop { background:#061e38b3; backdrop-filter:blur(4px); }
+.lgu-account-dialog.is-closing { animation:lgu-account-exit 220ms ease forwards; pointer-events:none; }
+@keyframes lgu-account-exit { to { opacity:0; transform:translateY(8px); } }
+.lgu-account-dialog > header { display:flex; justify-content:space-between; align-items:center; gap:16px; color:#087e86; }
+.lgu-account-dialog > header span { display:flex; gap:8px; align-items:center; font-size:13px; font-weight:700; }
+.lgu-account-dialog h2 { margin:20px 0 8px; font-size:24px; }
+.lgu-account-dialog p { color:#526b7c; font-size:14px; line-height:1.65; }
+.lgu-account-dialog fieldset { margin:24px 0; padding:0; border:0; }.lgu-account-dialog legend { padding:0 0 14px; font-weight:700; }
+.lgu-account-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.lgu-account-dialog footer,.lgu-directory-pagination { display:flex; justify-content:flex-end; align-items:center; gap:14px; margin:24px 0 0; padding:0; background:transparent; border:0; color:inherit; min-height:0; }
+.lgu-account-dialog button,.lgu-account-management button { min-height:44px; border-radius:10px; cursor:pointer; transition:background 220ms ease; }
+.lgu-account-dialog button:not(.button),.lgu-account-management button:not(.button) { border:1px solid #c9dce2; background:#f5f9fa; color:#164559; padding:8px 12px; }
+.lgu-account-dialog button:disabled,.lgu-account-management button:disabled { opacity:.55; cursor:wait; }
+.lgu-account-notice { display:flex; gap:10px; padding:16px; border-radius:12px; background:#edf8f8; }
+.lgu-field-error { color:#a7233e!important; font-size:12px; }
+.lgu-creation-result dl { display:grid; gap:8px; margin:24px 0; }.lgu-creation-result dt { color:#5a7080; font-size:12px; }.lgu-creation-result dd { margin:0 0 12px; font-weight:700; overflow-wrap:anywhere; }
+.lgu-initial-password { padding:16px; border:1px dashed #07858f; border-radius:12px; background:#f0f9f9; user-select:all; }.lgu-initial-password code { font-size:16px; }
+.lgu-account-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.lgu-directory-skeleton { display:grid; gap:14px; }.lgu-directory-skeleton div { height:56px; background:linear-gradient(100deg,#f0f5f7,#e2eef0,#f0f5f7); border-radius:10px; animation:lgu-account-pulse 1.5s ease infinite; }
+.lgu-password-form { display:grid; gap:16px; max-width:620px; padding:24px; margin:20px 0; border:1px solid #dbe7eb; border-radius:18px; background:#fff; }.lgu-password-form h2,.lgu-password-form p { margin:0; }.lgu-password-form p { color:#526b7c; font-size:14px; line-height:1.6; }
+@keyframes lgu-account-enter { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes lgu-account-pulse { 50% { opacity:.5; } }
+@media(max-width:760px) { .lgu-directory-header { align-items:stretch; flex-direction:column; }.lgu-directory-filters { grid-template-columns:1fr 1fr; }.lgu-account-management { padding:16px; }.lgu-account-grid { grid-template-columns:1fr; }.lgu-account-dialog { padding:20px; }.lgu-account-dialog footer { flex-wrap:wrap; }.lgu-directory-pagination { flex-wrap:wrap; justify-content:center; } }
+@media(prefers-reduced-motion:reduce) { .lgu-account-dialog,.lgu-directory-skeleton div { animation:none; }.lgu-account-dialog *,.lgu-account-management *,.lgu-password-form * { transition:none!important; } }
+.av-page--personnel .lgu-account-management { margin:0; padding:22px; }
+.av-page--personnel .lgu-directory-header { margin-bottom:16px; }
+.av-page--personnel .lgu-directory-header h2 { font-size:21px; letter-spacing:-.02em; }
+.av-page--personnel .lgu-directory-header p { font-size:14px; line-height:1.6; max-width:560px; }
+.lgu-directory-scope { padding:12px 14px; margin:0 0 20px; background:#f1f9fa; border:1px solid #dceef0; border-radius:10px; color:#456779; font-size:13px; line-height:1.6; }
+.lgu-directory-scope a { color:#087e86; font-weight:700; text-underline-offset:3px; }
+.av-page--personnel .av-table-scroll table { min-width:880px; }
+.av-page--personnel .av-table-scroll td { padding:16px 12px; font-size:13px; line-height:1.6; }
+.av-page--personnel .av-table-scroll small { display:block; color:#6d8597; font-size:12px; overflow-wrap:anywhere; }
+.av-page--personnel .lgu-account-actions button { white-space:nowrap; transition:background 220ms ease,border-color 220ms ease; }
+@media(max-width:760px) { .av-page--personnel .lgu-account-management { padding:16px; }.av-page--personnel .lgu-directory-filters label:first-child { grid-column:1/-1; } }
