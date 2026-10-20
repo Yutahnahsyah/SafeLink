@@ -2,7 +2,6 @@ const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { Resend } = require('resend');
 const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
 const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 const policies = require('../../../shared/legalPolicies.json');
@@ -32,45 +31,56 @@ const canLGUManagePersonnel = (requester, personnel) => (
   && sameCity(requester.jurisdiction?.municipalityOrCity, personnel.jurisdiction?.municipalityOrCity)
 );
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const emailFrom = process.env.EMAIL_FROM;
+const brevoApiKey = process.env.BREVO_API_KEY;
+const brevoSenderEmail = process.env.BREVO_SENDER_EMAIL;
+const brevoSenderName = process.env.BREVO_SENDER_NAME || 'SafeLink';
 
-const sendMailWithDeadline = (mailOptions) => new Promise((resolve, reject) => {
-  if (!resend || !emailFrom) {
+const sendMailWithDeadline = async (mailOptions) => {
+  if (!brevoApiKey || !brevoSenderEmail) {
     const error = new Error('Email delivery is not configured.');
     error.code = 'EMAIL_NOT_CONFIGURED';
-    reject(error);
-    return;
+    throw error;
   }
-  let settled = false;
-  const timeout = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    const error = new Error('Email delivery timed out.');
-    error.code = 'EMAIL_SEND_TIMEOUT';
-    reject(error);
-  }, EMAIL_SEND_TIMEOUT_MS);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), EMAIL_SEND_TIMEOUT_MS);
 
-  resend.emails.send({ ...mailOptions, from: emailFrom })
-    .then(({ data, error }) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      if (error) {
-        const deliveryError = new Error(error.message || 'Email delivery failed.');
-        deliveryError.code = error.name || 'EMAIL_DELIVERY_FAILED';
-        reject(deliveryError);
-        return;
-      }
-      resolve(data);
-    })
-    .catch((error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      reject(error);
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': brevoApiKey,
+        'content-type': 'application/json'
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        sender: { email: brevoSenderEmail, name: brevoSenderName },
+        to: [{ email: mailOptions.to }],
+        subject: mailOptions.subject,
+        htmlContent: mailOptions.html,
+        ...(mailOptions.text ? { textContent: mailOptions.text } : {})
+      })
     });
-});
+
+    if (!response.ok) {
+      const error = new Error('Email delivery failed.');
+      error.code = 'EMAIL_DELIVERY_FAILED';
+      error.status = response.status;
+      throw error;
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('Email delivery timed out.');
+      timeoutError.code = 'EMAIL_SEND_TIMEOUT';
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 
 const resendAttempts = new Map();
 const RESEND_COOLDOWN_MS = 60 * 1000;

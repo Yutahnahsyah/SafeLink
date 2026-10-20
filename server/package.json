@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "A Web-Based Verified Community Safety Reporting & Assistance System",
   "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
@@ -24,7 +27,6 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.5",
     "multer": "^2.4.0",
-    "resend": "^6.34.1",
     "socket.io": "^4.8.4"
   },
   "devDependencies": {
