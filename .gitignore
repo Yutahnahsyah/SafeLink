@@ -3,3 +3,5 @@ server/var/audit-outbox/
 /qa-stage1/
 /backups/
 /client/*.log
+/.vercel/
+/.env.local
