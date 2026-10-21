@@ -109,7 +109,7 @@ function PasswordField({
     <div
       className={`password-field ${touched && error ? "has-error" : touched && !error ? "is-valid" : ""}`}
     >
-      <label className="field-label-row" htmlFor={id}>{label}<FieldRequirement /></label>
+      <label htmlFor={id}><span className="field-label-row">{label}<FieldRequirement /></span></label>
       <div className="password-input">
         <input
           id={id}
