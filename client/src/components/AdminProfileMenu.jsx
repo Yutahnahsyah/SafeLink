@@ -3,12 +3,14 @@ import { UserRound, KeyRound, LogOut, ChevronDown } from 'lucide-react';
 import { Link, useRouter } from '../routing';
 import { useAuth } from '../auth';
 import { auditRoles } from './auditPresentation';
+import LogoutConfirmDialog from './LogoutConfirmDialog';
 import './AdminProfileMenu.css';
 
 export default function AdminProfileMenu() {
   const { user, logout } = useAuth();
   const { pathname, navigate } = useRouter();
   const [open, setOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const container = useRef(null), trigger = useRef(null), menu = useRef(null);
   const initialFocus = useRef(0);
   const name = user?.name || user?.fullName || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Administrator';
@@ -43,7 +45,8 @@ export default function AdminProfileMenu() {
     {open && <div className="admin-profile-dropdown" id="admin-account-menu" role="menu" aria-label="Administrator account" ref={menu} onKeyDown={onMenuKey}>
       <Link to="/admin/profile" role="menuitem" tabIndex={-1} onClick={() => close()}><UserRound size={18} aria-hidden="true" />My Profile</Link>
       <Link to="/admin/change-password" role="menuitem" tabIndex={-1} onClick={() => close()}><KeyRound size={18} aria-hidden="true" />Change Password</Link>
-      <button type="button" role="menuitem" tabIndex={-1} className="admin-profile-signout" onClick={() => { close(); logout(); navigate('/login', { replace:true }); }}><LogOut size={18} aria-hidden="true" />Sign Out</button>
+      <button type="button" role="menuitem" tabIndex={-1} className="admin-profile-signout" onClick={() => { close(); setLogoutConfirmOpen(true); }}><LogOut size={18} aria-hidden="true" />Sign Out</button>
     </div>}
+    <LogoutConfirmDialog open={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={() => { setLogoutConfirmOpen(false); logout(); navigate('/login', { replace:true }); }} />
   </div>;
 }

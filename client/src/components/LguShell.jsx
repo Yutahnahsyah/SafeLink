@@ -5,6 +5,7 @@ import NotificationBell from "./NotificationBell";
 import { Link, useRouter } from "../routing";
 import { useAuth } from "../auth";
 import { getLguJurisdiction } from "../lguScope";
+import LogoutConfirmDialog from "./LogoutConfirmDialog";
 import "./LguModule.css";
 
 const items = [
@@ -21,6 +22,7 @@ export default function LguShell({ title, eyebrow, children }) {
   const { user, logout, isLguPreviewMode } = useAuth();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const profileRef = useRef(null);
   const profileButtonRef = useRef(null);
 
@@ -43,7 +45,12 @@ export default function LguShell({ title, eyebrow, children }) {
   const name = user?.name || user?.fullName || "LGU Personnel";
   const jurisdiction = getLguJurisdiction(user);
   const initials = name.split(" ").map((part) => part[0]).slice(0, 2).join("");
+  const requestLogout = () => {
+    setProfileOpen(false);
+    setLogoutConfirmOpen(true);
+  };
   const doLogout = () => {
+    setLogoutConfirmOpen(false);
     logout();
     navigate("/login", { replace: true });
   };
@@ -87,13 +94,14 @@ export default function LguShell({ title, eyebrow, children }) {
               {profileOpen && <div className="profile-dropdown" id="lgu-account-menu">
                 <Link to="/lgu/profile"><Icon name="users" /> Profile</Link>
                 <Link to="/lgu/settings"><Icon name="shield" /> Account Settings / Change Password</Link>
-                <button onClick={doLogout}><Icon name="arrow" /> Logout</button>
+                <button onClick={requestLogout}><Icon name="arrow" /> Logout</button>
               </div>}
             </div>
           </div>
         </header>
         <main className="citizen-content lgu-content" key={pathname}>{children}</main>
       </div>
+      <LogoutConfirmDialog open={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={doLogout} />
     </div>
   );
 }

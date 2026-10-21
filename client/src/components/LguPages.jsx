@@ -6,6 +6,7 @@ import { OpenNotificationsButton } from "./NotificationBell";
 import LguShell from "./LguShell";
 import ChangePasswordForm from "./ChangePasswordForm";
 import MfaSettingsCard from "./MfaSettingsCard";
+import LogoutConfirmDialog from "./LogoutConfirmDialog";
 import SafeLinkMap from "./maps/SafeLinkMap";
 import { Link, useRouter } from "../routing";
 import { useAuth } from "../auth";
@@ -305,6 +306,7 @@ export function LguProfilePage() {
 export function LguSettingsPage() {
   const { logout } = useAuth();
   const { navigate } = useRouter();
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const signOut = () => { logout(); navigate("/login", { replace: true }); };
   const sections = [
     ["users", "Account", "Account information", "LGU account details are managed through the approved identity workflow."],
@@ -312,5 +314,5 @@ export function LguSettingsPage() {
     ["bell", "Notifications", "Notification preferences", "Preferences will appear when the LGU notification API supports configurable delivery channels."],
     ["shield", "Privacy", "Operational data", "Incident information is limited to authorized assignments. Citizen contact details are not shown here."],
   ];
-  return <LguShell title="Settings" eyebrow="Account and workspace"><div className="settings-intro"><div><span>LGU workspace</span><h2>Account, security, notifications, privacy, and session controls.</h2></div><Icon name="shield" size={30} /></div><ChangePasswordForm /><div className="settings-grid"><MfaSettingsCard />{sections.map(([icon, eyebrow, title, description]) => <section className="citizen-card settings-card" key={title}><span><Icon name={icon} /></span><div><small>{eyebrow}</small><h2>{title}</h2><p>{description}</p></div></section>)}<section className="citizen-card settings-card settings-card--logout"><span><Icon name="arrow" /></span><div><small>Session</small><h2>Sign out</h2><p>End the current LGU workspace session on this device.</p><button className="button danger-button" onClick={signOut}>Logout</button></div></section></div></LguShell>;
+  return <LguShell title="Settings" eyebrow="Account and workspace"><div className="settings-intro"><div><span>LGU workspace</span><h2>Account, security, notifications, privacy, and session controls.</h2></div><Icon name="shield" size={30} /></div><ChangePasswordForm /><div className="settings-grid"><MfaSettingsCard />{sections.map(([icon, eyebrow, title, description]) => <section className="citizen-card settings-card" key={title}><span><Icon name={icon} /></span><div><small>{eyebrow}</small><h2>{title}</h2><p>{description}</p></div></section>)}<section className="citizen-card settings-card settings-card--logout"><span><Icon name="arrow" /></span><div><small>Session</small><h2>Sign out</h2><p>End the current LGU workspace session on this device.</p><button className="button danger-button" onClick={() => setLogoutConfirmOpen(true)}>Logout</button></div></section></div><LogoutConfirmDialog open={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={signOut} /></LguShell>;
 }

@@ -14,6 +14,7 @@ import { useApiResource } from "../services/useApiResource";
 import "./PartnerPages.css";
 import { communityIncidentColor } from '../services/communityIncidentMarkers';
 import BarangayIncidents from './BarangayIncidents';
+import LogoutConfirmDialog from './LogoutConfirmDialog';
 
 const workspaces = {
   barangay: {
@@ -80,7 +81,7 @@ function BarangayNavigation({ pathname, user, signOut }) {
         <div id="barangay-account-menu" className={`barangay-account-menu${menuOpen ? " is-open" : ""}`} role="menu" aria-label="Account" aria-hidden={!menuOpen}>
           <Link to="/barangay/profile" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="users" size={17} /> My Profile</Link>
           <Link to="/barangay/settings" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="shield" size={17} /> Account Settings</Link>
-          <button type="button" role="menuitem" tabIndex={menuOpen ? 0 : -1} onClick={signOut}><Icon name="arrow" size={17} /> Sign Out</button>
+          <button type="button" role="menuitem" tabIndex={menuOpen ? 0 : -1} onClick={() => { setMenuOpen(false); signOut(); }}><Icon name="arrow" size={17} /> Sign Out</button>
         </div>
       </div>
     </header>
@@ -118,6 +119,7 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
   const notifications = notificationsResult.data.slice(0, 5);
   const [updating, setUpdating] = useState("");
   const [processError, setProcessError] = useState("");
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const advance = async (incident) => {
     const next = {
       Verified: { status: "In Progress", remarks: "Response started." },
@@ -130,7 +132,8 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
     catch (error) { setProcessError(error?.message || "SafeLink couldn't update this incident. Please try again."); }
     finally { setUpdating(""); }
   };
-  const signOut = () => { logout(); navigate(config.login, { replace: true }); };
+  const requestSignOut = () => setLogoutConfirmOpen(true);
+  const signOut = () => { setLogoutConfirmOpen(false); logout(); navigate(config.login, { replace: true }); };
   const isBarangay = portal === "barangay";
   const pageInfo = {
     dashboard: [config.title, config.copy, "users"],
@@ -149,7 +152,7 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
     label: jurisdiction || "Barangay jurisdiction",
   } : undefined;
   return <div className={`partner-app partner-app--${portal}${isBarangay && ["dashboard", "incidents", "details"].includes(view) ? " partner-app--readable" : ""}`}>
-    {isBarangay ? <BarangayNavigation pathname={pathname} user={user} signOut={signOut} /> : <header className="partner-topbar"><BrandLogo href={`/${portal}/dashboard`} variant="dashboard" /><div><span>{config.eyebrow}</span><strong>{user?.name || user?.fullName || config.title}</strong></div><NotificationBell /><Link to="/police/settings">Account Settings</Link><button onClick={signOut}><Icon name="arrow" size={15} /> Sign out</button></header>}
+    {isBarangay ? <BarangayNavigation pathname={pathname} user={user} signOut={requestSignOut} /> : <header className="partner-topbar"><BrandLogo href={`/${portal}/dashboard`} variant="dashboard" /><div><span>{config.eyebrow}</span><strong>{user?.name || user?.fullName || config.title}</strong></div><NotificationBell /><Link to="/police/settings">Account Settings</Link><button onClick={requestSignOut}><Icon name="arrow" size={15} /> Sign out</button></header>}
     <main className="partner-content"><RefreshNotice result={incidentsResult} /><RefreshNotice result={notificationsResult} /><RefreshNotice result={analyticsResult} />
       {processError && <p className="form-error" role="alert">{processError}</p>}
       <section className={`partner-hero${isBarangay ? " barangay-workspace-heading" : ""}`}><span><Icon name={isBarangay ? pageInfo[2] : "shield"} size={24} /></span><div><small>{isBarangay ? jurisdiction || "Assigned Barangay workspace" : config.eyebrow}</small><h1>{pageInfo[0]}</h1><p>{isBarangay ? pageInfo[1] : config.copy}</p></div></section>
@@ -163,7 +166,7 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
       {view === "profile" && <section className="barangay-view-card"><h2>Personnel information</h2><dl className="barangay-account-details">{[["Name", user?.name || user?.fullName], ["Email", user?.email], ["Role", isBarangay ? "Barangay Personnel" : "Police Personnel"], ["Jurisdiction", jurisdiction], ["Account status", user?.accountStatus]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "Not available"}</dd></div>)}</dl></section>}
       {view === "settings" && <ChangePasswordForm />}
       {view === "settings" && <MfaSettingsCard />}
-      {view === "settings" && <section className="barangay-view-card"><h2>Account settings</h2><p>Your account details and permissions are managed by SafeLink administrators. Profile changes are not available from this workspace.</p><div className="barangay-settings-action"><div><strong>Current session</strong><p>End your session on this device.</p></div><button type="button" onClick={signOut}>Sign Out</button></div></section>}
+      {view === "settings" && <section className="barangay-view-card"><h2>Account settings</h2><p>Your account details and permissions are managed by SafeLink administrators. Profile changes are not available from this workspace.</p><div className="barangay-settings-action"><div><strong>Current session</strong><p>End your session on this device.</p></div><button type="button" onClick={requestSignOut}>Sign Out</button></div></section>}
       {isBarangay && ['dashboard', 'incidents', 'details'].includes(view) && <BarangayIncidents key={id || view} view={view} id={id} result={incidentsResult} user={user} notifications={notificationsResult} />}
       {!isBarangay && (view === "dashboard" || view === "incidents") && <div className={`partner-grid${view === "incidents" ? " partner-grid--incidents" : ""}`}>
         <section><span><Icon name="report" /></span><div><small>Authorized queue</small><h2>Assigned incidents</h2><p>{config.note}</p>{incidentsResult.status === "loading" ? <SectionSkeleton variant="table" rows={4} columns={4} label="Loading authorized incidents" /> : incidentsResult.status === "error" ? <button onClick={incidentsResult.retry}>Retry</button> : incidentsResult.data.length ? (view === "incidents" ? incidentsResult.data : incidentsResult.data.slice(0, 5)).map((incident) => {
@@ -175,5 +178,6 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
         </>}
       </div>}
     </main>
+    <LogoutConfirmDialog open={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={signOut} />
   </div>;
 }

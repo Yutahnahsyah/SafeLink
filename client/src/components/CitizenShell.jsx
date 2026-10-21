@@ -4,6 +4,7 @@ import Icon from "./Icon";
 import NotificationBell from "./NotificationBell";
 import { Link, useRouter } from "../routing";
 import { useAuth } from "../auth";
+import LogoutConfirmDialog from "./LogoutConfirmDialog";
 
 const items = [
   ["/citizen/dashboard", "chart", "Dashboard"],
@@ -17,6 +18,7 @@ export default function CitizenShell({ title, eyebrow, children, className = "" 
   const { user, logout, isPreviewMode } = useAuth();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const profileRef = useRef(null);
   const profileButtonRef = useRef(null);
   useEffect(() => {
@@ -34,8 +36,12 @@ export default function CitizenShell({ title, eyebrow, children, className = "" 
     href === "/citizen/dashboard" || href === "/citizen/report"
       ? pathname === href
       : pathname.startsWith(href);
-  const doLogout = () => {
+  const requestLogout = () => {
     setProfileOpen(false);
+    setLogoutConfirmOpen(true);
+  };
+  const doLogout = () => {
+    setLogoutConfirmOpen(false);
     logout();
     navigate("/login", { replace: true });
   };
@@ -140,7 +146,7 @@ export default function CitizenShell({ title, eyebrow, children, className = "" 
                   >
                     <Icon name="shield" /> Settings
                   </Link>
-                  <button onClick={doLogout}>
+                  <button onClick={requestLogout}>
                     <Icon name="arrow" /> Logout
                   </button>
                 </div>
@@ -153,6 +159,7 @@ export default function CitizenShell({ title, eyebrow, children, className = "" 
       <nav className="citizen-mobile-nav" aria-label="Citizen mobile navigation">
         {items.map(([href, icon, label]) => <Link key={href} to={href} className={active(href) ? "active" : ""} aria-current={active(href) ? "page" : undefined}><Icon name={icon} size={19} /><span>{label === "Report Incident" ? "Report" : label === "My Reports" ? "Reports" : label === "Safety Map" ? "Map" : label}</span></Link>)}
       </nav>
+      <LogoutConfirmDialog open={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={doLogout} />
     </div>
   );
 }

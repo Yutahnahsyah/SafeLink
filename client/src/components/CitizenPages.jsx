@@ -22,6 +22,7 @@ import { useRegistrationLocations } from "../services/useRegistrationLocations";
 import { pangasinanLocations } from "../data/pangasinanLocations";
 import { COMMUNITY_MARKER_COLORS, isVisibleCommunityIncident } from "../services/communityIncidentMarkers";
 import ProtectedEvidence from "./ProtectedEvidence";
+import LogoutConfirmDialog from "./LogoutConfirmDialog";
 import { incidentApi } from "../services/safelinkApi";
 import { useApiResource } from "../services/useApiResource";
 import "./CitizenMap.css";
@@ -1290,6 +1291,7 @@ export function SettingsPage() {
   const { logout } = useAuth();
   const { navigate } = useRouter();
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const doLogout = () => {
     logout();
     navigate("/login", { replace: true });
@@ -1350,7 +1352,7 @@ export function SettingsPage() {
             <button
               className="button danger-button"
               type="button"
-              onClick={doLogout}
+              onClick={() => setLogoutConfirmOpen(true)}
             >
               Logout
             </button>
@@ -1358,6 +1360,7 @@ export function SettingsPage() {
         </section>
       </div>
       <ChangePasswordModal open={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
+      <LogoutConfirmDialog open={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={doLogout} />
     </CitizenShell>
   );
 }
