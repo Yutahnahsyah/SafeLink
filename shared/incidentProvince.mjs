@@ -11,7 +11,7 @@ const bounds = polygons.map(([outer]) => outer.reduce((box, [x, y]) =>
 // -1 outside, 0 on the edge, 1 inside. Tolerance is numerical only (~0.01 mm),
 // not a geographic buffer. A repeated closing vertex is a point, not an edge
 // containing every possible coordinate.
-function ringPosition(ring, x, y) {
+export function ringPosition(ring, x, y) {
   let inside = false;
   const epsilon = 1e-10;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {

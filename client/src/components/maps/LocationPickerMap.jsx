@@ -16,7 +16,7 @@ function PickerController({ focusRequest, hasSelectedLocation, introPlayedRef, o
       onMapClick({ latitude: event.latlng.lat, longitude: event.latlng.lng });
     },
   });
-  const handledFocus = useRef(focusRequest?.id ?? null);
+  const handledFocus = useRef(null);
 
   useEffect(() => {
     if (hasSelectedLocation || focusRequest || introPlayedRef?.current) return undefined;
@@ -51,6 +51,10 @@ function PickerController({ focusRequest, hasSelectedLocation, introPlayedRef, o
   useEffect(() => {
     if (!focusRequest || handledFocus.current === focusRequest.id) return;
     handledFocus.current = focusRequest.id;
+    if (focusRequest.bounds) {
+      map.flyToBounds(focusRequest.bounds, { animate: true, duration: 1.5, padding: [24, 24], maxZoom: 13 });
+      return;
+    }
     map.flyTo([focusRequest.latitude, focusRequest.longitude], 17, {
       animate: true,
       duration: 1.5,

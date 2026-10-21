@@ -16,7 +16,6 @@ import {
   submitCitizenReport,
 } from "../citizenData";
 import { useIncidentLocation } from "../services/useIncidentLocation";
-import { validateIncidentCoordinates } from '../../../shared/incidentProvince.mjs';
 import { useRegistrationLocations } from "../services/useRegistrationLocations";
 import { pangasinanLocations } from "../data/pangasinanLocations";
 import { COMMUNITY_MARKER_COLORS, isVisibleCommunityIncident } from "../services/communityIncidentMarkers";
@@ -668,7 +667,7 @@ export function ReportIncidentPage() {
     setErrors((current) => ({ ...current, [key]: "" }));
     setNotice("");
   };
-  const { locating, geocoding, locationFeedback, mapFocus, selectionRevision, useLocation, setCoordinates, editAddress, setMunicipality } =
+  const { locating, geocoding, locationFeedback, mapFocus, selectionRevision, useLocation, setCoordinates, editAddress, setMunicipality, confirmPin, coordinateError } =
     useIncidentLocation({ values, setValues, setErrors, setNotice });
   const barangays = useRegistrationLocations('barangays', values.municipalityOrCity);
   const validate = (target = step) => {
@@ -690,7 +689,7 @@ export function ReportIncidentPage() {
         next.coordinates =
           "Choose the incident position on the map or use your current location.";
       else {
-        const boundaryError = validateIncidentCoordinates(values);
+        const boundaryError = coordinateError();
         if (boundaryError) next.coordinates = boundaryError;
       }
     }
@@ -891,7 +890,7 @@ export function ReportIncidentPage() {
                     : "Use current location"}
               </button>
             </div>
-            <span className="location-picker-help">Using current location replaces the address and map pin. Review all detected fields before continuing.</span>
+            <span className="location-picker-help">Current location and map clicks automatically detect the address. Moving the pin revalidates its details; confirm any missing fields before continuing.</span>
             {errors.location && <small>{errors.location}</small>}
           </label>
           <label>
@@ -955,6 +954,9 @@ export function ReportIncidentPage() {
               >
                 Address data © OpenStreetMap contributors
               </a>
+              <a className="location-geocoder-attribution" href="https://www.geoboundaries.org/api/current/gbOpen/PHL/ADM3/" target="_blank" rel="noreferrer">
+                Municipal boundaries: geoBoundaries / NAMRIA, PSA, OCHA (CC BY 3.0 IGO)
+              </a>
             </div>
           </div>
           {locationFeedback && (
@@ -991,6 +993,11 @@ export function ReportIncidentPage() {
           </div>
           {errors.coordinates && (
             <small className="full field-error">{errors.coordinates}</small>
+          )}
+          {values.pinNeedsConfirmation && values.latitude && values.longitude && (
+            <button className="button button-muted" type="button" onClick={confirmPin}>
+              Confirm this pin for the selected barangay
+            </button>
           )}
           <div className="form-footer full">
             <button

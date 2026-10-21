@@ -197,6 +197,9 @@ const validateIncidentCreation = [
     const { validateIncidentCoordinates } = await import('../../../shared/incidentProvince.mjs');
     const error = validateIncidentCoordinates(location || {});
     if (error) throw new Error(error);
+    const { validateMunicipalityCoordinates } = await import('../../../shared/incidentMunicipality.mjs');
+    const municipalityError = validateMunicipalityCoordinates({ ...location, municipalityOrCity: location?.address?.municipalityOrCity });
+    if (municipalityError) throw new Error(municipalityError);
     return true;
   }),
   body('mediaEvidence')
