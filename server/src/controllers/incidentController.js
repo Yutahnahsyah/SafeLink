@@ -233,7 +233,12 @@ const getMapIncidents = async (req, res) => {
     if (req.user.role === 'barangay_personnel') {
       query['location.address.barangay'] = req.user.jurisdiction?.barangay;
       query['location.address.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
-    } else if (['lgu_personnel', 'police_personnel'].includes(req.user.role)) {
+    } else if (req.user.role === 'lgu_personnel') {
+      const { findMunicipalityBoundary } = await import('../../../shared/lguJurisdiction.mjs');
+      const boundary = findMunicipalityBoundary(req.user.jurisdiction?.municipalityOrCity);
+      if (!boundary) return res.status(403).json({ message: 'Your LGU has no valid Pangasinan map jurisdiction. Ask your administrator to correct the assigned municipality or city.' });
+      query['location.address.municipalityOrCity'] = boundary.properties.safelinkName;
+    } else if (req.user.role === 'police_personnel') {
       query['location.address.municipalityOrCity'] = req.user.jurisdiction?.municipalityOrCity;
     } else if (req.user.role === 'admin') {
       return res.status(403).json({ message: 'Administrators do not have access to incident maps.' });
@@ -268,9 +273,29 @@ const getMapIncidents = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(1000);
 
+    const reviewRequired = [];
+    let mappedIncidents = incidents;
+    if (req.user.role === 'lgu_personnel') {
+      const { assessMunicipalityCoordinates } = await import('../../../shared/lguJurisdiction.mjs');
+      mappedIncidents = incidents.filter(incident => {
+        // Keep the existing LGU location-based authorization rule. Never trust
+        // a returned record outside the scoped query, even when its pin fits.
+        if (!canAccessIncident({ ...req.user, jurisdiction: { ...req.user.jurisdiction,
+          municipalityOrCity: query['location.address.municipalityOrCity'] } }, incident)) return false;
+        const assessment = assessMunicipalityCoordinates(incident.location?.longitude, incident.location?.latitude,
+          query['location.address.municipalityOrCity']);
+        if (assessment.status === 'consistent') return true;
+        reviewRequired.push({ id: incident._id.toString(), reason: assessment.status,
+          municipalityOrCity: incident.location?.address?.municipalityOrCity,
+          detectedMunicipalities: assessment.municipalities });
+        return false;
+      });
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
     return res.json({
       type: 'FeatureCollection',
-      features: incidents.map((incident) => ({
+      features: mappedIncidents.map((incident) => ({
         type: 'Feature',
         id: incident._id.toString(),
         geometry: {
@@ -288,16 +313,28 @@ const getMapIncidents = async (req, res) => {
           updatedAt: incident.updatedAt
         }
       })),
-      metadata: { resultLimit: 1000, returned: incidents.length }
+      metadata: { resultLimit: 1000, returned: incidents.length,
+        ...(req.user.role === 'lgu_personnel' ? { mapped: mappedIncidents.length, reviewRequired } : {}) }
     });
   } catch (error) {
     return res.status(400).json({ message: error.message || 'Invalid map filter.' });
   }
 };
 
-// @desc    Get the Pangasinan boundary for Leaflet rendering
+// @desc    Get the assigned municipality boundary for LGUs, or the province for other map roles
 // @route   GET /api/incidents/map/boundary
-const getMapBoundary = (req, res) => res.json(getPangasinanBoundaryFeature());
+const getMapBoundary = async (req, res) => {
+  if (req.user.role !== 'lgu_personnel') return res.json(getPangasinanBoundaryFeature());
+  try {
+    const { findMunicipalityBoundary } = await import('../../../shared/lguJurisdiction.mjs');
+    const boundary = findMunicipalityBoundary(req.user.jurisdiction?.municipalityOrCity);
+    if (!boundary) return res.status(403).json({ message: 'Your LGU has no valid Pangasinan map jurisdiction. Ask your administrator to correct the assigned municipality or city.' });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(boundary);
+  } catch {
+    return res.status(503).json({ message: 'The jurisdiction boundary could not be loaded. Please retry.' });
+  }
+};
 
 // @desc    Get all incidents within the requester's authorized scope
 // @route   GET /api/incidents

@@ -60,16 +60,6 @@ function JurisdictionLabel({ area }) {
   return <p className="lgu-jurisdiction"><Icon name="map" size={14} /> Jurisdiction: <strong>{area || "Not assigned"}</strong></p>;
 }
 
-function toMapItems(incidents) {
-  return incidents
-    .filter((item) => Array.isArray(item.coords) || (Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude))))
-    .map((item) => ({
-      ...item,
-      coords: item.coords || [Number(item.longitude), Number(item.latitude)],
-      color: item.color || "#087d85",
-    }));
-}
-
 function FilterBar({ query, setQuery, status, setStatus, includeStatus = true, disabled = false }) {
   return <div className="lgu-filters" aria-label="Incident filters">
     <label className="lgu-search"><Icon name="report" size={18} /><span className="lgu-filter-label">Search incidents</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search ID, incident, or location" disabled={disabled} /></label>
@@ -119,8 +109,9 @@ export function LguDashboardPage() {
   const notificationResult = useLguNotifications(user);
   const jurisdiction = getLguJurisdiction(user);
   const incidents = scopeLguRecords(incidentsResult.data || [], jurisdiction);
-  const mapItems = toMapItems(incidents);
-  const mapView = getLguMapView(jurisdiction);
+  const safetyMapResult = useLguSafetyMap(user, jurisdiction);
+  const { items: mapItems } = buildLguSafetyMap(safetyMapResult.data, jurisdiction);
+  const mapView = useMemo(() => getLguMapView(jurisdiction, safetyMapResult.data?.boundary), [jurisdiction, safetyMapResult.data?.boundary]);
   const count = (statuses) => incidentsResult.status === "loading" ? null : incidentsResult.status === 'success' && incidentsResult.available ? incidents.filter((item) => statuses.includes(item.status)).length : "—";
   const metrics = [
     ["report", "Submitted", count(["Submitted"]), "assigned"],
@@ -137,7 +128,7 @@ export function LguDashboardPage() {
     <section className="lgu-workflow-strip" aria-label="LGU response workflow">{[["report", "Submitted"], ["shield", "Verified"], ["priority", "In Progress"], ["check", "Resolved"]].map(([icon, label], index) => <div key={label}><span><Icon name={icon} size={15} /></span><strong>{label}</strong>{index < 3 && <Icon name="arrow" size={13} />}</div>)}</section>
     <section className="lgu-metrics" aria-label="LGU incident summary">{metrics.map(([icon, label, value, tone]) => <Metric key={label} icon={icon} label={label} value={value} tone={tone} />)}</section>
     <div className="lgu-dashboard-grid">
-      <section className="citizen-card lgu-map-panel"><header><div><span className="lgu-eyebrow">Authorized {jurisdiction} view</span><h2>Assignment Map</h2></div><Link to="/lgu/map">Open map <Icon name="arrow" size={14} /></Link></header><div className="lgu-dashboard-map">{incidentsResult.status === "loading" ? <SectionSkeleton variant="map" label="Loading LGU assignment map" /> : incidentsResult.status === "error" ? <OperationalState result={incidentsResult} error="Could not load assignment locations." /> : <SafeLinkMap mode="incidents" items={mapItems} focusView={mapView} compact />}</div>{!incidentsResult.available && <p className="lgu-panel-note"><Icon name="shield" size={14} /> No assigned markers are shown because the LGU incidents API is not connected.</p>}</section>
+      <section className="citizen-card lgu-map-panel"><header><div><span className="lgu-eyebrow">Authorized {jurisdiction} view</span><h2>Assignment Map</h2></div><Link to="/lgu/map">Open map <Icon name="arrow" size={14} /></Link></header><div className="lgu-dashboard-map">{safetyMapResult.status === "loading" ? <SectionSkeleton variant="map" label="Loading LGU assignment map" /> : !mapView || safetyMapResult.status === "error" ? <OperationalState result={{ ...safetyMapResult, status: "error" }} error={safetyMapResult.error?.message || "No valid LGU map jurisdiction is assigned. Ask your administrator to check the municipality or city."} /> : <SafeLinkMap key={`${user?.id}:${jurisdiction}`} mode="incidents" items={mapItems} focusView={mapView} compact />}</div>{!incidentsResult.available && <p className="lgu-panel-note"><Icon name="shield" size={14} /> No assigned markers are shown because the LGU incidents API is not connected.</p>}</section>
       <section className="citizen-card lgu-assigned-panel"><header><div><span className="lgu-eyebrow">Administrator assignments</span><h2>Newly Assigned</h2></div><Link to="/lgu/incidents">View queue</Link></header><OperationalState result={incidentsResult} icon="report" unavailable={`Newly assigned ${jurisdiction} incidents will appear after the LGU incidents API is connected.`} empty={`No incidents are currently assigned to ${jurisdiction} LGU.`} error="We couldn't load new assignments. Please try again." /></section>
       <section className="citizen-card lgu-active-panel"><header><div><span className="lgu-eyebrow">Current operations</span><h2>Active Response</h2></div><Link to="/lgu/active-response">View all</Link></header><OperationalState result={incidentsResult} icon="priority" unavailable="Active response cases will appear after the LGU incidents API is connected." empty="There are no active responses right now." error="We couldn't load active responses. Please try again." /></section>
       <section className="citizen-card lgu-activity-panel"><header><div><span className="lgu-eyebrow">Assignment feed</span><h2>Latest Updates</h2></div><OpenNotificationsButton>Notifications</OpenNotificationsButton></header><RefreshNotice result={notificationResult} />{notificationResult.data.length ? <div className="lgu-update-list">{notificationResult.data.slice(0,3).map(item=><article key={item.id}><span><Icon name="bell" size={16}/></span><div><strong>{item.title}</strong><p>{item.body||item.message}</p><small>{item.timestamp}</small></div></article>)}</div> : <OperationalState result={notificationResult} icon="bell" unavailable="LGU notifications are not available yet." empty="There are no recent updates." error="We couldn't load LGU updates. Please try again." />}</section>
@@ -251,7 +242,7 @@ export function LguPersonnelPage() {
 
 export function LguMapPage() {
   const { user } = useAuth();
-  const jurisdiction = getLguJurisdiction(user);
+  const jurisdiction = typeof user?.jurisdiction?.municipalityOrCity === 'string' ? user.jurisdiction.municipalityOrCity.trim() : '';
   const result = useLguSafetyMap(user, jurisdiction);
   const accountKey = `${user?.id || ''}:${jurisdiction}`;
   const [selection, setSelection] = useState({ key: accountKey, values: EMPTY_MAP_FILTERS });
@@ -260,7 +251,8 @@ export function LguMapPage() {
   const reset = () => setSelection({ key: accountKey, values: EMPTY_MAP_FILTERS });
   const ready = result.available && result.status === 'success';
   const { items: mapItems, barangays, total } = buildLguSafetyMap(ready ? result.data : null, jurisdiction, filters);
-  const mapView = useMemo(() => getLguMapView(jurisdiction), [jurisdiction]);
+  const mapView = useMemo(() => getLguMapView(jurisdiction, result.data?.boundary), [jurisdiction, result.data?.boundary]);
+  const reviewRequired = ready ? result.data?.metadata?.reviewRequired || [] : [];
   const filtered = Object.values(filters).some(Boolean);
   const limit = result.data?.metadata?.resultLimit;
   return <LguShell title="LGU Safety Map" eyebrow={`${jurisdiction} assignment locations`}>
@@ -285,9 +277,10 @@ export function LguMapPage() {
       </div>
       <div className="lgu-map-filter-summary"><span role="status" aria-live="polite">{ready ? `${mapItems.length} of ${total} authorized map incidents shown` : 'Map filters are available after authorized locations load.'}</span><button type="button" className="button button-muted" onClick={reset} disabled={!filtered}>Clear filters</button></div>
       <RefreshNotice result={result} />
+      {reviewRequired.length > 0 && <details className="lgu-map-disclosure"><summary>{reviewRequired.length} reports need location review and are excluded from map markers.</summary><p>Saved locations have not been changed. Review the original report before correcting municipality or coordinate information.</p><ul>{reviewRequired.map(report => <li key={report.id}><Link to={`/lgu/incidents/${encodeURIComponent(report.id)}`}>Report {report.id}</Link>: {report.reason === 'municipality_coordinate_mismatch' ? `Saved coordinates fall in ${report.detectedMunicipalities.join(' / ')} rather than ${report.municipalityOrCity}.` : report.reason === 'invalid_coordinates' ? 'Missing or invalid saved coordinates.' : 'The saved coordinates could not be confirmed within the municipality boundary.'}</li>)}</ul></details>}
       {ready && !mapItems.length && <p className="lgu-map-empty" role="status">{!total ? 'No authorized incidents with map coordinates are available for your jurisdiction.' : 'No incidents match these filters. Clear filters or choose another combination.'}</p>}
       {ready && limit && result.data?.metadata?.returned >= limit && <p className="lgu-map-disclosure">The map API returns up to {limit} locations. Filters apply to these loaded locations.</p>}
-      <div className="lgu-map-large">{result.status === 'loading' ? <SectionSkeleton variant="map" label="Loading LGU safety map" /> : !result.available || result.status === 'error' ? <OperationalState result={result} unavailable="Sign in with an LGU account that has an assigned jurisdiction to load map locations." error="Could not load assigned locations." /> : <SafeLinkMap mode="incidents" items={mapItems} focusView={mapView} />}</div>
+      <div className="lgu-map-large">{result.status === 'loading' ? <SectionSkeleton variant="map" label="Loading LGU safety map" /> : !mapView || result.status === 'error' ? <OperationalState result={{ ...result, status: 'error' }} error={result.error?.message || "No valid LGU map jurisdiction is assigned. Ask your administrator to check the municipality or city."} /> : <SafeLinkMap key={accountKey} mode="incidents" items={mapItems} focusView={mapView} />}</div>
     </section>
   </LguShell>;
 }

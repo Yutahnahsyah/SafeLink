@@ -227,7 +227,9 @@ function LocalityMapController({ ready, view, compact, onBoundaryReveal, onCompl
     };
 
     map.invalidateSize({ animate: false });
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    // Jurisdiction maps frame the actual polygon immediately, independently of
+    // tile delivery. https://leafletjs.com/reference.html#map-fitbounds
+    if (view.immediate || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       if (boundaryBounds) {
         map.fitBounds(boundaryBounds, { padding: targetPadding, maxZoom: 13.4, animate: false });
       } else {
@@ -395,6 +397,11 @@ export default function SafeLinkMap({
     () => createJurisdictionMask(focusView?.boundary),
     [focusView?.boundary],
   );
+  const focusBounds = useMemo(() => focusView?.immediate && focusView.boundary
+    ? L.geoJSON(focusView.boundary).getBounds() : undefined, [focusView?.boundary, focusView?.immediate]);
+  // GeoJSON data is immutable in React Leaflet; jurisdiction keys below replace
+  // layers when it changes. https://react-leaflet.js.org/docs/api-components/#geojson
+  const mapReady = tilesLoaded || Boolean(focusBounds);
 
   const markTilesLoaded = useCallback(() => {
     setTilesLoaded(true);
@@ -464,7 +471,7 @@ export default function SafeLinkMap({
   return (
     <div
       ref={rootRef}
-      className={`safelink-map-root ${tilesLoaded ? "is-ready" : ""} ${tilesLoaded && inViewport && !initialAnimationDone ? "is-animating" : ""} ${initialAnimationDone ? "is-settled" : ""} ${focusView?.boundary ? "has-jurisdiction-boundary" : ""}`}
+      className={`safelink-map-root ${mapReady ? "is-ready" : ""} ${mapReady && inViewport && !initialAnimationDone ? "is-animating" : ""} ${initialAnimationDone ? "is-settled" : ""} ${focusView?.boundary ? "has-jurisdiction-boundary" : ""}`}
       data-intro-phase={introPhase}
       data-jurisdiction={focusView?.label || undefined}
       aria-busy={!initialAnimationDone}
@@ -472,8 +479,9 @@ export default function SafeLinkMap({
       <MapContainer
         ref={mapRef}
         className={`map-canvas map-surface safelink-leaflet-map safelink-leaflet-map--${mode} ${className}`}
-        center={focusView?.center || PANGASINAN_CENTER}
-        zoom={focusView?.zoom || 8}
+        center={focusBounds ? undefined : focusView?.center || PANGASINAN_CENTER}
+        bounds={focusBounds}
+        zoom={focusBounds ? undefined : focusView?.zoom || 8}
         maxBounds={PANGASINAN_INTRO_MAX_BOUNDS}
         maxBoundsViscosity={0.72}
         minZoom={8}
@@ -512,7 +520,7 @@ export default function SafeLinkMap({
         {interactive && <ZoomControl position={isNetwork ? "topleft" : "topright"} />}
         <MapLifecycle onMapClick={interactive ? onMapClick : undefined} />
         {focusView ? <LocalityMapController
-          ready={tilesLoaded && inViewport}
+          ready={mapReady && inViewport}
           view={focusView}
           compact={compact}
           onBoundaryReveal={revealBoundary}
@@ -538,6 +546,7 @@ export default function SafeLinkMap({
           }}
         />}
         {jurisdictionMask && <GeoJSON
+          key={`mask-${focusView.boundary.properties?.shapeID || focusView.label}`}
           data={jurisdictionMask}
           interactive={false}
           style={{
@@ -551,14 +560,15 @@ export default function SafeLinkMap({
           }}
         />}
         {focusView?.boundary && <GeoJSON
+          key={`boundary-${focusView.boundary.properties?.shapeID || focusView.label}`}
           data={focusView.boundary}
           interactive={false}
           style={{
             className: "jurisdiction-boundary",
             color: "#087f86",
             fillColor: "#20b9b2",
-            fillOpacity: boundaryVisible ? 0.105 : 0,
-            opacity: boundaryVisible ? 0.92 : 0,
+            fillOpacity: boundaryVisible || focusView.immediate ? 0.105 : 0,
+            opacity: boundaryVisible || focusView.immediate ? 0.92 : 0,
             weight: compact ? 2.15 : 2.6,
           }}
         />}

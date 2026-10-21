@@ -1,4 +1,4 @@
-import { PANGASINAN_MUNICIPAL_BOUNDARIES } from "./data/pangasinanMunicipalBoundaries";
+import { normalizeMunicipalityName } from '../../shared/municipalityNames.mjs';
 
 const AREA_FIELDS = [
   "assignedLgu",
@@ -96,41 +96,12 @@ export function scopeLguResult(result, jurisdiction, { detail = false } = {}) {
   return { ...result, data: scopeLguRecords(result.data, jurisdiction), jurisdiction };
 }
 
-// Centers remain as a safe loading/fallback view. When boundary geometry is
-// available, SafeLinkMap derives the authoritative camera from its bounds.
-export const LGU_MAP_CONFIG = Object.freeze({
-  calasiao: Object.freeze({ center: [16.0167, 120.3667], zoom: 13, label: "Calasiao" }),
-  "dagupan": Object.freeze({ center: [16.0433, 120.3333], zoom: 13, label: "Dagupan City" }),
-  lingayen: Object.freeze({ center: [16.0218, 120.2319], zoom: 13, label: "Lingayen" }),
-  manaoag: Object.freeze({ center: [16.0438, 120.4861], zoom: 13, label: "Manaoag" }),
-  urdaneta: Object.freeze({ center: [15.9761, 120.5711], zoom: 13, label: "Urdaneta City" }),
-});
-
-export function findMunicipalityBoundary(jurisdiction) {
-  const key = normalizeLguName(jurisdiction);
-  if (!key) return null;
-  return PANGASINAN_MUNICIPAL_BOUNDARIES.features.find(
-    (feature) => normalizeLguName(feature?.properties?.shapeName) === key,
-  ) || null;
-}
-
-const PANGASINAN_FALLBACK = Object.freeze({
-  center: [16.04, 120.32],
-  zoom: 9,
-  label: "Pangasinan",
-  isFallback: true,
-});
-
-export function getLguMapView(jurisdiction) {
-  const key = normalizeLguName(jurisdiction);
-  const configuredView = LGU_MAP_CONFIG[key];
-  const boundary = findMunicipalityBoundary(jurisdiction);
-  if (configuredView) return { ...configuredView, boundary };
-  return {
-    ...PANGASINAN_FALLBACK,
-    label: jurisdiction || PANGASINAN_FALLBACK.label,
-    requestedLabel: jurisdiction || "Assigned locality",
-    boundary,
-  };
+// The authenticated boundary endpoint selects the polygon from the shared
+// 48-jurisdiction dataset. A missing/mismatched polygon is never a fallback map.
+export function getLguMapView(jurisdiction, boundary) {
+  const name = boundary?.properties?.safelinkName;
+  if (!normalizeMunicipalityName(jurisdiction) || normalizeMunicipalityName(jurisdiction) !== normalizeMunicipalityName(name)
+    || !['Polygon', 'MultiPolygon'].includes(boundary?.geometry?.type)) return null;
+  return { label: name, boundary, immediate: true };
 }
 

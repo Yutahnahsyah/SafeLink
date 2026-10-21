@@ -1,4 +1,4 @@
-import { scopeLguRecords } from '../lguScope.js';
+import { normalizeMunicipalityName } from '../../../shared/municipalityNames.mjs';
 
 // Values accepted by the existing incident model/map endpoint. These filters
 // operate on its privacy-limited map response, never the full incident record.
@@ -23,7 +23,8 @@ export function buildLguSafetyMap(payload, jurisdiction, filters = {}, now = Dat
         ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Manila' }).format(new Date(p.createdAt)) : 'Report date unavailable',
       coords: [coords[0], coords[1]], color: '#087d85' }];
   });
-  const authorized = scopeLguRecords(candidates, jurisdiction);
+  const expected = normalizeMunicipalityName(jurisdiction);
+  const authorized = candidates.filter(item => expected && normalizeMunicipalityName(item.municipality) === expected);
   const barangays = [...new Set(authorized.map(item => item.barangay).filter(value => typeof value === 'string' && value.trim()))]
     .sort((a, b) => a.localeCompare(b));
   const today = new Date(now + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
