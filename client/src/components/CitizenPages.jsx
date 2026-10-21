@@ -1384,7 +1384,7 @@ export function SettingsPage() {
             </button>
           </div>
         </section>
-      </div> bambiyaaa kooo
+      </div>
     </CitizenShell>
   );
 }
