@@ -492,7 +492,8 @@ const beginMfaEnrollment = async (req, res) => {
     const secret = generateSecret();
     const uri = generateURI({ issuer: 'SafeLink', label: user.email, secret });
     const expires = new Date(Date.now() + MFA_ENROLLMENT_TTL_MS);
-    await User.updateOne({ _id: user._id, mfaEnabled: false }, { $set: { mfaPendingSecret: encryptMfaSecret(secret), mfaPendingExpires: expires, updatedAt: new Date() } });
+    const pending = await User.updateOne({ _id: user._id, mfaEnabled: { $ne: true } }, { $set: { mfaPendingSecret: encryptMfaSecret(secret), mfaPendingExpires: expires, updatedAt: new Date() } });
+    if (!pending.modifiedCount) return res.status(409).json({ code: 'MFA_ENROLLMENT_CHANGED', message: 'This MFA setup is no longer available. Sign in again to continue.' });
     const qrCodeDataUrl = await QRCode.toDataURL(uri, { errorCorrectionLevel: 'M', margin: 1, width: 256 });
     return res.json({ qrCodeDataUrl, manualEntryKey: secret, expiresAt: expires.toISOString(), issuer: 'SafeLink' });
   } catch (error) {
@@ -512,7 +513,7 @@ const confirmMfaEnrollment = async (req, res) => {
     const result = await verifyTotp({ secret, token: req.body.code });
     if (!result.valid) return res.status(400).json({ code: 'MFA_CODE_INVALID', message: 'That authenticator code is incorrect. Try the current code.' });
     const recoveryCodes = createRecoveryCodes();
-    const updated = await User.findOneAndUpdate({ _id: user._id, mfaEnabled: false, mfaPendingExpires: { $gt: new Date() } }, {
+    const updated = await User.findOneAndUpdate({ _id: user._id, mfaEnabled: { $ne: true }, mfaPendingExpires: { $gt: new Date() } }, {
       $set: { mfaEnabled: true, mfaSecret: user.mfaPendingSecret, mfaRecoveryCodeHashes: recoveryCodes.map(recoveryHash), mfaEnabledAt: new Date(), updatedAt: new Date() },
       $unset: { mfaPendingSecret: '', mfaPendingExpires: '' }
     }, { new: true }).select('+mfaSecret +mfaRecoveryCodeHashes');
