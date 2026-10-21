@@ -107,9 +107,9 @@ function PoliceAccountMenu({ user, signOut }) {
       <span className="user-avatar">{initials}</span><span><strong>{name}</strong><small>Police Personnel</small></span><Icon name="arrow" size={15} />
     </button>
     {open && <div className="profile-dropdown" id="police-account-menu" role="menu" aria-label="Police account">
-      <Link to="/police/profile" role="menuitem" onClick={() => setOpen(false)}><Icon name="users" /> Profile</Link>
+      <Link to="/police/profile" role="menuitem" onClick={() => setOpen(false)}><Icon name="users" /> My Profile</Link>
       <Link to="/police/settings" role="menuitem" onClick={() => setOpen(false)}><Icon name="shield" /> Settings</Link>
-      <button type="button" role="menuitem" onClick={() => { setOpen(false); signOut(); }}><Icon name="arrow" /> Logout</button>
+      <button type="button" role="menuitem" onClick={() => { setOpen(false); signOut(); }}><Icon name="arrow" /> Sign Out</button>
     </div>}
   </div>;
 }

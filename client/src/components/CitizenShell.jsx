@@ -138,7 +138,7 @@ export default function CitizenShell({ title, eyebrow, children, className = "" 
                     to="/citizen/profile"
                     onClick={() => setProfileOpen(false)}
                   >
-                    <Icon name="users" /> Profile
+                    <Icon name="users" /> My Profile
                   </Link>
                   <Link
                     to="/citizen/settings"
@@ -147,7 +147,7 @@ export default function CitizenShell({ title, eyebrow, children, className = "" 
                     <Icon name="shield" /> Settings
                   </Link>
                   <button onClick={requestLogout}>
-                    <Icon name="arrow" /> Logout
+                    <Icon name="arrow" /> Sign Out
                   </button>
                 </div>
               )}
