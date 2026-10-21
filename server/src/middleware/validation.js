@@ -154,6 +154,11 @@ const validateMfaSetup = [
   validate
 ];
 
+const validateMfaSettingsCode = [
+  body('code').isString().trim().matches(/^\d{6}$/).withMessage('Enter the six-digit code from your authenticator app.'),
+  validate
+];
+
 const validateMfaRecovery = [
   body('mfaToken').isString().isLength({ min: 20, max: 2048 }).withMessage('MFA session is invalid.'),
   body('recoveryCode').isString().trim().matches(/^[A-Za-z0-9-]{10,40}$/).withMessage('Enter a valid recovery code.'),
@@ -293,6 +298,7 @@ module.exports = {
   validateLogin,
   validateMfaCode,
   validateMfaSetup,
+  validateMfaSettingsCode,
   validateMfaRecovery,
   validateIncidentCreation,
   validateIncidentProcessing,

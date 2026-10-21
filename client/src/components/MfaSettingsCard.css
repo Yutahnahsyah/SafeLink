@@ -1,0 +1,13 @@
+.mfa-settings-card { display:flex; align-items:flex-start; gap:17px; padding:25px; }
+.mfa-settings-card__icon { display:grid; place-items:center; flex:0 0 auto; width:43px; height:43px; border-radius:12px; color:#007d85; background:#e8f7f7; }
+.mfa-settings-card__content { flex:1; min-width:0; }
+.mfa-settings-card__content > small { color:#79909a; font-size:9px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.mfa-settings-card h2 { margin:4px 0 7px; }
+.mfa-settings-card p { color:var(--muted); font-size:12px; line-height:1.65; }
+.mfa-settings-card__form { display:grid; gap:11px; margin-top:14px; }
+.mfa-settings-card__form label { display:grid; gap:7px; max-width:340px; color:#344d61; font-size:12px; }
+.mfa-settings-card__form input { width:100%; padding:11px 12px; border:1px solid #cbdadd; border-radius:9px; background:#fff; color:#17324d; }
+.mfa-settings-card__form div { display:flex; flex-wrap:wrap; gap:9px; }
+.mfa-settings-card__message { margin:12px 0 0; color:#a94048 !important; }
+.mfa-settings-card .mfa-enrollment { max-width:360px; margin-top:14px; }
+.mfa-settings-card .mfa-recovery-codes { max-width:500px; }

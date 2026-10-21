@@ -59,7 +59,7 @@ async function loginPayload(user, message = 'Logged in successfully.') {
   return { message, token, user: {
     id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email,
     role: user.role, status: user.status, isVerified: user.isVerified,
-    address: user.address, jurisdiction: user.jurisdiction, mfaEnabled: true
+    address: user.address, jurisdiction: user.jurisdiction, mfaEnabled: user.mfaEnabled === true
   } };
 }
 
@@ -453,9 +453,8 @@ const loginUser = async (req, res) => {
     // Only a verified, active account with a correct password reaches this reset.
     await attempt.reset();
     if (!user.mfaEnabled) {
-      await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_ENROLLMENT_REQUIRED', outcome: 'success' });
-      return res.json({ mfaEnrollmentRequired: true, mfaToken: mfaChallenge(user, 'enroll'), email: user.email,
-        message: 'Set up your authenticator app to finish signing in.' });
+      await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_LOGIN', outcome: 'success' });
+      return res.json(await loginPayload(user));
     }
     await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_REQUIRED', outcome: 'success' });
     return res.json({ mfaRequired: true, mfaToken: mfaChallenge(user, 'login'), email: user.email,
@@ -562,12 +561,82 @@ const recoverMfaLogin = async (req, res) => {
   }
 };
 
+// MFA is an opt-in account-security setting. These endpoints use the normal
+// authenticated session, unlike the short-lived sign-in challenge above.
+const beginMfaSettingsEnrollment = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (user.mfaEnabled) return res.status(409).json({ code: 'MFA_ALREADY_ENABLED', message: 'Authenticator MFA is already enabled for this account.' });
+    const secret = generateSecret();
+    const uri = generateURI({ issuer: 'SafeLink', label: user.email, secret });
+    const expires = new Date(Date.now() + MFA_ENROLLMENT_TTL_MS);
+    const pending = await User.updateOne({ _id: user._id, mfaEnabled: { $ne: true } }, {
+      $set: { mfaPendingSecret: encryptMfaSecret(secret), mfaPendingExpires: expires, updatedAt: new Date() }
+    });
+    if (!pending.modifiedCount) return res.status(409).json({ code: 'MFA_ENROLLMENT_CHANGED', message: 'This MFA setup is no longer available. Refresh the page and try again.' });
+    const qrCodeDataUrl = await QRCode.toDataURL(uri, { errorCorrectionLevel: 'M', margin: 1, width: 256 });
+    return res.json({ qrCodeDataUrl, manualEntryKey: secret, expiresAt: expires.toISOString(), issuer: 'SafeLink' });
+  } catch (error) {
+    if (error.code === 'MFA_CONFIGURATION_ERROR') return res.status(503).json({ code: error.code, message: 'Authenticator setup is temporarily unavailable.' });
+    return res.status(500).json({ message: 'Unable to start authenticator setup.' });
+  }
+};
+
+const confirmMfaSettingsEnrollment = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const user = await User.findById(req.user.id).select('+mfaPendingSecret +mfaPendingExpires');
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (user.mfaEnabled || !user.mfaPendingSecret || !user.mfaPendingExpires || user.mfaPendingExpires <= new Date()) {
+      return res.status(400).json({ code: 'MFA_ENROLLMENT_EXPIRED', message: 'This authenticator setup has expired. Create a new QR code and try again.' });
+    }
+    if (!(await verifyTotp({ secret: decryptMfaSecret(user.mfaPendingSecret), token: req.body.code })).valid) {
+      return res.status(400).json({ code: 'MFA_CODE_INVALID', message: 'That authenticator code is incorrect. Try the current code.' });
+    }
+    const recoveryCodes = createRecoveryCodes();
+    const updated = await User.findOneAndUpdate({ _id: user._id, mfaEnabled: { $ne: true }, mfaPendingExpires: { $gt: new Date() } }, {
+      $set: { mfaEnabled: true, mfaSecret: user.mfaPendingSecret, mfaRecoveryCodeHashes: recoveryCodes.map(recoveryHash), mfaEnabledAt: new Date(), updatedAt: new Date() },
+      $unset: { mfaPendingSecret: '', mfaPendingExpires: '' }
+    }, { new: true });
+    if (!updated) return res.status(409).json({ code: 'MFA_ENROLLMENT_CHANGED', message: 'This MFA setup is no longer available. Create a new QR code and try again.' });
+    await recordAuditEvent({ req, actor: updated._id, targetUser: updated._id, action: 'AUTH_MFA_ENROLLED', outcome: 'success' });
+    return res.json({ message: 'Authenticator MFA is enabled.', mfaEnabled: true, recoveryCodes });
+  } catch (error) {
+    if (error.code === 'MFA_CONFIGURATION_ERROR') return res.status(503).json({ code: error.code, message: 'Authenticator setup is temporarily unavailable.' });
+    return res.status(500).json({ message: 'Unable to enable authenticator MFA.' });
+  }
+};
+
+const disableMfaSettings = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const user = await User.findById(req.user.id).select('+mfaSecret');
+    if (!user || !user.mfaEnabled || !user.mfaSecret) return res.status(400).json({ code: 'MFA_NOT_ENABLED', message: 'Authenticator MFA is not enabled for this account.' });
+    if (!(await verifyTotp({ secret: decryptMfaSecret(user.mfaSecret), token: req.body.code })).valid) {
+      await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_DISABLED', outcome: 'failure', details: { reason: 'invalid_totp' } });
+      return res.status(400).json({ code: 'MFA_CODE_INVALID', message: 'That authenticator code is incorrect. MFA remains enabled.' });
+    }
+    const disabled = await User.updateOne({ _id: user._id, mfaEnabled: true, mfaSecret: user.mfaSecret }, {
+      $set: { mfaEnabled: false, mfaEnabledAt: null, updatedAt: new Date() },
+      $unset: { mfaSecret: '', mfaPendingSecret: '', mfaPendingExpires: '', mfaRecoveryCodeHashes: '' }
+    });
+    if (!disabled.modifiedCount) return res.status(409).json({ code: 'MFA_ENROLLMENT_CHANGED', message: 'MFA settings changed. Refresh the page and try again.' });
+    await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_DISABLED', outcome: 'success' });
+    return res.json({ message: 'Authenticator MFA has been disabled.', mfaEnabled: false });
+  } catch (error) {
+    if (error.code === 'MFA_CONFIGURATION_ERROR') return res.status(503).json({ code: error.code, message: 'Authenticator MFA is temporarily unavailable.' });
+    return res.status(500).json({ message: 'Unable to disable authenticator MFA.' });
+  }
+};
+
 // @desc    Return the current authenticated account and authorization scope
 // @route   GET /api/auth/me
 const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
-      .select('_id firstName lastName middleInitial email phoneNumber role address jurisdiction status isVerified createdAt');
+      .select('_id firstName lastName middleInitial email phoneNumber role address jurisdiction status isVerified mfaEnabled createdAt');
     if (!user) return res.status(404).json({ message: 'User not found.' });
     return res.json({ user });
   } catch (error) {
@@ -868,6 +937,9 @@ module.exports = {
   confirmMfaEnrollment,
   verifyMfaLogin,
   recoverMfaLogin,
+  beginMfaSettingsEnrollment,
+  confirmMfaSettingsEnrollment,
+  disableMfaSettings,
   getCurrentUser,
   getPendingPersonnel,
   approvePersonnel,

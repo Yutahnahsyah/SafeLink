@@ -77,7 +77,7 @@ export function AuthProvider({ children }) {
         setRestorationError(null);
         const result = await loginAccount(credentials);
         if (revision.current !== version) throw new Error('Sign-in was cancelled. Please try again.');
-        if (result?.mfaRequired || result?.mfaEnrollmentRequired) return result;
+        if (result?.mfaRequired) return result;
         setUser(result.user);
         setIsRestoring(false);
         storeSession(result.token, result.user);
@@ -93,6 +93,14 @@ export function AuthProvider({ children }) {
         storeSession(result.token, result.user);
         if (result.user.role === "citizen") markActivity();
         return result.user;
+      },
+      setMfaEnabled(enabled) {
+        setUser((current) => {
+          if (!current) return current;
+          const next = { ...current, mfaEnabled: enabled === true };
+          storeSession(getAccessToken(), next);
+          return next;
+        });
       },
       register(values) { return registerCitizenAccount(values); },
       logout() {

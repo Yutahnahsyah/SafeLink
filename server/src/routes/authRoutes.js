@@ -30,6 +30,9 @@ const {
   confirmMfaEnrollment,
   verifyMfaLogin,
   recoverMfaLogin,
+  beginMfaSettingsEnrollment,
+  confirmMfaSettingsEnrollment,
+  disableMfaSettings,
   forgotPassword,
   resetPassword,
   updateUserStatus,
@@ -47,6 +50,7 @@ const {
   validateLogin,
   validateMfaCode,
   validateMfaSetup,
+  validateMfaSettingsCode,
   validateMfaRecovery,
   validateForgotPassword,
   validateResetPassword
@@ -74,6 +78,9 @@ router.post('/mfa/setup', mfaLimiter, validateMfaSetup, beginMfaEnrollment);
 router.post('/mfa/confirm-enrollment', mfaLimiter, validateMfaCode, confirmMfaEnrollment);
 router.post('/mfa/verify', mfaLimiter, validateMfaCode, verifyMfaLogin);
 router.post('/mfa/recover', mfaLimiter, validateMfaRecovery, recoverMfaLogin);
+router.post('/mfa/settings/setup', verifyToken, mfaLimiter, beginMfaSettingsEnrollment);
+router.post('/mfa/settings/confirm', verifyToken, mfaLimiter, validateMfaSettingsCode, confirmMfaSettingsEnrollment);
+router.post('/mfa/settings/disable', verifyToken, mfaLimiter, validateMfaSettingsCode, disableMfaSettings);
 router.get('/me', verifyToken, getCurrentUser);
 // Records an authenticated sign-out request; JWTs retain their existing expiry semantics.
 router.post('/logout', verifyToken, async (req, res) => {

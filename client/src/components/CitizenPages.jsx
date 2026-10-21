@@ -1,5 +1,6 @@
 import { SectionSkeleton, ResourceError, RefreshNotice } from './PageSkeletons';
 import ChangePasswordForm from "./ChangePasswordForm";
+import MfaSettingsCard from "./MfaSettingsCard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CitizenShell from "./CitizenShell";
 import Icon from "./Icon";
@@ -1354,6 +1355,7 @@ export function SettingsPage() {
         <Icon name="shield" size={30} />
       </div>
       <div className="settings-grid">
+        <MfaSettingsCard />
         {sections.map(([icon, eyebrow, title, description, action]) => (
           <section className="citizen-card settings-card" key={title}>
             <span>

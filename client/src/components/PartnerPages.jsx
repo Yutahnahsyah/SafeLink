@@ -1,6 +1,7 @@
 import { SectionSkeleton, RefreshNotice } from './PageSkeletons';
 import { useCallback, useEffect, useRef, useState } from "react";
 import ChangePasswordForm from "./ChangePasswordForm";
+import MfaSettingsCard from './MfaSettingsCard';
 import BrandLogo from "./BrandLogo";
 import Icon from "./Icon";
 import NotificationBell from "./NotificationBell";
@@ -161,6 +162,7 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
       </> : <p>No analytics are available yet.</p>}</section>}
       {view === "profile" && <section className="barangay-view-card"><h2>Personnel information</h2><dl className="barangay-account-details">{[["Name", user?.name || user?.fullName], ["Email", user?.email], ["Role", isBarangay ? "Barangay Personnel" : "Police Personnel"], ["Jurisdiction", jurisdiction], ["Account status", user?.accountStatus]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "Not available"}</dd></div>)}</dl></section>}
       {view === "settings" && <ChangePasswordForm />}
+      {view === "settings" && <MfaSettingsCard />}
       {view === "settings" && <section className="barangay-view-card"><h2>Account settings</h2><p>Your account details and permissions are managed by SafeLink administrators. Profile changes are not available from this workspace.</p><div className="barangay-settings-action"><div><strong>Current session</strong><p>End your session on this device.</p></div><button type="button" onClick={signOut}>Sign Out</button></div></section>}
       {isBarangay && ['dashboard', 'incidents', 'details'].includes(view) && <BarangayIncidents key={id || view} view={view} id={id} result={incidentsResult} user={user} notifications={notificationsResult} />}
       {!isBarangay && (view === "dashboard" || view === "incidents") && <div className={`partner-grid${view === "incidents" ? " partner-grid--incidents" : ""}`}>
