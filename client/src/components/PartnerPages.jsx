@@ -47,7 +47,7 @@ const barangayNavigation = [
   ["Reports & Analytics", "/barangay/analytics", "priority"],
 ];
 
-function BarangayNavigation({ pathname, user, signOut }) {
+function BarangayNavigation({ pathname, user, signOut, title, eyebrow, jurisdiction }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef(null);
@@ -67,6 +67,7 @@ function BarangayNavigation({ pathname, user, signOut }) {
   return <>
     <aside className={`barangay-sidebar${drawerOpen ? " is-open" : ""}`} id="barangay-navigation">
       <div className="barangay-sidebar-brand"><BrandLogo href="/barangay/dashboard" variant="dashboard" /></div>
+      <div className="barangay-workspace-label"><span>Barangay Operations</span><small>{jurisdiction || "Assigned jurisdiction"}</small></div>
       <nav aria-label="Barangay workspace">
         {barangayNavigation.map(([label, path, icon]) => <Link key={path} to={path} className={`barangay-nav-link${pathname === path || (path.endsWith("incidents") && pathname.startsWith(path + "/")) || (path.endsWith("dashboard") && pathname === "/barangay") ? " is-active" : ""}`} aria-current={pathname === path ? "page" : undefined} onClick={() => setDrawerOpen(false)}><Icon name={icon} size={20} /><span>{label}</span></Link>)}
       </nav>
@@ -74,7 +75,7 @@ function BarangayNavigation({ pathname, user, signOut }) {
     {drawerOpen && <button className="barangay-drawer-backdrop" type="button" aria-label="Close navigation" onClick={() => setDrawerOpen(false)} />}
     <header className="barangay-header">
       <button className="barangay-menu-toggle" type="button" aria-label={drawerOpen ? "Close navigation" : "Open navigation"} aria-expanded={drawerOpen} aria-controls="barangay-navigation" onClick={() => setDrawerOpen((open) => !open)}><Icon name={drawerOpen ? "close" : "menu"} size={22} /></button>
-      <div className="barangay-header-brand"><BrandLogo href="/barangay/dashboard" variant="dashboard" /><span>Barangay Response Workspace</span></div>
+      <div className="barangay-header-title"><span>{eyebrow}</span><h1>{title}</h1></div>
       <NotificationBell />
       <div className="barangay-account" ref={menuRef}>
         <button className="barangay-account-trigger" type="button" aria-haspopup="menu" aria-expanded={menuOpen} aria-controls="barangay-account-menu" onClick={() => setMenuOpen((open) => !open)}><span className="barangay-avatar">{initials}</span><span className="barangay-account-copy"><strong>{name}</strong><small>Barangay Personnel</small></span><span className="barangay-chevron" aria-hidden="true">⌄</span></button>
@@ -152,7 +153,7 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
     label: jurisdiction || "Barangay jurisdiction",
   } : undefined;
   return <div className={`partner-app partner-app--${portal}${isBarangay && ["dashboard", "incidents", "details"].includes(view) ? " partner-app--readable" : ""}`}>
-    {isBarangay ? <BarangayNavigation pathname={pathname} user={user} signOut={requestSignOut} /> : <header className="partner-topbar"><BrandLogo href={`/${portal}/dashboard`} variant="dashboard" /><div><span>{config.eyebrow}</span><strong>{user?.name || user?.fullName || config.title}</strong></div><NotificationBell /><Link to="/police/settings">Account Settings</Link><button onClick={requestSignOut}><Icon name="arrow" size={15} /> Sign out</button></header>}
+    {isBarangay ? <BarangayNavigation pathname={pathname} user={user} signOut={requestSignOut} title={pageInfo[0]} eyebrow={jurisdiction || "Assigned Barangay workspace"} jurisdiction={jurisdiction} /> : <header className="partner-topbar"><BrandLogo href={`/${portal}/dashboard`} variant="dashboard" /><div><span>{config.eyebrow}</span><strong>{user?.name || user?.fullName || config.title}</strong></div><NotificationBell /><Link to="/police/settings">Account Settings</Link><button onClick={requestSignOut}><Icon name="arrow" size={15} /> Sign out</button></header>}
     <main className="partner-content"><RefreshNotice result={incidentsResult} /><RefreshNotice result={notificationsResult} /><RefreshNotice result={analyticsResult} />
       {processError && <p className="form-error" role="alert">{processError}</p>}
       <section className={`partner-hero${isBarangay ? " barangay-workspace-heading" : ""}`}><span><Icon name={isBarangay ? pageInfo[2] : "shield"} size={24} /></span><div><small>{isBarangay ? jurisdiction || "Assigned Barangay workspace" : config.eyebrow}</small><h1>{pageInfo[0]}</h1><p>{isBarangay ? pageInfo[1] : config.copy}</p></div></section>

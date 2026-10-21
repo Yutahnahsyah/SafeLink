@@ -609,3 +609,75 @@
 .partner-app--barangay .lgu-password-form h2 { font-size: var(--barangay-section); line-height: 1.4; }
 .partner-app--barangay .lgu-password-form :is(p, label) { font-size: var(--barangay-body); }
 .partner-app--barangay .partner-content :is(input, select, textarea) { font-size: 1rem; }
+
+/* Barangay uses the same operations-shell hierarchy as the LGU workspace. */
+.partner-app--barangay {
+  --barangay-sidebar-width: 244px;
+  --barangay-title: 1.875rem;
+  --barangay-section: 1.1875rem;
+  --barangay-card-title: 1rem;
+  --barangay-body: .9375rem;
+  --barangay-meta: .8125rem;
+  background: #f3f7f8;
+}
+.partner-app--barangay .barangay-sidebar {
+  padding: 20px 14px 16px;
+  background: linear-gradient(180deg, #06182d 0%, #082d43 70%, #073843 100%);
+}
+.partner-app--barangay .barangay-sidebar-brand { min-height: 64px; padding: 0 9px 15px; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.partner-app--barangay .barangay-workspace-label { display: grid; gap: 6px; margin: 14px 9px 1px; }
+.partner-app--barangay .barangay-workspace-label span { color: #83dfe1; font-size: 13px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.partner-app--barangay .barangay-workspace-label small { color: #bbd2dd; font-size: 13px; line-height: 1.5; }
+.partner-app--barangay .barangay-sidebar nav { gap: 4px; padding: 13px 0; }
+.partner-app--barangay .barangay-nav-link { min-height: 48px; padding: 0 10px; border-radius: 10px; color: #d2e2ec; font-size: 15px; line-height: 1.4; }
+.partner-app--barangay .barangay-nav-link:hover, .partner-app--barangay .barangay-nav-link.is-active { background: #096b7c; }
+.partner-app--barangay .barangay-header {
+  height: auto;
+  min-height: 80px;
+  padding: 0 clamp(20px, 2.4vw, 38px);
+  border-bottom-color: #d5e4e6;
+  background: #fbfdfd;
+  box-shadow: 0 2px 12px rgba(7, 38, 55, .035);
+}
+.partner-app--barangay .barangay-header-title { display: grid; min-width: 0; }
+.partner-app--barangay .barangay-header-title > span { color: #526b7b; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.partner-app--barangay .barangay-header-title h1 { margin: 2px 0 0; color: #17324a; font: 800 26px/1.25 Manrope, sans-serif; letter-spacing: -.025em; }
+.partner-app--barangay .barangay-account-trigger { border-radius: 10px; }
+.partner-app--barangay .barangay-avatar { width: 40px; height: 40px; border-radius: 11px; }
+.partner-app--barangay .partner-content {
+  width: auto;
+  max-width: none;
+  margin: 0 0 0 var(--barangay-sidebar-width);
+  padding: 18px clamp(20px, 2.5vw, 38px) 60px;
+  font-size: 15px;
+}
+.partner-app--barangay .partner-hero.barangay-workspace-heading {
+  display: block;
+  min-height: 0;
+  margin: 1px 2px 20px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  color: #17324a;
+  background: transparent;
+  box-shadow: none;
+}
+.partner-app--barangay .partner-hero.barangay-workspace-heading > span,
+.partner-app--barangay .barangay-workspace-heading::after { display: none; }
+.partner-app--barangay .partner-hero.barangay-workspace-heading small { color: #087d85; font-size: 13px; font-weight: 800; letter-spacing: .12em; }
+.partner-app--barangay .partner-hero.barangay-workspace-heading h1 { margin: 7px 0 8px; color: #17324a; font-size: clamp(24px, 2.2vw, 30px); line-height: 1.25; }
+.partner-app--barangay .partner-hero.barangay-workspace-heading p { color: #536b77; font-size: 14px; line-height: 1.55; }
+.partner-app--barangay :is(.barangay-view-card, .barangay-incident-panel) { border-color: #d8e5e7; border-radius: 13px; box-shadow: 0 7px 21px rgba(8, 37, 59, .045); }
+.partner-app--barangay :is(.barangay-view-card, .barangay-incident-panel) > h2 { color: #18384c; font-size: 19px; }
+
+@media (max-width: 760px) {
+  .partner-app--barangay .barangay-header { min-height: 74px; padding-inline: 16px; }
+  .partner-app--barangay .partner-content { width: auto; margin: 0; padding: 20px 14px 46px; }
+  .partner-app--barangay .barangay-header-title h1 { font-size: 22px; }
+}
+
+@media (max-width: 460px) {
+  .partner-app--barangay .barangay-header-title > span { display: none; }
+  .partner-app--barangay .barangay-header-title h1 { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
