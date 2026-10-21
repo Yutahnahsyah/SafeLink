@@ -8,6 +8,8 @@ import SafeLinkMap from "./maps/SafeLinkMap";
 import { Link, useRouter } from "../routing";
 import { useAuth } from "../auth";
 import ProtectedEvidence from "./ProtectedEvidence";
+import { useLguSafetyMap } from '../services/useLguSafetyMap';
+import { buildLguSafetyMap, MAP_FILTER_OPTIONS, MAP_DATE_OPTIONS, EMPTY_MAP_FILTERS } from '../services/lguSafetyMap.mjs';
 import {
   useLguIncident,
   useLguIncidents,
@@ -248,12 +250,45 @@ export function LguPersonnelPage() {
 
 export function LguMapPage() {
   const { user } = useAuth();
-  const result = useLguIncidents(user);
   const jurisdiction = getLguJurisdiction(user);
-  const incidents = scopeLguRecords(result.data || [], jurisdiction);
-  const mapItems = toMapItems(incidents);
-  const mapView = getLguMapView(jurisdiction);
-  return <LguShell title="LGU Safety Map" eyebrow={`${jurisdiction} assignment locations`}><PageHeading eyebrow="Location intelligence" title={`${jurisdiction} assigned incident map`}>Visualize only incidents authorized and assigned to your LGU.</PageHeading><JurisdictionLabel area={jurisdiction} /><section className="citizen-card lgu-map-page"><div className="lgu-map-filters"><select disabled={!result.available} aria-label="Filter map by status"><option>All statuses</option></select><select disabled={!result.available} aria-label="Filter map by category"><option>All categories</option></select><select disabled={!result.available} aria-label="Filter map by priority"><option>All priorities</option></select><select disabled={!result.available} aria-label="Filter map by barangay"><option>All barangays</option></select><select disabled={!result.available} aria-label="Filter map by date"><option>Any date</option></select></div><div className="lgu-map-large">{result.status === "loading" ? <SectionSkeleton variant="map" label="Loading LGU safety map" /> : result.status === "error" ? <OperationalState result={result} error="Could not load assigned locations." /> : <SafeLinkMap mode="incidents" items={mapItems} focusView={mapView} />}</div>{(!result.available || result.status === "error") && <p className="lgu-map-disclosure"><Icon name={result.status === "error" ? "priority" : "shield"} size={15} /> {result.status === "error" ? "We couldn't load assigned incident locations. Please try again." : `Assigned ${jurisdiction} incident markers are unavailable until the LGU incidents API is connected. No sample incidents are displayed.`}</p>}</section></LguShell>;
+  const result = useLguSafetyMap(user, jurisdiction);
+  const accountKey = `${user?.id || ''}:${jurisdiction}`;
+  const [selection, setSelection] = useState({ key: accountKey, values: EMPTY_MAP_FILTERS });
+  const filters = selection.key === accountKey ? selection.values : EMPTY_MAP_FILTERS;
+  const update = (field) => (event) => setSelection({ key: accountKey, values: { ...filters, [field]: event.target.value } });
+  const reset = () => setSelection({ key: accountKey, values: EMPTY_MAP_FILTERS });
+  const ready = result.available && result.status === 'success';
+  const { items: mapItems, barangays, total } = buildLguSafetyMap(ready ? result.data : null, jurisdiction, filters);
+  const mapView = useMemo(() => getLguMapView(jurisdiction), [jurisdiction]);
+  const filtered = Object.values(filters).some(Boolean);
+  const limit = result.data?.metadata?.resultLimit;
+  return <LguShell title="LGU Safety Map" eyebrow={`${jurisdiction} assignment locations`}>
+    <PageHeading eyebrow="Location intelligence" title={`${jurisdiction} assigned incident map`}>Visualize only incidents authorized and assigned to your LGU.</PageHeading>
+    <JurisdictionLabel area={jurisdiction} />
+    <section className="citizen-card lgu-map-page">
+      <div className="lgu-map-filters">
+        {['status', 'category', 'priority'].map((field) => <select key={field} value={filters[field]} onChange={update(field)} disabled={!ready} aria-label={`Filter map by ${field}`}>
+          <option value="">All {field === 'priority' ? 'priorities' : field === 'category' ? 'categories' : 'statuses'}</option>
+          {MAP_FILTER_OPTIONS[field].map(value => <option value={value} key={value}>{value}</option>)}
+        </select>)}
+        <select value={filters.barangay} onChange={update('barangay')} disabled={!ready} aria-label="Filter map by barangay">
+          <option value="">All barangays</option>
+          {barangays.map(value => <option value={value} key={value}>{value}</option>)}
+          {ready && filters.barangay && !barangays.includes(filters.barangay) && <option value={filters.barangay}>{filters.barangay} (no current incidents)</option>}
+          {!barangays.length && <option disabled>No barangays in available map data</option>}
+        </select>
+        <select value={filters.date} onChange={update('date')} disabled={!ready} aria-label="Filter map by date">
+          <option value="">Any date</option>
+          {MAP_DATE_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+        </select>
+      </div>
+      <div className="lgu-map-filter-summary"><span role="status" aria-live="polite">{ready ? `${mapItems.length} of ${total} authorized map incidents shown` : 'Map filters are available after authorized locations load.'}</span><button type="button" className="button button-muted" onClick={reset} disabled={!filtered}>Clear filters</button></div>
+      <RefreshNotice result={result} />
+      {ready && !mapItems.length && <p className="lgu-map-empty" role="status">{!total ? 'No authorized incidents with map coordinates are available for your jurisdiction.' : 'No incidents match these filters. Clear filters or choose another combination.'}</p>}
+      {ready && limit && result.data?.metadata?.returned >= limit && <p className="lgu-map-disclosure">The map API returns up to {limit} locations. Filters apply to these loaded locations.</p>}
+      <div className="lgu-map-large">{result.status === 'loading' ? <SectionSkeleton variant="map" label="Loading LGU safety map" /> : !result.available || result.status === 'error' ? <OperationalState result={result} unavailable="Sign in with an LGU account that has an assigned jurisdiction to load map locations." error="Could not load assigned locations." /> : <SafeLinkMap mode="incidents" items={mapItems} focusView={mapView} />}</div>
+    </section>
+  </LguShell>;
 }
 
 export function LguProfilePage() {

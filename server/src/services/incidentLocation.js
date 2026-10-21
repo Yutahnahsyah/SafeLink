@@ -13,14 +13,17 @@ const exactMatch = (candidates, options) => {
   const matches = options.filter((name) => names.has(normalize(name)));
   return matches.length === 1 ? matches[0] : '';
 };
-function nearby(result, point) {
-  if (result?.lat == null || result?.lon == null) return false;
+function resultDistance(result, point) {
+  if (result?.lat == null || result?.lon == null) return Infinity;
   const lat = Number(result.lat), lon = Number(result.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return Infinity;
   const rad = Math.PI / 180;
   const a = Math.sin((lat - point.latitude) * rad / 2) ** 2
     + Math.cos(lat * rad) * Math.cos(point.latitude * rad) * Math.sin((lon - point.longitude) * rad / 2) ** 2;
-  return 6371000 * 2 * Math.asin(Math.min(1, Math.sqrt(a))) <= 100;
+  return 6371000 * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+function nearby(result, point) {
+  return resultDistance(result, point) <= 100;
 }
 
 function resolveIncidentAddress(result, point) {
@@ -39,18 +42,23 @@ function resolveIncidentAddress(result, point) {
   // Reverse lookup returns the nearest mapped object, which may be far away.
   // A municipality boundary can have a distant centroid, so accept its actual
   // containing geometry instead of applying the street/POI distance rule to it.
-  const municipalityBoundary = result?.category === 'boundary' && result.type === 'administrative'
+  const municipalityBoundary = administrative
     && ['6', '8'].includes(String(result.extratags?.admin_level))
     && normalize(result.name) === normalize(candidateMunicipality)
     && containsUncertainty(result.geojson, { ...point, accuracy: 0 });
-  const municipalityOrCity = candidateMunicipality && (nearby(result, point) || municipalityBoundary || barangayBoundary) ? candidateMunicipality : '';
+  const distance = resultDistance(result, point);
+  // Address hierarchy fields (town, city) come from administrative containment in OSM.
+  // Accept the municipality when the result is within a generous radius (<= 2500 m)
+  // or is a boundary polygon containing the point.
+  const municipalityOrCity = candidateMunicipality && (distance <= 2500 || municipalityBoundary || barangayBoundary) ? candidateMunicipality : '';
   // Ordinary reverse results are usually roads/buildings, not boundaries. Use
-  // their explicit address label only when nearby, unambiguous in our records,
-  // and the GPS uncertainty is bounded. These remain editable suggestions.
-  const nearbyAddress = !administrative && nearby(result, point)
-    && Number.isFinite(point.accuracy) && point.accuracy >= 0 && point.accuracy <= 100;
+  // their explicit address label when reasonably nearby (<= 500 m for rural barangays),
+  // unambiguous in our PSGC records, and GPS uncertainty is bounded (or pin is manual).
+  const boundedAccuracy = point.accuracy == null
+    || (Number.isFinite(point.accuracy) && point.accuracy >= 0 && point.accuracy <= 100);
+  const nearbyAddress = !administrative && distance <= 500 && boundedAccuracy;
   const barangay = municipalityOrCity && candidate && (barangayBoundary || nearbyAddress) ? candidate : '';
-  const close = Boolean(municipalityOrCity) && nearby(result, point);
+  const close = Boolean(municipalityOrCity) && distance <= 100;
   const street = close ? clean(address.road) || clean(address.pedestrian) : '';
   const landmark = close && ['amenity', 'tourism', 'shop', 'leisure', 'office', 'historic'].includes(result?.category) ? clean(result.name) : '';
   return {
@@ -119,23 +127,48 @@ function createProviderGeocoder({ fetchFn = (...args) => fetch(...args), now = D
     return resolveIncidentAddress(await request, point);
   };
 }
+
 function createIncidentGeocoder(options) {
   const provider = createProviderGeocoder(options);
   return async (point) => {
     const { municipalitiesAt } = await import('../../../shared/incidentMunicipality.mjs');
     const candidates = municipalitiesAt(point);
-    const municipalityOrCity = candidates.length === 1 ? candidates[0] : '';
+    const localMunicipality = candidates.length === 1 ? candidates[0] : '';
     let address;
-    try { address = await provider(point); }
-    catch (error) {
-      if (!municipalityOrCity || error.message === 'OUTSIDE_PANGASINAN') throw error;
+    try {
+      address = await provider(point);
+    } catch (error) {
+      if (error.message === 'OUTSIDE_PANGASINAN') throw error;
+      // When external provider fails (503, 429, timeout, network error),
+      // fall back to verified local municipality geometry from GeoJSON.
+      if (localMunicipality) {
+        return {
+          province: 'Pangasinan',
+          municipalityOrCity: localMunicipality,
+          barangay: '',
+          street: '',
+          zipCode: getPangasinanZipCode(localMunicipality) || '',
+          location: `${localMunicipality}, Pangasinan`,
+        };
+      }
+      throw error;
     }
-    if (!municipalityOrCity) return address;
-    if (address?.municipalityOrCity === municipalityOrCity) return address;
-    // A missing/distant/provider-mismatched address cannot erase verified local
-    // municipality geometry. No local barangay polygons are available.
-    return { province: 'Pangasinan', municipalityOrCity, barangay: '', street: '',
-      zipCode: getPangasinanZipCode(municipalityOrCity), location: `${municipalityOrCity}, Pangasinan` };
+    // If provider succeeded, but its municipality didn't match or was missing:
+    // If we have verified local geometry, ensure municipality is populated!
+    if (localMunicipality && (!address?.municipalityOrCity || address.municipalityOrCity !== localMunicipality)) {
+      const municipalityBarangays = getMunicipality(localMunicipality)?.barangays.map((b) => b.name) || [];
+      const validBarangay = municipalityBarangays.includes(address?.barangay) ? address.barangay : '';
+      return {
+        province: 'Pangasinan',
+        municipalityOrCity: localMunicipality,
+        barangay: validBarangay,
+        street: address?.street || '',
+        zipCode: getPangasinanZipCode(localMunicipality) || '',
+        location: address?.location || `${localMunicipality}, Pangasinan`,
+      };
+    }
+    return address;
   };
 }
+
 module.exports = { resolveIncidentAddress, createProviderGeocoder, createIncidentGeocoder, getIncidentAddress: createIncidentGeocoder() };
