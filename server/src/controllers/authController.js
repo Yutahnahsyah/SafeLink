@@ -155,7 +155,8 @@ const registerCitizen = async (req, res) => {
       },
       role: 'citizen',
       legalAcceptance: { termsVersion: policies.termsVersion, privacyVersion: policies.privacyVersion, acceptedAt: new Date() },
-  isVerified: false,
+      status: 'pending',
+      isVerified: false,
       emailVerificationToken: verification.hash,
       emailVerificationExpires: verification.expires
     });
@@ -273,12 +274,38 @@ const verifyEmail = async (req, res) => {
       });
     }
 
-    user.isVerified = true;
-    user.lastUsedEmailVerificationToken = hashedToken;
-    user.lastUsedEmailVerificationExpires = Date.now() + 15 * 60 * 1000;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-    await user.save();
+    // Email verification cannot lift an administrative access restriction.
+    if (user.role !== 'citizen' || !['pending', 'active'].includes(user.status)) {
+      return res.status(403).json({
+        code: 'ACCOUNT_RESTRICTED',
+        message: 'This account cannot be activated. Contact your account administrator.'
+      });
+    }
+    // Guard the transition in the database as well as above: a concurrent
+    // suspension or token replacement must not be overwritten by verification.
+    const activatedUser = await User.findOneAndUpdate({
+      _id: user._id,
+      role: 'citizen',
+      isVerified: false,
+      status: { $in: ['pending', 'active'] },
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: { $gt: new Date() }
+    }, {
+      $set: {
+        isVerified: true,
+        status: 'active',
+        lastUsedEmailVerificationToken: hashedToken,
+        lastUsedEmailVerificationExpires: new Date(Date.now() + 15 * 60 * 1000),
+        updatedAt: new Date()
+      },
+      $unset: { emailVerificationToken: '', emailVerificationExpires: '' }
+    }, { new: true, runValidators: true });
+    if (!activatedUser) {
+      return res.status(409).json({
+        code: 'VERIFICATION_STATE_CHANGED',
+        message: 'This verification link can no longer activate the account. Request a new link or contact your account administrator.'
+      });
+    }
 
     await recordAuditEvent({
       req,
@@ -608,6 +635,10 @@ const updateUserStatus = async (req, res) => {
       return res.status(403).json({
         message: 'Access forbidden: You do not have administrative privileges.'
       });
+    }
+
+    if (status === 'active' && targetUser.role === 'citizen' && !targetUser.isVerified) {
+      return res.status(400).json({ message: 'Citizen accounts must verify their email before activation.' });
     }
 
     const previousStatus = targetUser.status;

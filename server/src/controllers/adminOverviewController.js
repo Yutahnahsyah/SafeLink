@@ -1,5 +1,6 @@
 const User = require('../models/user');
 const Incident = require('../models/incident');
+const { accountStatus, accountStatusExpression } = require('../utils/accountStatus');
 
 const roles = ['citizen', 'barangay_personnel', 'lgu_personnel', 'police_personnel', 'admin'];
 const statuses = ['active', 'pending', 'suspended'];
@@ -31,17 +32,17 @@ async function getAdminUsers(req, res) {
     if (req.query.verified === 'false') return res.status(400).json({ message: 'The personnel directory contains authorized, verified officials only. Review unverified accounts in Account Management.' });
     query.isVerified = true;
   }
-  if (req.query.status) query.status = req.query.status;
+  if (req.query.status) query.$expr = { $eq: [accountStatusExpression, req.query.status] };
   if (req.query.verified) query.isVerified = req.query.verified === 'true';
   if (search) query.$or = ['firstName', 'lastName', 'email', 'jurisdiction.municipalityOrCity'].map((key) => ({ [key]: { $regex: escapeRegex(search), $options: 'i' } }));
   try {
     const [users, total, summary] = await Promise.all([
       User.find(query).select('_id firstName lastName middleInitial phoneNumber email role status isVerified jurisdiction createdAt updatedAt lastLoginAt').sort({ createdAt: req.query.sort === 'oldest' ? 1 : -1, _id: req.query.sort === 'oldest' ? 1 : -1 }).skip((page - 1) * limit).limit(limit).lean(),
       User.countDocuments(query),
-      User.aggregate([{ $facet: {
+      User.aggregate([{ $set: { status: accountStatusExpression } }, { $facet: {
         total: [{ $count: 'count' }],
         verified: [{ $match: { isVerified: true } }, { $count: 'count' }],
-        pending: [{ $match: { isVerified: false } }, { $count: 'count' }],
+        pending: [{ $match: { status: 'pending', isVerified: false } }, { $count: 'count' }],
         suspended: [{ $match: { status: 'suspended' } }, { $count: 'count' }],
         statuses: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
         roles: [{ $group: { _id: '$role', count: { $sum: 1 } } }],
@@ -49,7 +50,7 @@ async function getAdminUsers(req, res) {
     ]);
     const metrics = summary[0] || {};
     res.setHeader('Cache-Control', 'no-store');
-    return res.json({ data: users, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }, summary: {
+    return res.json({ data: users.map((user) => ({ ...user, status: accountStatus(user) })), pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }, summary: {
       total: metrics.total?.[0]?.count || 0,
       verified: metrics.verified?.[0]?.count || 0,
       pending: metrics.pending?.[0]?.count || 0,

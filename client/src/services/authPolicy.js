@@ -4,7 +4,8 @@ const dashboards = Object.freeze({
 });
 const workspaces = Object.freeze({ citizen: 'citizen', barangay: 'barangay_personnel', lgu: 'lgu_personnel', police: 'police_personnel', admin: 'admin' });
 export const dashboardForRole = (role) => Object.hasOwn(dashboards, role) ? dashboards[role] : '/login';
-export const isVerifiedAccountShape = (user) => Boolean(typeof user?.id === 'string' && user.id && Object.hasOwn(dashboards, user.role));
+export const isVerifiedAccountShape = (user) => Boolean(typeof user?.id === 'string' && user.id && Object.hasOwn(dashboards, user.role)
+  && user.isVerified === true && user.status === 'active');
 export const roleForPath = (path) => {
   const segment = path.split('/')[1];
   return Object.hasOwn(workspaces, segment) ? workspaces[segment] : null;

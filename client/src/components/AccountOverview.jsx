@@ -3,7 +3,7 @@ import { SectionSkeleton } from './PageSkeletons';
 
 const statusTypes = [
   ['active', 'Active', '#078f9b'],
-  ['pending', 'Awaiting activation', '#e8a142'],
+  ['pending', 'Pending Verification', '#e8a142'],
   ['suspended', 'Suspended', '#dc6475'],
 ];
 const percent = (value, total) => Math.round(value / total * 100);
