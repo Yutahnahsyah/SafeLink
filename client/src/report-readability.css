@@ -71,6 +71,42 @@
 .citizen-report-tracking .report-response-history p { margin: 0; white-space: pre-wrap; font-size: var(--report-body); line-height: 1.65; color: var(--report-muted); }
 .citizen-report-tracking .resolution-outcome p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--report-body); line-height: 1.65; color: var(--report-muted); }
 .citizen-report-tracking .resolution-outcome time { font-size: var(--report-meta); color: var(--report-muted); }
+
+/* Keep the citizen view read-only, while giving it the same visual language as
+   the LGU incident workspace: a case header, panel headers, and concise rows. */
+.citizen-report-tracking .tracking-heading { margin:0 0 17px; padding:23px 25px; border:1px solid #cee2e4; border-radius:17px; background:#fff; box-shadow:0 10px 28px rgba(8,37,59,.055); }
+.citizen-report-tracking .tracking-heading > div { gap:8px; }
+.citizen-report-tracking .tracking-heading > a { justify-content:center; padding:10px 14px; border:1px solid #c8e0e2; border-radius:9px; color:#087d85; background:#f8fcfc; font-weight:800; text-decoration:none; transition:border-color 180ms ease,background 180ms ease,color 180ms ease; }
+.citizen-report-tracking .tracking-heading > a:hover,.citizen-report-tracking .tracking-heading > a:focus-visible { border-color:#73c5c9; color:#063c61; background:#eaf7f7; outline:none; }
+.citizen-report-tracking .tracking-card { padding:0; overflow:hidden; border-top:1px solid #dce8ea; }
+.citizen-report-tracking .tracking-card > h2 { margin:0; padding:20px 24px; border-bottom:1px solid #e7eeee; color:#203f53; font-size:19px; }
+.citizen-report-tracking .resolution-outcome > p { margin:0; padding:18px 24px 5px; }
+.citizen-report-tracking .resolution-outcome > time { display:block; padding:0 24px 18px; }
+.citizen-report-tracking .tracking-timeline { margin:0; padding:25px 18px 29px; }
+.citizen-report-tracking .tracking-timeline > div > span { width:34px; height:34px; border-color:#d5e2e4; font-size:13px; }
+.citizen-report-tracking .tracking-timeline > div.complete > span { border-color:#087d85; background:#087d85; }
+.citizen-report-tracking .tracking-timeline > div.current > span { border-color:#4dbdc2; background:#087d85; box-shadow:0 0 0 5px rgba(8,125,133,.11); }
+.citizen-report-tracking .tracking-timeline strong { color:#29485b; font-size:14px; }
+.citizen-report-tracking .tracking-timeline small { color:#536b77; font-size:12px; }
+.citizen-report-tracking .tracking-timeline p { color:#657b84; font-size:12px; }
+.citizen-report-tracking .report-response-history { margin:0; padding:8px 20px 18px; border-left:0; }
+.citizen-report-tracking .report-response-history li { position:relative; min-height:43px; padding:13px 0 13px 40px; border-bottom:1px solid #e7eeee; }
+.citizen-report-tracking .report-response-history li:last-child { border-bottom:0; }
+.citizen-report-tracking .report-response-history li::before { content:"✓"; position:absolute; top:13px; left:0; display:grid; place-items:center; width:29px; height:29px; border-radius:9px; color:#087d85; background:#e9f7f7; font-size:14px; font-weight:800; }
+.citizen-report-tracking .report-response-history strong { color:#29485b; font-size:14px; text-transform:capitalize; }
+.citizen-report-tracking .report-response-history time { color:#536b77; font-size:12px; }
+.citizen-report-tracking .report-response-history p { color:#657a83; font-size:13px; }
+.citizen-report-tracking .tracking-grid { gap:17px; }
+.citizen-report-tracking .tracking-grid > .citizen-card { padding:0; overflow:hidden; }
+.citizen-report-tracking .tracking-grid > .citizen-card > h2 { margin:0; padding:20px 22px; border-bottom:1px solid #e7eeee; color:#203f53; font-size:19px; }
+.citizen-report-tracking .report-details { gap:9px; padding:18px; }
+.citizen-report-tracking .report-details > div { padding:12px; border:1px solid #e4ecee; border-radius:10px; background:#fafcfc; }
+.citizen-report-tracking .report-details dt { color:#536b77; font-size:12px; font-weight:500; text-transform:uppercase; }
+.citizen-report-tracking .report-details dd { margin-top:4px; color:#29485b; font-size:14px; }
+.citizen-report-tracking .evidence-gallery { padding:0 18px 18px; }
+.citizen-report-tracking .privacy-card { display:grid; align-content:start; gap:8px; padding:20px 22px !important; border-color:#d8e7e8; background:linear-gradient(145deg,#fbfefe,#f3fafa); }
+.citizen-report-tracking .privacy-card h2 { padding:0 !important; border:0 !important; font-size:17px !important; }
+.citizen-report-tracking .privacy-card p { margin:0; }
 @container report-content (min-width: 600px) {
   .citizen-report-tracking .report-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .citizen-report-tracking .report-details > div:last-child { grid-column: 1 / -1; }
