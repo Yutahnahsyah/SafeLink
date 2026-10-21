@@ -8,6 +8,11 @@
 .auth-page--unified input:focus { outline:2px solid #078b96; outline-offset:2px; }
 .auth-page--unified .button { min-height:48px; border-radius:12px; transition:background 240ms,box-shadow 240ms,transform 240ms; }
 .auth-page--unified .field-error,.auth-page--unified .form-error { animation:unified-auth-enter 220ms ease; }
+.auth-page--unified .auth-form .mfa-trust-device { display:flex; align-items:flex-start; gap:10px; padding:12px 13px; border:1px solid #c9e2e5; border-radius:10px; background:#f4fbfc; color:#173d50; cursor:pointer; }
+.auth-page--unified .auth-form .mfa-trust-device input { flex:0 0 auto; width:17px; min-height:17px; height:17px; margin:2px 0 0; padding:0; accent-color:#087d85; }
+.auth-page--unified .auth-form .mfa-trust-device span { display:grid; gap:2px; color:#173d50; font-size:12px; font-weight:400; }
+.auth-page--unified .auth-form .mfa-trust-device strong { color:#173d50; font-size:12px; font-weight:800; }
+.auth-page--unified .auth-form .mfa-trust-device small { color:#5a7380; font-size:11px; line-height:1.4; }
 @keyframes unified-auth-enter { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 @media(max-width:650px) { .auth-page--unified .auth-card { padding:24px 18px; border-radius:18px; }.auth-page--unified .auth-heading h2 { font-size:27px; } }
 @media(prefers-reduced-motion:reduce) { .auth-page--unified * { animation:none!important; transition:none!important; } }

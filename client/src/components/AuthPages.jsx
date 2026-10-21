@@ -190,6 +190,7 @@ function MfaLoginStep({ challenge, onAuthenticated, onCancel }) {
   const [useRecovery, setUseRecovery] = useState(false);
   const [recoveryCodes, setRecoveryCodes] = useState(null);
   const [completedPayload, setCompletedPayload] = useState(null);
+  const [trustDevice, setTrustDevice] = useState(false);
   const [loading, setLoading] = useState(enrollment);
   const [error, setError] = useState("");
 
@@ -213,8 +214,8 @@ function MfaLoginStep({ challenge, onAuthenticated, onCancel }) {
       const payload = enrollment
         ? await authApi.confirmMfaEnrollment(challenge.mfaToken, value)
         : useRecovery
-          ? await authApi.recoverMfa(challenge.mfaToken, value)
-          : await authApi.verifyMfa(challenge.mfaToken, value);
+          ? await authApi.recoverMfa(challenge.mfaToken, value, trustDevice)
+          : await authApi.verifyMfa(challenge.mfaToken, value, trustDevice);
       if (Array.isArray(payload.recoveryCodes)) {
         setRecoveryCodes(payload.recoveryCodes);
         setCompletedPayload(payload);
@@ -237,6 +238,7 @@ function MfaLoginStep({ challenge, onAuthenticated, onCancel }) {
     {!loading && <form className="auth-form" onSubmit={submit} noValidate>
       {!enrollment && <button className="forgot-link" type="button" onClick={() => { setUseRecovery(!useRecovery); setError(""); }}>{useRecovery ? "Use authenticator code instead" : "Use a recovery code instead"}</button>}
       {useRecovery ? <Field id="mfa-recovery-code" label="Recovery code" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} autoComplete="one-time-code" /> : <Field id="mfa-code" label="Authenticator code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} />}
+      {!enrollment && <label className="mfa-trust-device"><input type="checkbox" checked={trustDevice} onChange={(event) => setTrustDevice(event.target.checked)} /><span><strong>Trust this device for 15 days</strong><small>Only choose this on a private device you control.</small></span></label>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <LoadingButton loading={loading} loadingText="Verifying…">{enrollment ? "Enable authenticator MFA" : useRecovery ? "Use recovery code" : "Verify and sign in"}</LoadingButton>
     </form>}

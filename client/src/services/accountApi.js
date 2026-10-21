@@ -1,4 +1,4 @@
-import { ApiError } from "./apiClient";
+import { ApiError, clearTrustedMfaDevice, getTrustedMfaDevice } from "./apiClient";
 import { mapUserFromApi } from "./apiMappers";
 import { isVerifiedAccountShape } from "./authPolicy";
 import { authApi, personnelApi } from "./safelinkApi";
@@ -17,8 +17,12 @@ export function sessionFromLoginPayload(payload) {
 }
 
 export async function loginAccount(credentials) {
-  const payload = await authApi.login({ email: credentials.email.trim().toLowerCase(), password: credentials.password });
-  if (payload?.mfaRequired || payload?.mfaEnrollmentRequired) return payload;
+  const trustedDevice = getTrustedMfaDevice();
+  const payload = await authApi.login({ email: credentials.email.trim().toLowerCase(), password: credentials.password, ...(trustedDevice ? { trustedDeviceToken: trustedDevice.token } : {}) });
+  if (payload?.mfaRequired || payload?.mfaEnrollmentRequired) {
+    if (trustedDevice) clearTrustedMfaDevice();
+    return payload;
+  }
   return sessionFromLoginPayload(payload);
 }
 

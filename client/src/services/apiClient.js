@@ -5,6 +5,7 @@ export const API_BASE_URL = String(import.meta.env?.DEV ? "/api" : import.meta.e
 const TOKEN_KEY = "safelink_access_token";
 const USER_KEY = "safelink_user";
 const ACTIVITY_KEY = "safelink_last_activity";
+const TRUSTED_MFA_DEVICE_KEY = "safelink_mfa_trusted_device";
 
 export function getAccessToken() {
   try { return window.sessionStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; }
@@ -31,6 +32,31 @@ export function clearSession() {
     window.sessionStorage.removeItem(USER_KEY);
     window.sessionStorage.removeItem(ACTIVITY_KEY);
   } catch { /* Nothing else to clear. */ }
+}
+
+export function getTrustedMfaDevice() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(TRUSTED_MFA_DEVICE_KEY) || "null");
+    if (typeof value?.token !== "string" || value.token.length < 40 || value.token.length > 128 || !value?.expiresAt || new Date(value.expiresAt).getTime() <= Date.now()) {
+      window.localStorage.removeItem(TRUSTED_MFA_DEVICE_KEY);
+      return null;
+    }
+    return value;
+  } catch {
+    try { window.localStorage.removeItem(TRUSTED_MFA_DEVICE_KEY); } catch { /* Nothing to clear. */ }
+    return null;
+  }
+}
+
+export function storeTrustedMfaDevice(token, expiresAt) {
+  try {
+    if (typeof token !== "string" || !token || !expiresAt) return;
+    window.localStorage.setItem(TRUSTED_MFA_DEVICE_KEY, JSON.stringify({ token, expiresAt }));
+  } catch { /* Local storage can be unavailable in hardened browsers. */ }
+}
+
+export function clearTrustedMfaDevice() {
+  try { window.localStorage.removeItem(TRUSTED_MFA_DEVICE_KEY); } catch { /* Nothing to clear. */ }
 }
 
 export function storedSessionUser() {

@@ -140,12 +140,14 @@ const validateLogin = [
     .isEmail()
     .withMessage('Please provide a valid email address.'),
   body('password').isString().bail().notEmpty().withMessage('Password is required.'),
+  body('trustedDeviceToken').optional().isString().bail().isLength({ min: 40, max: 128 }).withMessage('Trusted-device session is invalid.'),
   validate
 ];
 
 const validateMfaCode = [
   body('mfaToken').isString().isLength({ min: 20, max: 2048 }).withMessage('MFA session is invalid.'),
   body('code').isString().trim().matches(/^\d{6}$/).withMessage('Enter the six-digit authenticator code.'),
+  body('trustDevice').optional().isBoolean().toBoolean(),
   validate
 ];
 
@@ -162,6 +164,7 @@ const validateMfaSettingsCode = [
 const validateMfaRecovery = [
   body('mfaToken').isString().isLength({ min: 20, max: 2048 }).withMessage('MFA session is invalid.'),
   body('recoveryCode').isString().trim().matches(/^[A-Za-z0-9-]{10,40}$/).withMessage('Enter a valid recovery code.'),
+  body('trustDevice').optional().isBoolean().toBoolean(),
   validate
 ];
 

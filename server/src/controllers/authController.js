@@ -1,4 +1,5 @@
 const User = require('../models/user');
+const TrustedMfaDevice = require('../models/trustedMfaDevice');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -13,6 +14,7 @@ const { createPasswordResetUrl, passwordResetEmail } = require('../utils/passwor
 const dummyLoginHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
 const MFA_TOKEN_TTL = '5m';
 const MFA_ENROLLMENT_TTL_MS = 10 * 60 * 1000;
+const MFA_TRUSTED_DEVICE_TTL_MS = 15 * 24 * 60 * 60 * 1000;
 
 function mfaEncryptionKey() {
   const key = Buffer.from(String(process.env.MFA_ENCRYPTION_KEY || ''), 'base64');
@@ -47,6 +49,23 @@ function mfaChallengeUser(token, purpose) {
 }
 const normalizeRecoveryCode = (value) => String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
 const recoveryHash = (value) => crypto.createHash('sha256').update(normalizeRecoveryCode(value)).digest('hex');
+const trustedDeviceHash = (value) => crypto.createHash('sha256').update(String(value || '')).digest('hex');
+const issueTrustedMfaDevice = async (userId) => {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + MFA_TRUSTED_DEVICE_TTL_MS);
+  await TrustedMfaDevice.deleteMany({ user: userId, expiresAt: { $lte: now } });
+  await TrustedMfaDevice.create({ user: userId, tokenHash: trustedDeviceHash(token), expiresAt, lastUsedAt: now });
+  return { trustedDeviceToken: token, trustedDeviceExpiresAt: expiresAt.toISOString() };
+};
+const isTrustedMfaDevice = async (userId, token) => {
+  if (typeof token !== 'string' || token.length < 40) return false;
+  const now = new Date();
+  const device = await TrustedMfaDevice.findOne({ user: userId, tokenHash: trustedDeviceHash(token), expiresAt: { $gt: now } });
+  if (!device) return false;
+  await TrustedMfaDevice.updateOne({ _id: device._id }, { $set: { lastUsedAt: now } });
+  return true;
+};
 const createRecoveryCodes = () => Array.from({ length: 8 }, () => {
   const code = crypto.randomBytes(12).toString('hex').toUpperCase();
   return `${code.slice(0, 6)}-${code.slice(6, 12)}-${code.slice(12, 18)}-${code.slice(18)}`;
@@ -456,6 +475,10 @@ const loginUser = async (req, res) => {
       await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_LOGIN', outcome: 'success' });
       return res.json(await loginPayload(user));
     }
+    if (await isTrustedMfaDevice(user._id, req.body.trustedDeviceToken)) {
+      await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_TRUSTED_DEVICE', outcome: 'success' });
+      return res.json(await loginPayload(user, 'Signed in using this trusted device.'));
+    }
     await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_REQUIRED', outcome: 'success' });
     return res.json({ mfaRequired: true, mfaToken: mfaChallenge(user, 'login'), email: user.email,
       message: 'Enter the code from your authenticator app to finish signing in.' });
@@ -517,6 +540,7 @@ const confirmMfaEnrollment = async (req, res) => {
       $unset: { mfaPendingSecret: '', mfaPendingExpires: '' }
     }, { new: true }).select('+mfaSecret +mfaRecoveryCodeHashes');
     if (!updated) return res.status(409).json({ code: 'MFA_ENROLLMENT_CHANGED', message: 'This MFA setup is no longer available. Sign in again to continue.' });
+    await TrustedMfaDevice.deleteMany({ user: updated._id });
     await recordAuditEvent({ req, actor: updated._id, targetUser: updated._id, action: 'AUTH_MFA_ENROLLED', outcome: 'success' });
     return res.json({ ...(await loginPayload(updated, 'Authenticator MFA is enabled.')), recoveryCodes });
   } catch (error) {
@@ -535,8 +559,9 @@ const verifyMfaLogin = async (req, res) => {
       await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_LOGIN', outcome: 'failure', details: { reason: 'invalid_totp' } });
       return res.status(400).json({ code: 'MFA_CODE_INVALID', message: 'That authenticator code is incorrect. Try the current code.' });
     }
-    await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_LOGIN', outcome: 'success' });
-    return res.json(await loginPayload(user));
+    const trustedDevice = req.body.trustDevice ? await issueTrustedMfaDevice(user._id) : {};
+    await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_LOGIN', outcome: 'success', details: req.body.trustDevice ? { trustedDevice: true } : undefined });
+    return res.json({ ...(await loginPayload(user)), ...trustedDevice });
   } catch (error) {
     if (error.code === 'MFA_CONFIGURATION_ERROR') return res.status(503).json({ code: error.code, message: 'Authenticator verification is temporarily unavailable.' });
     return res.status(401).json({ code: 'MFA_CHALLENGE_INVALID', message: 'Your MFA sign-in session has expired. Sign in again to continue.' });
@@ -554,8 +579,9 @@ const recoverMfaLogin = async (req, res) => {
     }
     const consumed = await User.updateOne({ _id: user._id, mfaRecoveryCodeHashes: codeHash }, { $pull: { mfaRecoveryCodeHashes: codeHash }, $set: { updatedAt: new Date() } });
     if (!consumed.modifiedCount) return res.status(400).json({ code: 'MFA_RECOVERY_INVALID', message: 'That recovery code is invalid or has already been used.' });
-    await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_RECOVERY', outcome: 'success' });
-    return res.json(await loginPayload(user, 'Recovery code accepted. Store your remaining recovery codes safely.'));
+    const trustedDevice = req.body.trustDevice ? await issueTrustedMfaDevice(user._id) : {};
+    await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_RECOVERY', outcome: 'success', details: req.body.trustDevice ? { trustedDevice: true } : undefined });
+    return res.json({ ...(await loginPayload(user, 'Recovery code accepted. Store your remaining recovery codes safely.')), ...trustedDevice });
   } catch {
     return res.status(401).json({ code: 'MFA_CHALLENGE_INVALID', message: 'Your MFA sign-in session has expired. Sign in again to continue.' });
   }
@@ -601,6 +627,7 @@ const confirmMfaSettingsEnrollment = async (req, res) => {
       $unset: { mfaPendingSecret: '', mfaPendingExpires: '' }
     }, { new: true });
     if (!updated) return res.status(409).json({ code: 'MFA_ENROLLMENT_CHANGED', message: 'This MFA setup is no longer available. Create a new QR code and try again.' });
+    await TrustedMfaDevice.deleteMany({ user: updated._id });
     await recordAuditEvent({ req, actor: updated._id, targetUser: updated._id, action: 'AUTH_MFA_ENROLLED', outcome: 'success' });
     return res.json({ message: 'Authenticator MFA is enabled.', mfaEnabled: true, recoveryCodes });
   } catch (error) {
@@ -623,6 +650,7 @@ const disableMfaSettings = async (req, res) => {
       $unset: { mfaSecret: '', mfaPendingSecret: '', mfaPendingExpires: '', mfaRecoveryCodeHashes: '' }
     });
     if (!disabled.modifiedCount) return res.status(409).json({ code: 'MFA_ENROLLMENT_CHANGED', message: 'MFA settings changed. Refresh the page and try again.' });
+    await TrustedMfaDevice.deleteMany({ user: user._id });
     await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_DISABLED', outcome: 'success' });
     return res.json({ message: 'Authenticator MFA has been disabled.', mfaEnabled: false });
   } catch (error) {
@@ -771,6 +799,7 @@ const resetPassword = async (req, res) => {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
+    await TrustedMfaDevice.deleteMany({ user: user._id });
 
     await recordAuditEvent({
       req,
@@ -928,6 +957,7 @@ async function changePassword(req, res) {
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
     await user.save();
+    await TrustedMfaDevice.deleteMany({ user: user._id });
     await recordAuditEvent({ req, targetUser: user._id, action: user.role === 'lgu_personnel' ? 'LGU_PASSWORD_CHANGED' : 'AUTH_PASSWORD_CHANGED', outcome: 'success', details: user.mfaEnabled ? { mfaVerified: true } : undefined });
     // Preserve the application's existing JWT expiration policy.
     return res.json({ message: 'Password changed successfully.' });

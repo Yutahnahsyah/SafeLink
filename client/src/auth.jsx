@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { useRouter } from "./routing";
 import { loginAccount, registerCitizenAccount, sessionFromLoginPayload } from "./services/accountApi";
 import { authApi } from "./services/safelinkApi";
-import { clearSession, getAccessToken, markActivity, storeSession } from "./services/apiClient";
+import { clearSession, getAccessToken, markActivity, storeSession, storeTrustedMfaDevice } from "./services/apiClient";
 import { isVerifiedAccountShape, shouldShowCitizenSessionReminder } from "./services/authPolicy";
 import CitizenSessionReminder from "./components/CitizenSessionReminder";
 
@@ -86,6 +86,7 @@ export function AuthProvider({ children }) {
       },
       completeMfaLogin(payload) {
         const result = sessionFromLoginPayload(payload);
+        if (payload?.trustedDeviceToken && payload?.trustedDeviceExpiresAt) storeTrustedMfaDevice(payload.trustedDeviceToken, payload.trustedDeviceExpiresAt);
         revision.current += 1;
         setUser(result.user);
         setIsRestoring(false);
