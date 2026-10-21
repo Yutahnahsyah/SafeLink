@@ -49,6 +49,29 @@ function OperationalState({ result, icon = "shield", unavailable, empty, error, 
   </div>;
 }
 
+function DashboardIncidentList({ result, incidents, empty, icon = "report" }) {
+  if (result?.status === "loading" || !result?.available || result?.status === "error") {
+    return <OperationalState result={result} icon={icon}
+      unavailable="Incident information is not available yet."
+      empty={empty}
+      error="We couldn't load incident information. Please try again." />;
+  }
+  if (!incidents.length) return <OperationalState result={{ available: true }} icon={icon} empty={empty} />;
+  return <div className="lgu-dashboard-incidents">
+    {incidents.slice(0, 3).map((incident) => {
+      const awaitingCoordination = incident.escalation?.agency === "LGU" && !incident.escalation?.acknowledgedAt;
+      const detail = awaitingCoordination
+        ? "Barangay requested LGU coordination"
+        : incident.assignedTo ? `Assigned to ${incident.assignedTo}` : "Assigned to the LGU response desk";
+      return <article key={incident.id}>
+        <span><Icon name={awaitingCoordination ? "priority" : icon} size={16} /></span>
+        <div><strong>{incident.title || incident.type || incident.category || "Incident"}</strong><p>{detail}</p><small>{incident.latestUpdate || incident.submittedAt || "No update available"}</small></div>
+        <Link aria-label={`Open incident ${incident.id}`} to={`/lgu/incidents/${encodeURIComponent(incident.id)}`}>Open <Icon name="arrow" size={14} /></Link>
+      </article>;
+    })}
+  </div>;
+}
+
 function MapLoadingError({ result }) {
   const boundaryError = !result.error || isLguBoundaryError(result.error);
   return <OperationalState result={{ ...result, status: 'error' }} icon="map"
@@ -117,6 +140,12 @@ export function LguDashboardPage() {
   const notificationResult = useLguNotifications(user);
   const jurisdiction = getLguJurisdiction(user);
   const incidents = scopeLguRecords(incidentsResult.data || [], jurisdiction);
+  const coordinationQueue = incidents.filter((incident) => {
+    const awaitingCoordination = incident.escalation?.agency === "LGU" && !incident.escalation?.acknowledgedAt;
+    return !["Resolved", "Closed"].includes(incident.status)
+      && (incident.assignedAgency === "LGU" || awaitingCoordination);
+  });
+  const activeResponses = incidents.filter((incident) => incident.status === "In Progress");
   const safetyMapResult = useLguSafetyMap(user, jurisdiction);
   const { items: mapItems } = buildLguSafetyMap(safetyMapResult.data, jurisdiction);
   const mapView = useMemo(() => getLguMapView(jurisdiction, safetyMapResult.data?.boundary), [jurisdiction, safetyMapResult.data?.boundary]);
@@ -137,8 +166,8 @@ export function LguDashboardPage() {
     <section className="lgu-metrics" aria-label="LGU incident summary">{metrics.map(([icon, label, value, tone]) => <Metric key={label} icon={icon} label={label} value={value} tone={tone} />)}</section>
     <div className="lgu-dashboard-grid">
       <section className="citizen-card lgu-map-panel"><header><div><span className="lgu-eyebrow">Authorized {jurisdiction} view</span><h2>Assignment Map</h2></div><Link to="/lgu/map">Open map <Icon name="arrow" size={14} /></Link></header><div className="lgu-dashboard-map">{safetyMapResult.status === "loading" ? <SectionSkeleton variant="map" label="Loading LGU assignment map" /> : !mapView || safetyMapResult.status === "error" ? <MapLoadingError result={safetyMapResult} /> : <SafeLinkMap key={`${user?.id}:${jurisdiction}`} mode="incidents" items={mapItems} focusView={mapView} compact />}</div>{!incidentsResult.available && <p className="lgu-panel-note"><Icon name="shield" size={14} /> No assigned markers are shown because the LGU incidents API is not connected.</p>}</section>
-      <section className="citizen-card lgu-assigned-panel"><header><div><span className="lgu-eyebrow">Administrator assignments</span><h2>Newly Assigned</h2></div><Link to="/lgu/incidents">View queue</Link></header><OperationalState result={incidentsResult} icon="report" unavailable={`Newly assigned ${jurisdiction} incidents will appear after the LGU incidents API is connected.`} empty={`No incidents are currently assigned to ${jurisdiction} LGU.`} error="We couldn't load new assignments. Please try again." /></section>
-      <section className="citizen-card lgu-active-panel"><header><div><span className="lgu-eyebrow">Current operations</span><h2>Active Response</h2></div><Link to="/lgu/active-response">View all</Link></header><OperationalState result={incidentsResult} icon="priority" unavailable="Active response cases will appear after the LGU incidents API is connected." empty="There are no active responses right now." error="We couldn't load active responses. Please try again." /></section>
+      <section className="citizen-card lgu-assigned-panel"><header><div><span className="lgu-eyebrow">Administrator assignments</span><h2>Newly Assigned</h2></div><Link to="/lgu/incidents">View queue</Link></header><DashboardIncidentList result={incidentsResult} incidents={coordinationQueue} icon="report" empty={`No incidents currently require ${jurisdiction} LGU coordination.`} /></section>
+      <section className="citizen-card lgu-active-panel"><header><div><span className="lgu-eyebrow">Current operations</span><h2>Active Response</h2></div><Link to="/lgu/active-response">View all</Link></header><DashboardIncidentList result={incidentsResult} incidents={activeResponses} icon="priority" empty="There are no active responses right now." /></section>
       <section className="citizen-card lgu-activity-panel"><header><div><span className="lgu-eyebrow">Assignment feed</span><h2>Latest Updates</h2></div><OpenNotificationsButton>Notifications</OpenNotificationsButton></header><RefreshNotice result={notificationResult} />{notificationResult.data.length ? <div className="lgu-update-list">{notificationResult.data.slice(0,3).map(item=><article key={item.id}><span><Icon name="bell" size={16}/></span><div><strong>{item.title}</strong><p>{item.body||item.message}</p><small>{item.timestamp}</small></div></article>)}</div> : <OperationalState result={notificationResult} icon="bell" unavailable="LGU notifications are not available yet." empty="There are no recent updates." error="We couldn't load LGU updates. Please try again." />}</section>
       <section className="citizen-card lgu-personnel-panel"><header><div><span className="lgu-eyebrow">Resource visibility</span><h2>Personnel</h2></div><Link to="/lgu/personnel">View personnel</Link></header><OperationalState result={personnelResult} icon="users" unavailable="Personnel information is not available yet." empty="No personnel records were returned." error="We couldn't load personnel information. Please try again." /></section>
     </div>
