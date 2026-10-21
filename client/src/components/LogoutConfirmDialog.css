@@ -1,4 +1,4 @@
-.logout-confirm-backdrop { position:fixed; z-index:13000; inset:0; display:grid; place-items:center; padding:20px; background:rgba(4,27,45,.58); backdrop-filter:blur(4px); animation:logout-confirm-fade 160ms ease both; }
+.logout-confirm-backdrop { position:fixed; z-index:13000; inset:0; display:grid; place-items:center; padding:20px; background:rgba(4,27,45,.68); backdrop-filter:blur(6px) saturate(.72); animation:logout-confirm-fade 160ms ease both; }
 .logout-confirm-dialog { width:min(430px,100%); display:grid; grid-template-columns:auto 1fr; gap:14px; padding:24px; border:1px solid #d8e7e9; border-radius:18px; color:#17324a; background:#fff; box-shadow:0 24px 70px rgba(4,27,45,.28); animation:logout-confirm-rise 190ms ease both; }
 .logout-confirm-icon { display:grid; place-items:center; width:45px; height:45px; border-radius:13px; color:#087d85; background:#e8f7f7; }
 .logout-confirm-eyebrow { margin:1px 0 4px; color:#087d85; font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
