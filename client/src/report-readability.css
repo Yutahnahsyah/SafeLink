@@ -80,6 +80,9 @@
 .citizen-report-tracking .tracking-heading > a:hover,.citizen-report-tracking .tracking-heading > a:focus-visible { border-color:#73c5c9; color:#063c61; background:#eaf7f7; outline:none; }
 .citizen-report-tracking .tracking-card { padding:0; overflow:hidden; border-top:1px solid #dce8ea; }
 .citizen-report-tracking .tracking-card > h2 { margin:0; padding:20px 24px; border-bottom:1px solid #e7eeee; color:#203f53; font-size:19px; }
+.citizen-report-tracking .tracking-card > header { display:flex; align-items:center; min-height:72px; padding:0 22px; border-bottom:1px solid #e7eeee; }
+.citizen-report-tracking .tracking-card > header h2 { margin:0; color:#203f53; font-size:19px; }
+.citizen-report-tracking .tracking-card > header p { margin:4px 0 0; color:#536b77; font-size:13px; }
 .citizen-report-tracking .resolution-outcome > p { margin:0; padding:18px 24px 5px; }
 .citizen-report-tracking .resolution-outcome > time { display:block; padding:0 24px 18px; }
 .citizen-report-tracking .tracking-timeline { margin:0; padding:25px 18px 29px; }

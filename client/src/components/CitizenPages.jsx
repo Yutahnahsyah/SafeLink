@@ -35,6 +35,14 @@ const statuses = [
   "Resolved",
   "Closed",
 ];
+const timelineLabels = {
+  Submitted: "Citizen report submitted",
+  "Under Barangay Review": "Barangay review",
+  Verified: "Report verified",
+  "In Progress": "Response in progress",
+  Resolved: "Resolved",
+  Closed: "Closed",
+};
 const alternateStatuses = ["Rejected"];
 const categories = [
   "Suspicious activities",
@@ -503,7 +511,7 @@ export function TrackReportPage({ id }) {
     );
   const current = statuses.indexOf(report.status);
   return (
-    <CitizenShell title={report.id} eyebrow="Incident tracking" className="citizen-report-tracking">
+    <CitizenShell title={report.title || report.type || "Incident"} eyebrow={report.id} className="citizen-report-tracking">
       <div className="tracking-heading">
         <div>
           <span className={statusClass(report.status)}>{report.status}</span>
@@ -534,7 +542,7 @@ export function TrackReportPage({ id }) {
         {report.resolution?.timestamp && <time>{report.resolution.timestamp}</time>}
       </section>}
       <section className="citizen-card tracking-card">
-        <h2>Status history</h2>
+        <header><h2>Response Timeline</h2></header>
         <div className="tracking-timeline">
           {statuses.map((stage, index) => {
             const history = report.statusHistory?.findLast((entry) => entry.status === stage && ['submitted', 'status_changed'].includes(entry.eventType))
@@ -552,7 +560,7 @@ export function TrackReportPage({ id }) {
                   )}
                 </span>
                 <div>
-                  <strong>{stage}</strong>
+                  <strong>{timelineLabels[stage]}</strong>
                   <small>
                     {history?.timestamp ||
                       (index === current
@@ -569,7 +577,7 @@ export function TrackReportPage({ id }) {
         </div>
       </section>
       <section className="citizen-card tracking-card">
-        <h2>Response updates</h2>
+        <header><div><h2>Response Updates</h2><p>Progress updates for your report.</p></div></header>
         <ol className="report-response-history">{report.statusHistory?.map((entry, index) => <li key={entry.id || index}>
           <strong>{entry.status}</strong><time>{entry.timestamp || 'Time not recorded'}</time><p>{entry.message}</p>
         </li>)}</ol>
