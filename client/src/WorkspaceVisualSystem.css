@@ -1,0 +1,89 @@
+/* Shared visual primitives for every signed-in SafeLink workspace.
+   This file deliberately changes presentation only. */
+:root {
+  --workspace-navy: #061a2f;
+  --workspace-navy-mid: #082c43;
+  --workspace-teal: #087d85;
+  --workspace-cyan: #65d5d9;
+  --workspace-surface: #f3f7f8;
+  --workspace-line: #d9e6e8;
+  --workspace-sidebar: 248px;
+  --workspace-topbar: 82px;
+  --workspace-title: 22px;
+  --workspace-body: 14px;
+  --workspace-meta: 12px;
+  --workspace-radius: 16px;
+}
+
+/* Shared page surface and content rhythm. */
+:is(.citizen-app, .partner-app) { color: #17324a; background: var(--workspace-surface); }
+.citizen-app :is(.citizen-content, .admin-content), .partner-app .partner-content { font-size: var(--workspace-body); line-height: 1.6; }
+.citizen-app .citizen-content, .partner-app .partner-content { padding-top: 32px; padding-bottom: 60px; }
+.admin-app .admin-content { width: min(1460px, 100%); margin-inline: auto; padding-top: 32px; padding-bottom: 60px; }
+
+/* The Citizen, LGU and Admin rails all use one width, shade, link rhythm, and active state. */
+.citizen-app:not(.admin-app) .citizen-sidebar, .admin-app .admin-sidebar, .partner-app--barangay .barangay-sidebar {
+  width: var(--workspace-sidebar);
+  padding: 20px 14px;
+  background: radial-gradient(circle at 0 0, rgba(32, 188, 194, .12), transparent 15rem), linear-gradient(180deg, var(--workspace-navy), var(--workspace-navy-mid));
+  box-shadow: 12px 0 35px rgba(5, 24, 38, .1);
+}
+.citizen-app:not(.admin-app) .citizen-main { margin-left: var(--workspace-sidebar); }
+.admin-app:not(.is-collapsed) .citizen-main { margin-left: var(--workspace-sidebar); }
+.partner-app--barangay { --barangay-sidebar-width: var(--workspace-sidebar); }
+
+.citizen-app .sidebar-brand, .admin-app .admin-sidebar .sidebar-brand { min-height: 64px; padding: 0 9px 20px; }
+.citizen-app .citizen-sidebar nav, .partner-app--barangay .barangay-sidebar nav { gap: 7px; padding: 24px 0; }
+.citizen-app .citizen-sidebar nav a, .partner-app--barangay .barangay-nav-link {
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 11px;
+  color: #c8dce4;
+  font-size: var(--workspace-body);
+  font-weight: 700;
+}
+.citizen-app .citizen-sidebar nav a.active, .partner-app--barangay .barangay-nav-link.is-active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(3, 177, 184, .22), rgba(3, 177, 184, .07));
+  box-shadow: inset 3px 0 var(--workspace-cyan);
+}
+.citizen-app .citizen-sidebar nav a.active .sidebar-nav-icon, .partner-app--barangay .barangay-nav-link.is-active svg { color: #8be4e7; }
+
+/* All workspace headers have the same vertical footprint and typography. */
+.citizen-app .citizen-topbar, .partner-app--barangay .barangay-header, .partner-app:not(.partner-app--barangay) .partner-topbar {
+  min-height: var(--workspace-topbar);
+  height: var(--workspace-topbar);
+  border-bottom-color: var(--workspace-line);
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 4px 20px rgba(8, 37, 59, .025);
+}
+.citizen-app .citizen-topbar h1, .admin-app .admin-title-block h1 {
+  font-size: var(--workspace-title);
+  line-height: 1.25;
+  letter-spacing: -.025em;
+}
+.citizen-app .citizen-topbar > div > span, .admin-app .admin-title-block > span { color: #526f80; font-size: 11px; }
+.citizen-app .profile-menu strong, .partner-app--barangay .barangay-account-copy strong { font-size: var(--workspace-meta); }
+.citizen-app .profile-menu small, .partner-app--barangay .barangay-account-copy small { font-size: 10px; }
+.partner-app--barangay .barangay-header { min-height: var(--workspace-topbar); }
+.partner-app--barangay .barangay-header-brand .safelink-brand__name { font-size: 19px; }
+.partner-app:not(.partner-app--barangay) .partner-topbar { min-height: var(--workspace-topbar); }
+
+/* Cards, panels and top-level content use the same surface and spacing language. */
+:is(.citizen-card, .partner-grid > section, .barangay-view-card, .av-panel) {
+  border-color: var(--workspace-line);
+  border-radius: var(--workspace-radius);
+  box-shadow: 0 9px 28px rgba(8, 37, 59, .045);
+}
+.citizen-card > header, .av-panel > header { min-height: 73px; padding: 19px 22px; border-bottom-color: #e6eff0; }
+.citizen-card > header h2, .av-panel h3, .barangay-view-card > h2 { color: #203f53; font-size: 19px; }
+
+@media (max-width: 1000px) {
+  .citizen-app:not(.admin-app) .citizen-main, .admin-app:not(.is-collapsed) .citizen-main { margin-left: 0; }
+  .partner-app--barangay .barangay-header { margin-left: 0; }
+}
+
+@media (max-width: 680px) {
+  .citizen-app .citizen-topbar, .partner-app--barangay .barangay-header, .partner-app:not(.partner-app--barangay) .partner-topbar { min-height: 76px; height: 76px; }
+  .citizen-app .citizen-topbar h1, .admin-app .admin-title-block h1 { font-size: 20px; }
+}

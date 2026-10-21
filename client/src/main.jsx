@@ -5,6 +5,7 @@ import App from "./App";
 import "./brand-theme.css";
 import "./select-controls.css";
 import "./report-readability.css";
+import "./WorkspaceVisualSystem.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
