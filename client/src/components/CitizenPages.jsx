@@ -1,5 +1,6 @@
 import { SectionSkeleton, ResourceError, RefreshNotice } from './PageSkeletons';
 import { ChangePasswordModal } from "./ChangePasswordForm";
+import ChangeNameModal from "./ChangeNameModal";
 import MfaSettingsCard from "./MfaSettingsCard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CitizenShell from "./CitizenShell";
@@ -1279,10 +1280,7 @@ export function ProfilePage() {
           </dl>
         </section>
       </div>
-      <p className="profile-capability-note">
-        <Icon name="shield" size={16} /> Profile editing will be available when
-        the frontend is connected to a supported profile update endpoint.
-      </p>
+      <p className="profile-capability-note"><Icon name="shield" size={16} /> Change your name from Settings. Other profile details remain read-only.</p>
     </CitizenShell>
   );
 }
@@ -1291,12 +1289,20 @@ export function SettingsPage() {
   const { logout } = useAuth();
   const { navigate } = useRouter();
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [nameModalOpen, setNameModalOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const doLogout = () => {
     logout();
     navigate("/login", { replace: true });
   };
   const sections = [
+    [
+      "users",
+      "Profile",
+      "Name & Identity",
+      "Update the name shown across SafeLink and your authorized report history.",
+      <div className="settings-card-actions"><button className="button button-muted" type="button" onClick={() => setNameModalOpen(true)}>Change name</button></div>,
+    ],
     [
       "shield",
       "Security",
@@ -1360,6 +1366,7 @@ export function SettingsPage() {
         </section>
       </div>
       <ChangePasswordModal open={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
+      <ChangeNameModal open={nameModalOpen} onClose={() => setNameModalOpen(false)} />
       <LogoutConfirmDialog open={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={doLogout} />
     </CitizenShell>
   );

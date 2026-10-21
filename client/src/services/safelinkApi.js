@@ -31,6 +31,7 @@ export const authApi = {
   registerCitizen: (values) => apiRequest("auth/register-citizen", { method: "POST", body: values, auth: false }),
   applyPersonnel: (values) => apiRequest("auth/apply-personnel", { method: "POST", body: values, auth: false }),
   me: async (options = {}) => mapUserFromApi((await apiRequest("auth/me", options)).user),
+  updateName: async (values) => mapUserFromApi((await apiRequest('auth/me/name', { method: 'PATCH', body: values })).user),
   verifyEmail: (token) => apiRequest(`auth/verify-email/${encodeURIComponent(token)}`, { auth: false }),
   resendVerification: (email) => apiRequest("auth/resend-verification", { method: "POST", body: { email }, auth: false }),
   forgotPassword: (email) => apiRequest("auth/forgot-password", { method: "POST", body: { email }, auth: false }),

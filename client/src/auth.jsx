@@ -113,7 +113,16 @@ export function AuthProvider({ children }) {
         setRestorationError(null);
         clearSession();
       },
-      updateUser() { return { error: "PROFILE_UPDATE_NOT_AVAILABLE" }; },
+      async updateUser(values) {
+        const updated = await authApi.updateName(values);
+        setUser((current) => {
+          if (!current) return current;
+          const next = { ...current, ...updated };
+          storeSession(getAccessToken(), next);
+          return next;
+        });
+        return updated;
+      },
     }),
     [isRestoring, restorationError, user],
   );

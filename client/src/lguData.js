@@ -14,7 +14,7 @@ export const lguCapabilities = Object.freeze({
   personnel: true,
   personnelAssignment: true,
   notifications: true,
-  profileUpdate: false,
+  profileUpdate: true,
   passwordChange: true,
   notificationPreferences: false,
 });

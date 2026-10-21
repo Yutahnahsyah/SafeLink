@@ -161,6 +161,19 @@ const validateMfaSettingsCode = [
   validate
 ];
 
+const profileNameField = (label) => body(label)
+  .isString().withMessage(`${label === 'firstName' ? 'First' : 'Last'} name is required.`).bail()
+  .trim().isLength({ min: 1, max: 80 }).withMessage(`${label === 'firstName' ? 'First' : 'Last'} name must be between 1 and 80 characters.`).bail()
+  .matches(/^[\p{Lu}][\p{L}\p{M}' -]*$/u).withMessage(`${label === 'firstName' ? 'First' : 'Last'} name must begin with an uppercase letter and use valid name characters.`);
+
+const validateProfileName = [
+  profileNameField('firstName'),
+  profileNameField('lastName'),
+  body('middleInitial').optional({ values: 'falsy' }).isString().bail().trim()
+    .matches(/^[\p{Lu}]?$/u).withMessage('Middle initial must be a single uppercase letter.'),
+  validate
+];
+
 const validateMfaRecovery = [
   body('mfaToken').isString().isLength({ min: 20, max: 2048 }).withMessage('MFA session is invalid.'),
   body('recoveryCode').isString().trim().matches(/^[A-Za-z0-9-]{10,40}$/).withMessage('Enter a valid recovery code.'),
@@ -302,6 +315,7 @@ module.exports = {
   validateMfaCode,
   validateMfaSetup,
   validateMfaSettingsCode,
+  validateProfileName,
   validateMfaRecovery,
   validateIncidentCreation,
   validateIncidentProcessing,

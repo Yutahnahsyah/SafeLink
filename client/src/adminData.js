@@ -10,7 +10,7 @@ export const adminCapabilities = Object.freeze({
   personnel: true, personnelApproval: true, personnelCreation: true,
   notifications: true, analytics: true, auditLogs: true,
   users: false, userSuspension: true, userDeletion: true,
-  profileUpdate: false, passwordChange: true, notificationPreferences: false,
+  profileUpdate: true, passwordChange: true, notificationPreferences: false,
 });
 
 export function useAdminReports(user) {

@@ -33,6 +33,7 @@ const {
   beginMfaSettingsEnrollment,
   confirmMfaSettingsEnrollment,
   disableMfaSettings,
+  updateCurrentUserName,
   forgotPassword,
   resetPassword,
   updateUserStatus,
@@ -53,6 +54,7 @@ const {
   validateMfaCode,
   validateMfaSetup,
   validateMfaSettingsCode,
+  validateProfileName,
   validateMfaRecovery,
   validateForgotPassword,
   validateResetPassword
@@ -84,6 +86,7 @@ router.post('/mfa/settings/setup', verifyToken, mfaLimiter, beginMfaSettingsEnro
 router.post('/mfa/settings/confirm', verifyToken, mfaLimiter, validateMfaSettingsCode, confirmMfaSettingsEnrollment);
 router.post('/mfa/settings/disable', verifyToken, mfaLimiter, validateMfaSettingsCode, disableMfaSettings);
 router.get('/me', verifyToken, getCurrentUser);
+router.patch('/me/name', verifyToken, validateProfileName, updateCurrentUserName);
 // Records an authenticated sign-out request; JWTs retain their existing expiry semantics.
 router.post('/logout', verifyToken, async (req, res) => {
   await require('../utils/auditLog').recordAuditEvent({ req, action: 'AUTH_LOGOUT', outcome: 'success' });

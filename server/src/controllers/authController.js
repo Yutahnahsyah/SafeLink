@@ -675,6 +675,46 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
+// @desc    Update the authenticated account's displayed name
+// @route   PATCH /api/auth/me/name
+const updateCurrentUserName = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    user.firstName = req.body.firstName.trim();
+    user.lastName = req.body.lastName.trim();
+    user.middleInitial = (req.body.middleInitial || '').trim();
+    await user.save();
+
+    // Keep the event identity consistent with the name that was just saved,
+    // without retaining the previous or new name in audit-event details.
+    req.user.name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+    await recordAuditEvent({
+      req,
+      actor: user._id,
+      targetUser: user._id,
+      action: 'AUTH_PROFILE_NAME_UPDATED',
+      outcome: 'success',
+      details: { fields: ['firstName', 'lastName', 'middleInitial'] }
+    });
+
+    return res.json({
+      message: 'Your name has been updated.',
+      user: {
+        _id: user._id, firstName: user.firstName, lastName: user.lastName,
+        middleInitial: user.middleInitial, email: user.email, phoneNumber: user.phoneNumber,
+        role: user.role, address: user.address, jurisdiction: user.jurisdiction,
+        status: user.status, isVerified: user.isVerified, mfaEnabled: user.mfaEnabled === true,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Unable to update your name.' });
+  }
+};
+
 // @desc    Get all personnel accounts pending verification
 // @route   GET /api/auth/pending-personnel
 const getPendingPersonnel = async (req, res) => {
@@ -1044,6 +1084,7 @@ module.exports = {
   confirmMfaSettingsEnrollment,
   disableMfaSettings,
   getCurrentUser,
+  updateCurrentUserName,
   getPendingPersonnel,
   approvePersonnel,
   forgotPassword,

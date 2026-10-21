@@ -10,7 +10,7 @@ export const citizenCapabilities = Object.freeze({
   reports: true,
   reportSubmission: true,
   notifications: true,
-  profileUpdate: false,
+  profileUpdate: true,
   passwordChange: true,
   notificationPreferences: false,
 });
