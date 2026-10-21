@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { reverseGeocode } from './reverseGeocode.js';
 import { getPangasinanZipCode } from '../data/pangasinanLocations.js';
+import { validateIncidentCoordinates } from '../../../shared/incidentProvince.mjs';
 
 export function useIncidentLocation({ values, setValues, setErrors, setNotice }) {
   const [locating, setLocating] = useState(false);
@@ -40,13 +41,20 @@ export function useIncidentLocation({ values, setValues, setErrors, setNotice })
   const setCoordinates = async ({ latitude, longitude, accuracy }, source = 'manual') => {
     cancel();
     const request = revision.current;
-    // Fast coarse check; the server also applies the existing incident boundary.
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 15.61 || latitude > 16.4 || longitude < 119.75 || longitude > 120.93) {
+    const boundaryError = source !== 'current' && validateIncidentCoordinates({ latitude, longitude });
+    if (boundaryError) {
+      setLocationFeedback({ type: 'error', text: boundaryError });
+      return;
+    }
+    // Current Location acquisition remains unchanged; submissions validate every pin.
+    if (source === 'current' && (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 15.61 || latitude > 16.4 || longitude < 119.75 || longitude > 120.93)) {
       setLocationFeedback({ type: 'error', text: 'That point is outside Pangasinan. Choose the incident location manually on the map.' });
       return;
     }
     const previous = { latitude: values.latitude, longitude: values.longitude };
-    setValues((current) => ({ ...current, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
+    setValues((current) => ({ ...current,
+      latitude: source === 'current' ? latitude.toFixed(6) : String(latitude),
+      longitude: source === 'current' ? longitude.toFixed(6) : String(longitude) }));
     setErrors((current) => ({ ...current, coordinates: '' }));
     setSelectionRevision((current) => current + 1);
     if (source === 'current') setMapFocus({ latitude, longitude, id: request });
@@ -72,7 +80,8 @@ export function useIncidentLocation({ values, setValues, setErrors, setNotice })
         text: `${uncertainty}${detected.length ? ` Detected ${detected.join(', ')}.` : ''} Please verify the barangay and map pin before continuing.${missing.length ? ` Could not confirm ${missing.join(', ')}; complete or correct these fields manually (street and ZIP are optional).` : ''}` });
     } catch (error) {
       if (request !== revision.current) return;
-      if (error?.code === 'OUTSIDE_PANGASINAN') {
+      // Address lookup cannot override polygon validation of a manual pin.
+      if (error?.code === 'OUTSIDE_PANGASINAN' && source === 'current') {
         setValues((current) => ({ ...current, ...previous }));
         setMapFocus(previous.latitude && previous.longitude ? { latitude: Number(previous.latitude), longitude: Number(previous.longitude), id: request + 0.5 } : null);
         setLocationFeedback({ type: 'error', text: 'That point is outside Pangasinan. Choose the incident location manually on the map.' });

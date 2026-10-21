@@ -1,5 +1,4 @@
 const { body, param, validationResult } = require('express-validator');
-const { isWithinPangasinan } = require('../utils/pangasinanBoundary');
 const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 const { getBarangay, validStreet } = require('../utils/registrationLocations');
 const policies = require('../../../shared/legalPolicies.json');
@@ -194,10 +193,10 @@ const validateIncidentCreation = [
     .isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90.'),
   body('location.longitude')
     .isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180.'),
-  body('location').custom((location) => {
-    if (!isWithinPangasinan(Number(location?.longitude), Number(location?.latitude))) {
-      throw new Error('Incident location must be within Pangasinan.');
-    }
+  body('location').custom(async (location) => {
+    const { validateIncidentCoordinates } = await import('../../../shared/incidentProvince.mjs');
+    const error = validateIncidentCoordinates(location || {});
+    if (error) throw new Error(error);
     return true;
   }),
   body('mediaEvidence')

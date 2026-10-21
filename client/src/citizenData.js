@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { requireCitizen } from "./auth";
 import { incidentApi } from "./services/safelinkApi";
 import { useApiResource } from "./services/useApiResource";
+import { validateIncidentCoordinates } from '../../shared/incidentProvince.mjs';
 
 export const citizenCapabilities = Object.freeze({
   reports: true,
@@ -35,6 +36,8 @@ export function useCitizenNotifications(user) {
 
 export async function submitCitizenReport(user, values) {
   requireCitizen(user);
+  const boundaryError = validateIncidentCoordinates(values);
+  if (boundaryError) throw new Error(boundaryError);
   const incident = await incidentApi.create({
     incidentType: values.type,
     citizenUrgency: values.citizenUrgency,

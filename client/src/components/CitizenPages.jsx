@@ -16,6 +16,7 @@ import {
   submitCitizenReport,
 } from "../citizenData";
 import { useIncidentLocation } from "../services/useIncidentLocation";
+import { validateIncidentCoordinates } from '../../../shared/incidentProvince.mjs';
 import { useRegistrationLocations } from "../services/useRegistrationLocations";
 import { pangasinanLocations } from "../data/pangasinanLocations";
 import { COMMUNITY_MARKER_COLORS, isVisibleCommunityIncident } from "../services/communityIncidentMarkers";
@@ -687,6 +688,10 @@ export function ReportIncidentPage() {
       if (!values.latitude || !values.longitude)
         next.coordinates =
           "Choose the incident position on the map or use your current location.";
+      else {
+        const boundaryError = validateIncidentCoordinates(values);
+        if (boundaryError) next.coordinates = boundaryError;
+      }
     }
     if (target === 4 && !values.confirmed)
       next.confirmed = "Confirm that the report is accurate before submission.";
