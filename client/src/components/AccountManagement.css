@@ -55,11 +55,12 @@
 .av-page--accounts .av-account-table th { font-size:11px; }
 .av-page--accounts .av-account-table th:nth-child(1) { width:25%; }
 .av-page--accounts .av-account-table th:nth-child(2) { width:14%; }
-.av-page--accounts .av-account-table th:nth-child(3) { width:14%; }
-.av-page--accounts .av-account-table th:nth-child(4) { width:16%; }
-.av-page--accounts .av-account-table th:nth-child(5) { width:11%; }
+.av-page--accounts .av-account-table th:nth-child(3) { width:13%; }
+.av-page--accounts .av-account-table th:nth-child(4) { width:18%; }
+.av-page--accounts .av-account-table th:nth-child(5) { width:10%; }
 .av-page--accounts .av-account-table th:nth-child(6) { width:20%; }
 .av-page--accounts .av-account-table .av-badge { max-width:100%; box-sizing:border-box; padding:5px 7px; font-size:11px; white-space:normal; }
+.av-page--accounts .av-account-table .av-badge.is-pending { width:max-content; max-width:none; white-space:nowrap; }
 .av-page--accounts .av-account-table .av-account-actions { min-width:0; align-items:stretch; }
 .av-page--accounts .av-account-table .av-account-actions > button { width:100%; max-width:120px; min-width:0; white-space:normal; overflow-wrap:anywhere; }
 @container account-directory (max-width:580px) {
