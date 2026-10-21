@@ -681,3 +681,49 @@
   .partner-app--barangay .barangay-header-title > span { display: none; }
   .partner-app--barangay .barangay-header-title h1 { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+/* Match the LGU profile trigger and dropdown rather than the legacy Barangay menu. */
+.partner-app--barangay .barangay-account-trigger {
+  gap: 10px;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #17324a;
+  background: transparent;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 150ms ease;
+}
+.partner-app--barangay .barangay-account-trigger:hover,
+.partner-app--barangay .barangay-account-trigger[aria-expanded="true"] { border-color: #d9e7e9; background: #f7fbfb; }
+.partner-app--barangay .barangay-account-trigger:active { transform: translateY(1px) scale(.985); }
+.partner-app--barangay .barangay-account-trigger:focus-visible { outline: 3px solid #087d85; outline-offset: 3px; }
+.partner-app--barangay .barangay-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #03b1b8, #007d85);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 5px 13px rgba(0, 125, 133, .16);
+  font-size: 12px;
+}
+.partner-app--barangay .barangay-account-copy strong { color: #17324a; font-size: 14px; }
+.partner-app--barangay .barangay-account-copy small { color: #536b77; font-size: 13px; }
+.partner-app--barangay .barangay-account-trigger > svg { color: #78909d; transition: transform 180ms ease; transform: rotate(90deg); }
+.partner-app--barangay .barangay-account-trigger[aria-expanded="true"] > svg { transform: rotate(270deg); }
+.partner-app--barangay .barangay-account-menu {
+  top: 59px;
+  width: 205px;
+  padding: 8px;
+  border-color: #d8e5e7;
+  border-radius: 14px;
+  box-shadow: 0 20px 55px rgba(7, 27, 49, .16);
+  transform-origin: top right;
+}
+.partner-app--barangay .barangay-account-menu :is(a, button) {
+  min-height: 40px;
+  padding: 10px;
+  border-radius: 8px;
+  color: #385164;
+  font-size: 14px;
+  transition: color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+.partner-app--barangay .barangay-account-menu :is(a, button):hover { background: #f1f7f7; transform: translateX(2px); }
+.partner-app--barangay .barangay-account-menu button { color: #b34149; }

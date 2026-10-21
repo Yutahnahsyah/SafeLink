@@ -78,7 +78,7 @@ function BarangayNavigation({ pathname, user, signOut, title, eyebrow, jurisdict
       <div className="barangay-header-title"><span>{eyebrow}</span><h1>{title}</h1></div>
       <NotificationBell />
       <div className="barangay-account" ref={menuRef}>
-        <button className="barangay-account-trigger" type="button" aria-haspopup="menu" aria-expanded={menuOpen} aria-controls="barangay-account-menu" onClick={() => setMenuOpen((open) => !open)}><span className="barangay-avatar">{initials}</span><span className="barangay-account-copy"><strong>{name}</strong><small>Barangay Personnel</small></span><span className="barangay-chevron" aria-hidden="true">⌄</span></button>
+        <button className="barangay-account-trigger" type="button" aria-haspopup="menu" aria-expanded={menuOpen} aria-controls="barangay-account-menu" onClick={() => setMenuOpen((open) => !open)}><span className="barangay-avatar">{initials}</span><span className="barangay-account-copy"><strong>{name}</strong><small>Barangay Personnel</small></span><Icon name="arrow" size={15} /></button>
         <div id="barangay-account-menu" className={`barangay-account-menu${menuOpen ? " is-open" : ""}`} role="menu" aria-label="Account" aria-hidden={!menuOpen}>
           <Link to="/barangay/profile" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="users" size={17} /> My Profile</Link>
           <Link to="/barangay/settings" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="shield" size={17} /> Account Settings</Link>
