@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../auth';
 import { authApi } from '../services/safelinkApi';
 import Icon from './Icon';
+import FieldRequirement from './FieldRequirement';
 import './MfaSettingsCard.css';
 
 export default function MfaSettingsCard() {
@@ -59,17 +60,17 @@ export default function MfaSettingsCard() {
         <p>Scan this QR code in an authenticator app, then enter the current six-digit code to enable MFA.</p>
         <div className="mfa-enrollment">
           <img src={setup.qrCodeDataUrl} width="256" height="256" alt="Scan this QR code in your authenticator app" />
-          <label>Manual setup key<input value={setup.manualEntryKey} readOnly onFocus={(event) => event.target.select()} /></label>
+          <label><span className="field-label-row">Manual setup key<FieldRequirement>Copy if needed</FieldRequirement></span><input value={setup.manualEntryKey} readOnly onFocus={(event) => event.target.select()} /></label>
           <small>Treat this setup key like a password. The QR code expires after ten minutes.</small>
         </div>
         <form onSubmit={confirmSetup} className="mfa-settings-card__form" noValidate>
-          <label>Authenticator code<input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} disabled={busy} /></label>
+          <label><span className="field-label-row">Authenticator code<FieldRequirement /></span><input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} disabled={busy} required /></label>
           <div><button className="button" type="submit" disabled={busy}>{busy ? 'Verifying…' : 'Enable MFA'}</button><button className="button button-muted" type="button" disabled={busy} onClick={() => { setSetup(null); setCode(''); setMessage(''); }}>Cancel</button></div>
         </form>
       </> : enabled ? <>
         <p><strong>Enabled.</strong> You will enter an authenticator code whenever you sign in. Recovery codes remain valid until used.</p>
         {disableMode ? <form onSubmit={disable} className="mfa-settings-card__form" noValidate>
-          <label>Current authenticator code<input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} disabled={busy} /></label>
+          <label><span className="field-label-row">Current authenticator code<FieldRequirement /></span><input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} disabled={busy} required /></label>
           <div><button className="button danger-button" type="submit" disabled={busy}>{busy ? 'Disabling…' : 'Disable MFA'}</button><button className="button button-muted" type="button" disabled={busy} onClick={() => { setDisableMode(false); setCode(''); setMessage(''); }}>Cancel</button></div>
         </form> : <button className="button button-muted" type="button" onClick={() => { setDisableMode(true); setMessage(''); }}>Disable MFA</button>}
       </> : <>

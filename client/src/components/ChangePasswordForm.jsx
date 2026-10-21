@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { authApi } from '../services/safelinkApi';
 import { passwordRequirements } from './registration/registrationConfig';
+import FieldRequirement from './FieldRequirement';
 import './LguAccountManagement.css';
 
 export default function ChangePasswordForm() {
@@ -31,7 +32,7 @@ export default function ChangePasswordForm() {
   };
   return <form className="lgu-password-form" onSubmit={submit} noValidate>
     <h2>Change Password</h2><p>Changing your password is optional. You can continue using your initial credentials until you choose to update them.</p>
-    {Object.entries({ currentPassword: 'Current Password', newPassword: 'New Password', confirmPassword: 'Confirm New Password' }).map(([key, label]) => <label key={key} htmlFor={`settings-${key}`}>{label}<input id={`settings-${key}`} type="password" required disabled={busy} autoComplete={key === 'currentPassword' ? 'current-password' : 'new-password'} value={values[key]} onChange={(e) => setValues({ ...values, [key]: e.target.value })} aria-invalid={Boolean(errors[key])} aria-describedby={errors[key] ? `settings-${key}-error` : undefined} />{errors[key] && <small id={`settings-${key}-error`} className="lgu-field-error">{errors[key]}</small>}</label>)}
+    {Object.entries({ currentPassword: 'Current Password', newPassword: 'New Password', confirmPassword: 'Confirm New Password' }).map(([key, label]) => <label key={key} htmlFor={`settings-${key}`}><span className="field-label-row">{label}<FieldRequirement /></span><input id={`settings-${key}`} type="password" required disabled={busy} autoComplete={key === 'currentPassword' ? 'current-password' : 'new-password'} value={values[key]} onChange={(e) => setValues({ ...values, [key]: e.target.value })} aria-invalid={Boolean(errors[key])} aria-describedby={errors[key] ? `settings-${key}-error` : undefined} />{errors[key] && <small id={`settings-${key}-error`} className="lgu-field-error">{errors[key]}</small>}</label>)}
     {message && <p role={success ? 'status' : 'alert'} className={success ? '' : 'lgu-field-error'}>{message}</p>}
     <button className="button" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save New Password'}</button>
   </form>;

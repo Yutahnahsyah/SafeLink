@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { locationMenuLayout } from '../../services/locationMenuLayout';
 import { RegistrationFeedback } from './RegistrationFields';
 import Icon from '../Icon';
+import FieldRequirement from '../FieldRequirement';
 import './RegistrationLocations.css';
 
 function Highlight({ name, query }) {
@@ -82,7 +83,7 @@ export default function LocationCombobox({ id, label, value, onChange, onSelect 
     }
   };
   return <div ref={field} className={`registration-field registration-location-field ${invalid ? 'has-error' : ''}`} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget) && !popup.current?.contains(event.relatedTarget)) { close(); onBlur?.(); } }}>
-    <label className="registration-label" htmlFor={id}>{label} <span className="location-required" aria-hidden="true">*</span></label>
+    <label className="registration-label field-label-row" htmlFor={id}>{label}<FieldRequirement /></label>
     <div className="registration-location-input"><Icon name="search" size={17} /><input ref={input} id={id} role="combobox" aria-autocomplete="list" aria-expanded={open && !closing} aria-controls={open ? listId : undefined} aria-activedescendant={open && !closing && active >= 0 && filtered[active] ? `${listId}-${active}` : undefined} aria-invalid={invalid} aria-describedby={invalid ? `${id}-error` : `${id}-help`} autoComplete="off" required disabled={disabled} maxLength={maxLength} placeholder={placeholder} value={freeText ? value : open ? query : value} onFocus={() => { if (ignoreFocus.current) { ignoreFocus.current = false; return; } setQuery(freeText ? value : ''); show(); }} onKeyDown={keyDown} onChange={(event) => {
       const text = event.target.value;
       setQuery(text); setActive(-1); show();

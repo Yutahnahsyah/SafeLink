@@ -8,6 +8,7 @@ import { authApi } from "../services/safelinkApi";
 import { dashboardForRole } from "../services/authPolicy";
 import { useLoginCooldown } from '../services/useLoginCooldown';
 import LoginCooldownNotice from './LoginCooldownNotice';
+import FieldRequirement from './FieldRequirement';
 import "./UnifiedAuth.css";
 export { default as RegisterPage } from "./registration/RegisterPage";
 
@@ -73,7 +74,7 @@ function Field({
       className={`${className} ${invalid ? "has-error" : touched && !error ? "is-valid" : ""}`}
       htmlFor={id}
     >
-      {label}
+      <span className="field-label-row">{label}<FieldRequirement /></span>
       <input
         id={id}
         value={value}
@@ -108,7 +109,7 @@ function PasswordField({
     <div
       className={`password-field ${touched && error ? "has-error" : touched && !error ? "is-valid" : ""}`}
     >
-      <label htmlFor={id}>{label}</label>
+      <label className="field-label-row" htmlFor={id}>{label}<FieldRequirement /></label>
       <div className="password-input">
         <input
           id={id}
@@ -232,7 +233,7 @@ function MfaLoginStep({ challenge, onAuthenticated, onCancel }) {
   const text = enrollment ? "Scan this QR code using an authenticator app, then enter its current six-digit code." : "Enter the current six-digit code from your authenticator app to finish signing in.";
   return <AuthShell title={title} text={text} footer={<button className="forgot-link" type="button" onClick={onCancel}>Return to sign in</button>}>
     {loading && <p className="form-success" role="status">Preparing secure authenticator setup…</p>}
-    {enrollment && setup && <div className="mfa-enrollment"><img src={setup.qrCodeDataUrl} width="256" height="256" alt="Scan this QR code in your authenticator app" /><label>Manual setup key<input value={setup.manualEntryKey} readOnly onFocus={(event) => event.target.select()} aria-label="Manual authenticator setup key" /></label><small>Use this key only if you cannot scan the QR code. Treat it like a password.</small></div>}
+    {enrollment && setup && <div className="mfa-enrollment"><img src={setup.qrCodeDataUrl} width="256" height="256" alt="Scan this QR code in your authenticator app" /><label><span className="field-label-row">Manual setup key<FieldRequirement>Copy if needed</FieldRequirement></span><input value={setup.manualEntryKey} readOnly onFocus={(event) => event.target.select()} aria-label="Manual authenticator setup key" /></label><small>Use this key only if you cannot scan the QR code. Treat it like a password.</small></div>}
     {!loading && <form className="auth-form" onSubmit={submit} noValidate>
       {!enrollment && <button className="forgot-link" type="button" onClick={() => { setUseRecovery(!useRecovery); setError(""); }}>{useRecovery ? "Use authenticator code instead" : "Use a recovery code instead"}</button>}
       {useRecovery ? <Field id="mfa-recovery-code" label="Recovery code" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} autoComplete="one-time-code" /> : <Field id="mfa-code" label="Authenticator code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} />}

@@ -5,6 +5,7 @@ import { barangayActions, barangayIncidentBucket, barangayQueues, barangayAttent
 import ProtectedEvidence from './ProtectedEvidence';
 import SafeLinkMap from './maps/SafeLinkMap';
 import { SectionSkeleton } from './PageSkeletons';
+import FieldRequirement from './FieldRequirement';
 import './BarangayIncidents.css';
 
 const labels = { claim: 'Accept responsibility', beginReview: 'Begin review', review: 'Complete review', priority: 'Confirm official priority',
@@ -47,9 +48,9 @@ function ActionDialog({ action, report, user, onClose, onUpdated }) {
             : action === 'start' ? 'Accept local Barangay handling and begin responding to this verified incident. The decision and response status are recorded in history and audit logs.'
             : 'Confirm this action for the selected incident. Response remarks appear in citizen-visible history.'}</p>
       <fieldset disabled={busy}>
-        {['review', 'priority'].includes(action) && <label>Official priority<select value={priority} onChange={(event) => setPriority(event.target.value)}>{['Low', 'Medium', 'High', 'Critical'].map((value) => <option key={value}>{value}</option>)}</select></label>}
-        {['review', 'refer'].includes(action) && <label>Response decision<select required value={path} onChange={(event) => setPath(event.target.value)}>{action === 'review' && <><option value="">Choose how this incident will be handled</option><option value="local">Handle at Barangay Level</option></>}<option value="LGU">Request LGU intervention</option><option value="Police">Request Police coordination via LGU</option></select></label>}
-        <label>{action === 'resolve' ? 'Resolution remarks' : 'Response remarks'}{requiredRemarks ? ' (required)' : ' (optional)'}<textarea autoFocus required={requiredRemarks} maxLength={2000} rows={5} value={remarks} onChange={(event) => setRemarks(event.target.value)} /></label>
+        {['review', 'priority'].includes(action) && <label><span className="field-label-row">Official priority<FieldRequirement /></span><select value={priority} onChange={(event) => setPriority(event.target.value)}>{['Low', 'Medium', 'High', 'Critical'].map((value) => <option key={value}>{value}</option>)}</select></label>}
+        {['review', 'refer'].includes(action) && <label><span className="field-label-row">Response decision<FieldRequirement /></span><select required value={path} onChange={(event) => setPath(event.target.value)}>{action === 'review' && <><option value="">Choose how this incident will be handled</option><option value="local">Handle at Barangay Level</option></>}<option value="LGU">Request LGU intervention</option><option value="Police">Request Police coordination via LGU</option></select></label>}
+        <label><span className="field-label-row">{action === 'resolve' ? 'Resolution remarks' : 'Response remarks'}<FieldRequirement optional={!requiredRemarks} /></span><textarea autoFocus required={requiredRemarks} maxLength={2000} rows={5} value={remarks} onChange={(event) => setRemarks(event.target.value)} /></label>
       </fieldset>
       {error && <p role="alert" className="form-error">{error}</p>}
       <div className="barangay-action-buttons"><button type="button" disabled={busy} onClick={close}>Cancel</button><button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Confirm action'}</button></div>

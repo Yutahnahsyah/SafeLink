@@ -4,6 +4,7 @@ import MfaSettingsCard from "./MfaSettingsCard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CitizenShell from "./CitizenShell";
 import Icon from "./Icon";
+import FieldRequirement from "./FieldRequirement";
 import { OpenNotificationsButton } from "./NotificationBell";
 import SafetyMap from "./SafetyMap";
 import SafeLinkMap from "./maps/SafeLinkMap";
@@ -787,7 +788,7 @@ export function ReportIncidentPage() {
           noValidate
         >
           <label>
-            Incident Type *
+            <span className="field-label-row">Incident Type<FieldRequirement /></span>
             <select
               value={values.type}
               onChange={set("type")}
@@ -801,7 +802,7 @@ export function ReportIncidentPage() {
             {errors.type && <small>{errors.type}</small>}
           </label>
           <label>
-            Incident Title <span>(optional)</span>
+            <span className="field-label-row">Incident Title<FieldRequirement optional /></span>
             <input
               value={values.title}
               onChange={set("title")}
@@ -809,7 +810,7 @@ export function ReportIncidentPage() {
             />
           </label>
           <label>
-            Suggested urgency *
+            <span className="field-label-row">Suggested urgency<FieldRequirement /></span>
             <select
               value={values.citizenUrgency}
               onChange={set("citizenUrgency")}
@@ -824,7 +825,7 @@ export function ReportIncidentPage() {
             {errors.citizenUrgency && <small>{errors.citizenUrgency}</small>}
           </label>
           <label className="full">
-            Description *
+            <span className="field-label-row">Description<FieldRequirement /></span>
             <textarea
               rows="6"
               value={values.description}
@@ -835,7 +836,7 @@ export function ReportIncidentPage() {
             {errors.description && <small>{errors.description}</small>}
           </label>
           <label>
-            Date of Incident
+            <span className="field-label-row">Date of Incident<FieldRequirement optional /></span>
             <input
               type="date"
               max={new Date().toISOString().slice(0, 10)}
@@ -845,7 +846,7 @@ export function ReportIncidentPage() {
             {errors.date && <small>{errors.date}</small>}
           </label>
           <label>
-            Time of Incident
+            <span className="field-label-row">Time of Incident<FieldRequirement optional /></span>
             <input type="time" value={values.time} onChange={set("time")} />
             {errors.time && <small>{errors.time}</small>}
           </label>
@@ -866,7 +867,7 @@ export function ReportIncidentPage() {
           noValidate
         >
           <label className="full">
-            Nearby landmark or location details *
+            <span className="field-label-row">Nearby landmark or location details<FieldRequirement /></span>
             <div className="input-action">
               <input
                 value={values.location}
@@ -895,7 +896,7 @@ export function ReportIncidentPage() {
             {errors.location && <small>{errors.location}</small>}
           </label>
           <label>
-            Municipality / City *
+            <span className="field-label-row">Municipality / City<FieldRequirement /></span>
             <select value={values.municipalityOrCity} onChange={setMunicipality} aria-invalid={Boolean(errors.municipalityOrCity)}>
               <option value="">Select municipality or city</option>
               {pangasinanLocations.map(({ name }) => <option value={name} key={name}>{name}</option>)}
@@ -903,7 +904,7 @@ export function ReportIncidentPage() {
             {errors.municipalityOrCity && <small>{errors.municipalityOrCity}</small>}
           </label>
           <label>
-            Barangay *
+            <span className="field-label-row">Barangay<FieldRequirement /></span>
             {barangays.status === "error" ? <>
               <input value={values.barangay} onChange={editAddress("barangay")} autoComplete="address-level3" aria-invalid={Boolean(errors.barangay)} />
               <small>Barangay options are unavailable. Enter the barangay manually, or <button type="button" onClick={barangays.retry}>retry loading options</button>.</small>
@@ -914,11 +915,11 @@ export function ReportIncidentPage() {
             {errors.barangay && <small>{errors.barangay}</small>}
           </label>
           <label>
-            Street <span>(optional)</span>
+            <span className="field-label-row">Street<FieldRequirement optional /></span>
             <input value={values.street} onChange={editAddress("street")} autoComplete="street-address" />
           </label>
           <label>
-            ZIP Code <span>(auto-filled, editable)</span>
+            <span className="field-label-row">ZIP Code<FieldRequirement>Auto-filled</FieldRequirement></span>
             <input value={values.zipCode} onChange={editAddress("zipCode")} inputMode="numeric" maxLength={4} autoComplete="postal-code" aria-invalid={Boolean(errors.zipCode)} />
             {errors.zipCode && <small>{errors.zipCode}</small>}
           </label>
@@ -1018,7 +1019,7 @@ export function ReportIncidentPage() {
         <section className="incident-form citizen-card">
           <label className="full upload-field upload-dropzone">
             <span>
-              <Icon name="camera" /> Add supporting photos or videos
+              <Icon name="camera" /> Add supporting photos or videos <FieldRequirement optional />
             </span>
             <input
               type="file"
@@ -1063,7 +1064,7 @@ export function ReportIncidentPage() {
             </div>
           )}
           <label className="full">
-            Additional details <span>(optional)</span>
+            <span className="field-label-row">Additional details<FieldRequirement optional /></span>
             <textarea
               rows="4"
               value={values.details}

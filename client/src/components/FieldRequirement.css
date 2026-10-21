@@ -1,0 +1,5 @@
+.field-label-row { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
+.field-requirement { display:inline-flex; align-items:center; width:max-content; padding:2px 7px; border:1px solid transparent; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.035em; line-height:1.25; text-transform:uppercase; white-space:nowrap; }
+.field-requirement.is-required,.registration-label .field-requirement.is-required { color:#9d2438; background:#fff0f2; border-color:#efbdc5; }
+.field-requirement.is-optional,.registration-label .field-requirement.is-optional { color:#165b89; background:#edf7ff; border-color:#b9dced; }
+.field-requirement.is-info,.registration-label .field-requirement.is-info { color:#295e70; background:#edf6f7; border-color:#c5e0e4; }

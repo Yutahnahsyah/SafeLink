@@ -21,7 +21,7 @@ export function AddressStep({ values, errors, touched, update, touch, barangays,
     <MunicipalityField value={values.municipalityOrCity} onChange={update("municipalityOrCity")} onBlur={() => touch("municipalityOrCity")} error={errors.municipalityOrCity} touched={touched.municipalityOrCity} />
     <CitizenLocationFields values={values} errors={errors} touched={touched} update={update} touch={touch} barangays={barangays} selectStreet={selectStreet} />
     <RegistrationField id="registration-landmark" label="Nearby Landmark" optional value={values.landmark} onChange={update("landmark")} onBlur={() => touch("landmark")} />
-    <RegistrationField id="registration-zip" className="full" label="ZIP Code" value={values.zipCode} readOnly aria-readonly="true" autoComplete="postal-code" />
+    <RegistrationField id="registration-zip" className="full" label="ZIP Code" requirement="Auto-filled" value={values.zipCode} readOnly aria-readonly="true" autoComplete="postal-code" />
   </div>;
 }
 

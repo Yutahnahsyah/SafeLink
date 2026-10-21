@@ -7,6 +7,7 @@ import { SectionSkeleton, RefreshNotice } from './PageSkeletons';
 import { pangasinanLocations } from '../data/pangasinanLocations';
 import Icon from './Icon';
 import { useRegistrationLocations } from '../services/useRegistrationLocations';
+import FieldRequirement from './FieldRequirement';
 const roleLabels = { barangay_personnel: 'Barangay Personnel', lgu_personnel: 'LGU Personnel', police_personnel: 'Police Personnel' };
 import './LguAccountManagement.css';
 
@@ -89,7 +90,7 @@ function AccountForm({ person, close, saved }) {
       setConfirmEdit(false);
     } finally { submitting.current = false; if (mounted.current) setBusy(false); }
   };
-  const field = (key, label, options = {}) => <label key={key} htmlFor={`lgu-${key}`}>{label}<input id={`lgu-${key}`} value={values[key]} onChange={(e) => { setValues({ ...values, [key]: e.target.value, ...(key === 'municipalityOrCity' && values.municipalityOrCity !== e.target.value ? { barangay: '' } : {}) }); setConfirmEdit(false); }} aria-invalid={Boolean(errors[key])} aria-describedby={errors[key] ? `lgu-${key}-error` : undefined} {...options} />{errors[key] && <small className="lgu-field-error" id={`lgu-${key}-error`}>{errors[key]}</small>}</label>;
+  const field = (key, label, options = {}) => <label key={key} htmlFor={`lgu-${key}`}><span className="field-label-row">{label}<FieldRequirement optional={!options.required} /></span><input id={`lgu-${key}`} value={values[key]} onChange={(e) => { setValues({ ...values, [key]: e.target.value, ...(key === 'municipalityOrCity' && values.municipalityOrCity !== e.target.value ? { barangay: '' } : {}) }); setConfirmEdit(false); }} aria-invalid={Boolean(errors[key])} aria-describedby={errors[key] ? `lgu-${key}-error` : undefined} {...options} />{errors[key] && <small className="lgu-field-error" id={`lgu-${key}-error`}>{errors[key]}</small>}</label>;
   return <Dialog close={dismiss} busy={busy} title={result ? 'Personnel Account Created Successfully' : person ? 'Edit Personnel Account' : 'Create Personnel Account'}>
     {result ? <div className="lgu-creation-result">
       <p className="lgu-account-notice"><Icon name="check" /> Provide these credentials privately to the intended official. This password is shown only now and cannot be retrieved after closing.</p>
@@ -102,14 +103,14 @@ function AccountForm({ person, close, saved }) {
       <fieldset disabled={busy}><legend>Official identity</legend><div className="lgu-account-grid">
         {field('firstName', "Official's First Name", { maxLength: 80, autoComplete: 'given-name', required: true })}
         {field('lastName', "Official's Last Name", { maxLength: 80, autoComplete: 'family-name', required: true })}
-        {field('middleInitial', 'Middle initial (optional)', { maxLength: 1 })}
+        {field('middleInitial', 'Middle Initial', { maxLength: 1 })}
         {field('phoneNumber', 'Official contact number', { type: 'tel', required: true, autoComplete: 'tel' })}
         {field('email', 'Official Email Address', { type: 'email', maxLength: 254, required: true, readOnly: Boolean(person), autoComplete: 'off' })}
-        <label htmlFor="lgu-role">Assigned Role<select id="lgu-role" value={values.role} disabled={Boolean(person)} onChange={(e) => { setValues({ ...values, role: e.target.value, barangay: '' }); setConfirmEdit(false); }}>{Object.entries(roleLabels).map(([role, label]) => <option key={role} value={role}>{label}</option>)}</select>{errors.role && <small className="lgu-field-error">{errors.role}</small>}</label>
+        <label htmlFor="lgu-role"><span className="field-label-row">Assigned Role<FieldRequirement /></span><select id="lgu-role" value={values.role} required disabled={Boolean(person)} onChange={(e) => { setValues({ ...values, role: e.target.value, barangay: '' }); setConfirmEdit(false); }}>{Object.entries(roleLabels).map(([role, label]) => <option key={role} value={role}>{label}</option>)}</select>{errors.role && <small className="lgu-field-error">{errors.role}</small>}</label>
       </div></fieldset>
       <fieldset disabled={busy}><legend>Assigned jurisdiction</legend><div className="lgu-account-grid">
         {field('municipalityOrCity', 'Assigned City or Municipality', { list: 'lgu-municipalities', required: true, autoComplete: 'off' })}
-        <datalist id="lgu-municipalities">{pangasinanLocations.map((item) => <option key={item.name} value={item.name} />)}</datalist>{values.role === 'barangay_personnel' && <label htmlFor="lgu-barangay">Assigned Barangay<select id="lgu-barangay" value={values.barangay} disabled={barangays.status !== 'success'} onChange={(e) => { setValues({ ...values, barangay: e.target.value }); setConfirmEdit(false); }}><option value="">{barangays.status === 'loading' ? 'Loading barangays?' : 'Select a barangay'}</option>{barangays.data.map((item) => <option key={item.code} value={item.name}>{item.name}</option>)}</select>{errors.barangay && <small className="lgu-field-error">{errors.barangay}</small>}{barangays.status === 'error' && <button type="button" onClick={barangays.retry}>Retry barangays</button>}</label>}
+        <datalist id="lgu-municipalities">{pangasinanLocations.map((item) => <option key={item.name} value={item.name} />)}</datalist>{values.role === 'barangay_personnel' && <label htmlFor="lgu-barangay"><span className="field-label-row">Assigned Barangay<FieldRequirement /></span><select id="lgu-barangay" value={values.barangay} required disabled={barangays.status !== 'success'} onChange={(e) => { setValues({ ...values, barangay: e.target.value }); setConfirmEdit(false); }}><option value="">{barangays.status === 'loading' ? 'Loading barangays?' : 'Select a barangay'}</option>{barangays.data.map((item) => <option key={item.code} value={item.name}>{item.name}</option>)}</select>{errors.barangay && <small className="lgu-field-error">{errors.barangay}</small>}{barangays.status === 'error' && <button type="button" onClick={barangays.retry}>Retry barangays</button>}</label>}
       </div></fieldset>
       <p className="lgu-account-notice">{person ? 'Confirm changes to official identity or jurisdiction before saving. Account status and passwords remain unchanged.' : 'SafeLink generates a unique password. You will receive a one-time display for a private handoff. Password changes are optional.'}</p>
       {message && <p role="alert" className="lgu-field-error">{message}</p>}
