@@ -505,7 +505,7 @@ const beginMfaEnrollment = async (req, res) => {
 const confirmMfaEnrollment = async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
-    const user = await mfaUser(req.body.mfaToken, 'enroll', '+mfaPendingSecret +mfaRecoveryCodeHashes');
+    const user = await mfaUser(req.body.mfaToken, 'enroll', '+mfaPendingSecret +mfaPendingExpires +mfaRecoveryCodeHashes');
     if (user.mfaEnabled || !user.mfaPendingSecret || !user.mfaPendingExpires || user.mfaPendingExpires <= new Date()) {
       return res.status(400).json({ code: 'MFA_ENROLLMENT_EXPIRED', message: 'This authenticator setup has expired. Sign in again to create a new QR code.' });
     }
