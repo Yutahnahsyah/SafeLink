@@ -18,7 +18,9 @@ router.post('/incident-address', (req, res, next) => { res.set('Cache-Control', 
       || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return res.status(400).json({ message: 'Provide valid latitude and longitude.' });
     try {
       const data = await getIncidentAddress({ latitude, longitude, accuracy });
-      return res.json({ data, source: 'OpenStreetMap contributors', sourceUrl: 'https://www.openstreetmap.org/copyright' });
+      return res.json({ data, source: 'OpenStreetMap contributors; geoBoundaries (NAMRIA, PSA, OCHA)',
+        sourceUrl: 'https://www.openstreetmap.org/copyright',
+        municipalitySourceUrl: 'https://www.geoboundaries.org/api/current/gbOpen/PHL/ADM3/' });
     } catch (error) {
       if (error.message === 'OUTSIDE_PANGASINAN') {
         const { OUTSIDE_PANGASINAN_MESSAGE } = await import('../../../shared/incidentProvince.mjs');

@@ -4,6 +4,7 @@ import { requireCitizen } from "./auth";
 import { incidentApi } from "./services/safelinkApi";
 import { useApiResource } from "./services/useApiResource";
 import { validateIncidentCoordinates } from '../../shared/incidentProvince.mjs';
+import { loadIncidentMunicipality } from './services/incidentMunicipality.js';
 
 export const citizenCapabilities = Object.freeze({
   reports: true,
@@ -38,6 +39,10 @@ export async function submitCitizenReport(user, values) {
   requireCitizen(user);
   const boundaryError = validateIncidentCoordinates(values);
   if (boundaryError) throw new Error(boundaryError);
+  const { validateMunicipalityCoordinates } = await loadIncidentMunicipality();
+  const municipalityError = validateMunicipalityCoordinates(values);
+  if (municipalityError) throw new Error(municipalityError);
+  if (values.pinNeedsConfirmation) throw new Error('Confirm the map pin for the selected barangay before continuing.');
   const incident = await incidentApi.create({
     incidentType: values.type,
     citizenUrgency: values.citizenUrgency,
