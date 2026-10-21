@@ -87,3 +87,60 @@
   .citizen-app .citizen-topbar, .partner-app--barangay .barangay-header, .partner-app:not(.partner-app--barangay) .partner-topbar { min-height: 76px; height: 76px; }
   .citizen-app .citizen-topbar h1, .admin-app .admin-title-block h1 { font-size: 20px; }
 }
+
+/* One account-menu treatment for LGU, Barangay, and Admin workspaces. */
+:is(.lgu-app, .admin-app) .profile-menu > button,
+.partner-app--barangay .barangay-account-trigger {
+  gap: 10px;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #17324a;
+  background: transparent;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 150ms ease;
+}
+:is(.lgu-app, .admin-app) .profile-menu > button:hover,
+:is(.lgu-app, .admin-app) .profile-menu > button[aria-expanded="true"],
+.partner-app--barangay .barangay-account-trigger:hover,
+.partner-app--barangay .barangay-account-trigger[aria-expanded="true"] { border-color: #d9e7e9; background: #f7fbfb; }
+:is(.lgu-app, .admin-app) .profile-menu > button:focus-visible,
+.partner-app--barangay .barangay-account-trigger:focus-visible { outline: 2px solid #18bdc8; outline-offset: 2px; }
+.partner-app--barangay .barangay-nav-link:focus-visible { outline: 0; }
+
+:is(.lgu-app, .admin-app) :is(.profile-dropdown, .admin-profile-dropdown),
+.partner-app--barangay .barangay-account-menu {
+  top: 59px;
+  width: 205px;
+  max-width: calc(100vw - 32px);
+  padding: 8px;
+  border: 1px solid #d8e5e7;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 20px 55px rgba(7, 27, 49, .16);
+  transform-origin: top right;
+}
+:is(.lgu-app, .admin-app) :is(.profile-dropdown, .admin-profile-dropdown) :is(a, button, [role="menuitem"]),
+.partner-app--barangay .barangay-account-menu :is(a, button) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px;
+  border-radius: 8px;
+  color: #385164;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  text-decoration: none;
+  transition: color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+:is(.lgu-app, .admin-app) :is(.profile-dropdown, .admin-profile-dropdown) :is(a, button, [role="menuitem"]):hover,
+.partner-app--barangay .barangay-account-menu :is(a, button):hover { color: #066b79; background: #f1f7f7; transform: translateX(2px); }
+:is(.lgu-app, .admin-app) :is(.profile-dropdown, .admin-profile-dropdown) :is(a, button, [role="menuitem"]):focus { background: transparent; color: #385164; }
+:is(.lgu-app, .admin-app) :is(.profile-dropdown, .admin-profile-dropdown) :is(a, button, [role="menuitem"]):focus-visible,
+.partner-app--barangay .barangay-account-menu :is(a, button):focus-visible { outline: 2px solid #18bdc8; outline-offset: -1px; }
+:is(.lgu-app, .admin-app) :is(.profile-dropdown button, .admin-profile-signout),
+.partner-app--barangay .barangay-account-menu button { margin-top: 5px; border-top: 1px solid #e7eff3; border-radius: 0 0 8px 8px; color: #b34149; }

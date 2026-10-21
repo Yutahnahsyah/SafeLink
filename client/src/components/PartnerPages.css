@@ -815,3 +815,14 @@
   .partner-app--barangay .barangay-sidebar-note { margin-top: 22px; }
   .partner-app--barangay .barangay-header { position: sticky; }
 }
+
+/* Match the LGU desktop content canvas: wide enough for operations, centered in the workspace. */
+@media (min-width: 761px) {
+  .partner-app--barangay .partner-content {
+    box-sizing: border-box;
+    width: min(1384px, calc(100% - var(--barangay-sidebar-width) - 40px));
+    margin: 0 20px 0 max(calc(var(--barangay-sidebar-width) + 20px), calc((100% + var(--barangay-sidebar-width) - 1394px) / 2));
+    padding: 36px 0 60px;
+  }
+  .partner-app--barangay .partner-hero.barangay-workspace-heading { margin-left: 8px; margin-right: 8px; }
+}
