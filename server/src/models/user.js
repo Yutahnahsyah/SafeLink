@@ -147,6 +147,12 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Unverified Citizen registrations are temporary. The TTL index below is
+  // enforced by MongoDB, so expiry still occurs while the web service sleeps.
+  unverifiedAccountExpiresAt: { type: Date, default: null, select: false },
+  // Archived accounts remain recoverable, but cannot authenticate because an
+  // archive always places the account into the suspended state.
+  archivedAt: { type: Date, default: null },
   resetPasswordToken: {
     type: String,
     default: null
@@ -191,5 +197,6 @@ const UserSchema = new mongoose.Schema({
 UserSchema.pre('save', function () { this.updatedAt = new Date(); });
 
 UserSchema.index({ createdAt: -1, _id: -1 });
+UserSchema.index({ unverifiedAccountExpiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('User', UserSchema);

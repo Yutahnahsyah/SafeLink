@@ -8,7 +8,7 @@ const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const toCounts = (items = []) => Object.fromEntries(items.map((item) => [item._id || 'Unspecified', item.count]));
 
 async function getAdminUsers(req, res) {
-  const allowed = ['page', 'search', 'role', 'status', 'verified', 'municipality', 'sort'];
+  const allowed = ['page', 'search', 'role', 'status', 'verified', 'municipality', 'sort', 'archived'];
   if (Object.keys(req.query).some((key) => !allowed.includes(key) || typeof req.query[key] !== 'string')) return res.status(400).json({ message: 'Invalid account filter.' });
   const page = req.query.page === undefined ? 1 : Number(req.query.page);
   const limit = req.personnelDirectory ? 25 : 5;
@@ -16,9 +16,11 @@ async function getAdminUsers(req, res) {
   if (req.query.role && !roles.includes(req.query.role)) return res.status(400).json({ message: 'Invalid role.' });
   if (req.query.status && !statuses.includes(req.query.status)) return res.status(400).json({ message: 'Invalid status.' });
   if (req.query.verified && !['true', 'false'].includes(req.query.verified)) return res.status(400).json({ message: 'Invalid verification filter.' });
+  if (req.query.archived && !['true', 'false'].includes(req.query.archived)) return res.status(400).json({ message: 'Invalid archive filter.' });
   const search = (req.query.search || '').trim();
   if (search.length > 80) return res.status(400).json({ message: 'Search is too long.' });
   const query = {};
+  query.archivedAt = req.query.archived === 'true' ? { $ne: null } : null;
   if (req.query.municipality) {
     if (!require('../utils/pangasinanLocations').PANGASINAN_LOCATIONS.some((item) => item.municipalityOrCity === req.query.municipality)) return res.status(400).json({ message: 'Invalid municipality.' });
     query['jurisdiction.municipalityOrCity'] = req.query.municipality;
@@ -37,9 +39,9 @@ async function getAdminUsers(req, res) {
   if (search) query.$or = ['firstName', 'lastName', 'email', 'jurisdiction.municipalityOrCity'].map((key) => ({ [key]: { $regex: escapeRegex(search), $options: 'i' } }));
   try {
     const [users, total, summary] = await Promise.all([
-      User.find(query).select('_id firstName lastName middleInitial phoneNumber email role status isVerified jurisdiction createdAt updatedAt lastLoginAt').sort({ createdAt: req.query.sort === 'oldest' ? 1 : -1, _id: req.query.sort === 'oldest' ? 1 : -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      User.find(query).select('_id firstName lastName middleInitial phoneNumber email role status isVerified jurisdiction archivedAt createdAt updatedAt lastLoginAt').sort({ createdAt: req.query.sort === 'oldest' ? 1 : -1, _id: req.query.sort === 'oldest' ? 1 : -1 }).skip((page - 1) * limit).limit(limit).lean(),
       User.countDocuments(query),
-      User.aggregate([{ $set: { status: accountStatusExpression } }, { $facet: {
+      User.aggregate([{ $match: query }, { $set: { status: accountStatusExpression } }, { $facet: {
         total: [{ $count: 'count' }],
         verified: [{ $match: { isVerified: true } }, { $count: 'count' }],
         pending: [{ $match: { status: 'pending', isVerified: false } }, { $count: 'count' }],

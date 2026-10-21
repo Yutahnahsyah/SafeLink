@@ -36,7 +36,9 @@ const {
   forgotPassword,
   resetPassword,
   updateUserStatus,
-  deleteUser
+  deleteUser,
+  archiveUser,
+  unarchiveUser
 } = require('../controllers/authController');
 
 const {
@@ -94,6 +96,8 @@ router.get('/pending-personnel', verifyAdmin, getPendingPersonnel);
 router.put('/approve-personnel/:id', verifyAdmin, approvePersonnel);
 // PATCH User Suspension (LGU, Admin)
 router.patch('/users/:id/status', verifyToken, updateUserStatus);
+router.patch('/users/:id/archive', verifyToken, archiveUser);
+router.patch('/users/:id/unarchive', verifyToken, unarchiveUser);
 
 // POST Password Reset Email (Citizen, Barangay, LGU, Police, Admin)
 router.post('/forgot-password', validateForgotPassword, forgotPassword);

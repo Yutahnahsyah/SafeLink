@@ -107,10 +107,10 @@ function AccountPagination({ result, onPage }) {
   </nav>;
 }
 
-function AccountsPage() {
+function LegacyAccountsPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState("directory");
-  const [filters, setFilters] = useState({ search: "", role: "", status: "", verified: "" });
+  const [filters, setFilters] = useState({ search: "", role: "", status: "", verified: "", archived: "false" });
   const [page, setPage] = useState(1);
   const [confirm, setConfirm] = useState(null);
   const [message, setMessage] = useState("");
@@ -123,13 +123,96 @@ function AccountsPage() {
     }
   }, [result.status, result.data, page]);
   const update = (name, value) => { setFilters((current) => ({ ...current, [name]: value })); setPage(1); };
-  const changeStatus = async () => {
-    if (!confirm) return;
-    try { await personnelApi.setStatus(confirm._id, confirm.status === "suspended" ? "active" : "suspended"); setMessage("Account access updated."); result.retry(); }
-    catch (error) { setMessage(error.message || "Could not update account access."); }
+  const manageAccount = async () => {
+    const account = confirm?.account;
+    if (!account) return;
+    try {
+      if (confirm.action === "status") await personnelApi.setStatus(account._id, account.status === "suspended" ? "active" : "suspended");
+      if (confirm.action === "archive") await personnelApi.archive(account._id);
+      if (confirm.action === "unarchive") await personnelApi.unarchive(account._id);
+      if (confirm.action === "delete") await personnelApi.remove(account._id);
+      setMessage(confirm.action === "delete" ? "User deleted." : confirm.action === "archive" ? "User archived and suspended." : confirm.action === "unarchive" ? "User restored and activated." : "Account access updated.");
+      result.retry();
+    } catch (error) { setMessage(error.message || "Could not update this user."); }
     setConfirm(null);
   };
+  const confirmTitle = confirm?.action === "delete" ? "Delete this user?" : confirm?.action === "archive" ? "Archive this user?" : confirm?.action === "unarchive" ? "Restore this user?" : confirm?.account?.status === "suspended" ? "Reactivate this account?" : "Suspend this account?";
+  const confirmCopy = confirm?.action === "delete" ? "This permanently removes the account and cannot be undone." : confirm?.action === "archive" ? "The account will be suspended immediately and can later be restored." : confirm?.action === "unarchive" ? "The account will be restored and become active immediately." : confirm?.account?.status === "suspended" ? "The user will regain account access." : "The user will lose account access.";
   return <AdminShell title="Account Management" eyebrow="SafeLink administration"><div className="av-page av-page--accounts"><WorkspaceTabs items={[["directory", "User Directory", "users"], ["verification", "Verification", "shield"], ["access", "Access Control", "shield"]]} selected={tab} onSelect={(value) => { setTab(value); setPage(1); if (value !== "verification") setFilters((current) => ({ ...current, verified: "" })); }} /><Kpis loading={result.status === "loading"} items={[["Total users", summary?.total, "users", "blue"], ["Verified accounts", summary?.verified, "shield", "green"], ["Pending verification", summary?.pending, "track", "amber"], ["Suspended accounts", summary?.suspended, "priority", "red"]]} />{message && <p className="av-message" role="status">{message}</p>}{tab === "directory" || tab === "access" ? <div className="av-grid av-account-grid"><Panel icon="users" title={tab === "access" ? "Access Control" : "User Directory"} description="Citizens, Barangay, LGU, Police, and Admin accounts. Manage access here; edit official details in Personnel." className="av-main-panel"><div className="av-filters"><input aria-label="Search accounts" placeholder="Search name, email, or jurisdiction" maxLength={80} value={filters.search} onChange={(event) => update("search", event.target.value)} /><select aria-label="Filter by role" value={filters.role} onChange={(event) => update("role", event.target.value)}><option value="">All roles</option>{Object.entries(auditRoles).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select><select aria-label="Filter by status" value={filters.status} onChange={(event) => update("status", event.target.value)}><option value="">All statuses</option><option value="active">Active</option><option value="pending">Pending Verification</option><option value="suspended">Suspended</option></select></div><RefreshNotice result={result} />{result.status !== "success" ? <State result={result} /> : rows.length ? <div className="av-table-scroll av-account-table" key={JSON.stringify([page, filters])}><table><thead><tr><th>Name</th><th>Role</th><th>Jurisdiction</th><th>Status</th><th>Verified</th><th>Account actions</th></tr></thead><tbody>{rows.map((account) => <tr key={account._id}><td data-label="Name"><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></td><td data-label="Role">{auditRoles[account.role]}</td><td data-label="Jurisdiction">{account.jurisdiction?.municipalityOrCity || " "}</td><td data-label="Status"><span className={`av-badge is-${account.status}`}>{account.status === "pending" && account.role === "citizen" ? "Pending Verification" : titleCase(account.status)}</span></td><td data-label="Verified">{account.isVerified ? "Verified" : "Unverified"}</td><td data-label="Account actions"><div className="av-account-actions"><button type="button" disabled={account._id === user.id || !account.isVerified} onClick={() => setConfirm(account)}>{account.status === "suspended" ? "Reactivate" : "Suspend"}</button><AccountRecoveryAction account={account} /></div></td></tr>)}</tbody></table></div> : <State empty="No accounts match these filters." />}<AccountPagination result={result} onPage={setPage} /></Panel><aside className="av-account-insights" aria-label="Account insights"><Panel icon="chart" title="Role Distribution" description="All accounts by authorized role." className="av-role-distribution">{!summary ? result.status === "loading" ? <SectionSkeleton variant="chart" label="Loading role distribution" /> : <State result={result} variant="chart" /> : <Donut values={summary.roles} centerLabel="Users" labels={auditRoles} />}</Panel><AccountOverview result={result} /></aside></div> : <div className="av-grid av-account-grid"><Panel icon="shield" title="Verification Overview" description="Filter accounts awaiting verification." className="av-main-panel"><div className="av-filters"><select aria-label="Verification status" value={filters.verified} onChange={(event) => update("verified", event.target.value)}><option value="">All accounts</option><option value="false">Awaiting verification</option><option value="true">Verified</option></select></div>{result.status !== "success" ? <State result={result} /> : rows.length ? <div className="av-list">{rows.map((account) => <div key={account._id}><span className="av-initial">{account.firstName?.[0]}</span><span><strong>{account.firstName} {account.lastName}</strong><small>{auditRoles[account.role]}   {account.email}</small></span><span className={`av-badge is-${account.isVerified ? "active" : "pending"}`}>{account.isVerified ? "Verified" : "Unverified"}</span></div>)}</div> : <State empty="No accounts match this verification filter." />}<AccountPagination result={result} onPage={setPage} /></Panel><Panel icon="history" title="Verification activity" description="Related account events are available in audit history."><p className="av-panel-copy">Administrator audit history records verification and approval events.</p><Link className="av-text-link" to="/admin/audit-logs">Open audit logs <Icon name="arrow" size={16} /></Link></Panel></div>}<RecentAccountActivity user={user} />{confirm && <div className="av-modal-backdrop"><div className="av-modal" role="alertdialog" aria-modal="true" aria-labelledby="av-confirm-title"><h3 id="av-confirm-title">{confirm.status === "suspended" ? "Reactivate" : "Suspend"} this account?</h3><p>{confirm.firstName} {confirm.lastName} will {confirm.status === "suspended" ? "regain" : "lose"} access through the existing account API.</p><div><button onClick={() => setConfirm(null)}>Cancel</button><button onClick={changeStatus}>Confirm</button></div></div></div>}</div></AdminShell>;
+}
+
+function AccountsPage() {
+  const { user } = useAuth();
+  const [tab, setTab] = useState("directory");
+  const [filters, setFilters] = useState({ search: "", role: "", status: "", verified: "", archived: "false" });
+  const [page, setPage] = useState(1);
+  const [confirm, setConfirm] = useState(null);
+  const [message, setMessage] = useState("");
+  const result = useAccountDirectory(user, filters, page);
+  const summary = result.data?.summary;
+  const rows = result.data?.data || [];
+  const isArchiveView = filters.archived === "true";
+
+  useEffect(() => {
+    if (result.status === "success" && page > Math.max(1, result.data.pagination.totalPages)) {
+      setPage(Math.max(1, result.data.pagination.totalPages));
+    }
+  }, [result.status, result.data, page]);
+
+  const update = (name, value) => { setFilters((current) => ({ ...current, [name]: value })); setPage(1); };
+  const manageAccount = async () => {
+    const account = confirm?.account;
+    if (!account) return;
+    try {
+      if (confirm.action === "status") await personnelApi.setStatus(account._id, account.status === "suspended" ? "active" : "suspended");
+      if (confirm.action === "archive") await personnelApi.archive(account._id);
+      if (confirm.action === "unarchive") await personnelApi.unarchive(account._id);
+      if (confirm.action === "delete") await personnelApi.remove(account._id);
+      setMessage(confirm.action === "delete" ? "User deleted." : confirm.action === "archive" ? "User archived and suspended." : confirm.action === "unarchive" ? "User restored and activated." : "Account access updated.");
+      result.retry();
+    } catch (error) {
+      setMessage(error.message || "Could not update this user.");
+    }
+    setConfirm(null);
+  };
+
+  const actionTitle = confirm?.action === "delete" ? "Delete this user?"
+    : confirm?.action === "archive" ? "Archive this user?"
+      : confirm?.action === "unarchive" ? "Restore this user?"
+        : confirm?.account?.status === "suspended" ? "Reactivate this account?" : "Suspend this account?";
+  const actionCopy = confirm?.action === "delete" ? "This permanently removes the account and cannot be undone."
+    : confirm?.action === "archive" ? "The account will be suspended immediately and can later be restored."
+      : confirm?.action === "unarchive" ? "The account will be restored and become active immediately."
+        : confirm?.account?.status === "suspended" ? "The user will regain account access." : "The user will lose account access.";
+
+  return <AdminShell title="Account Management" eyebrow="SafeLink administration">
+    <div className="av-page av-page--accounts">
+      <WorkspaceTabs
+        items={[["directory", "User Directory", "users"], ["verification", "Verification", "shield"], ["access", "Access Control", "shield"]]}
+        selected={tab}
+        onSelect={(value) => { setTab(value); setPage(1); if (value !== "verification") setFilters((current) => ({ ...current, verified: "" })); }}
+      />
+      <Kpis loading={result.status === "loading"} items={[["Total users", summary?.total, "users", "blue"], ["Verified accounts", summary?.verified, "shield", "green"], ["Pending verification", summary?.pending, "track", "amber"], ["Suspended accounts", summary?.suspended, "priority", "red"]]} />
+      {message && <p className="av-message" role="status">{message}</p>}
+
+      {(tab === "directory" || tab === "access") ? <div className="av-grid av-account-grid">
+        <Panel icon="users" title={tab === "access" ? "Access Control" : isArchiveView ? "Archived Users" : "User Directory"} description="Manage account access, archiving, restoration, and deletion." className="av-main-panel">
+          <div className="av-filters">
+            <input aria-label="Search accounts" placeholder="Search name, email, or jurisdiction" maxLength={80} value={filters.search} onChange={(event) => update("search", event.target.value)} />
+            <select aria-label="Filter by role" value={filters.role} onChange={(event) => update("role", event.target.value)}><option value="">All roles</option>{Object.entries(auditRoles).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select>
+            <select aria-label="Filter by status" value={filters.status} onChange={(event) => update("status", event.target.value)}><option value="">All statuses</option><option value="active">Active</option><option value="pending">Pending Verification</option><option value="suspended">Suspended</option></select>
+            <select aria-label="Filter archived users" value={filters.archived} onChange={(event) => update("archived", event.target.value)}><option value="false">Current users</option><option value="true">Archived users</option></select>
+          </div>
+          <RefreshNotice result={result} />
+          {result.status !== "success" ? <State result={result} /> : rows.length ? <div className="av-table-scroll av-account-table" key={JSON.stringify([page, filters])}><table><thead><tr><th>Name</th><th>Role</th><th>Jurisdiction</th><th>Status</th><th>Verified</th><th>Account actions</th></tr></thead><tbody>{rows.map((account) => <tr key={account._id}><td data-label="Name"><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></td><td data-label="Role">{auditRoles[account.role]}</td><td data-label="Jurisdiction">{account.jurisdiction?.municipalityOrCity || " "}</td><td data-label="Status"><span className={`av-badge is-${account.archivedAt ? "suspended" : account.status}`}>{account.archivedAt ? "Archived" : account.status === "pending" && account.role === "citizen" ? "Pending Verification" : titleCase(account.status)}</span></td><td data-label="Verified">{account.isVerified ? "Verified" : "Unverified"}</td><td data-label="Account actions"><div className="av-account-actions"><button type="button" disabled={account._id === user.id || !account.isVerified || account.archivedAt} onClick={() => setConfirm({ action: "status", account })}>{account.status === "suspended" ? "Reactivate" : "Suspend"}</button><button type="button" disabled={account._id === user.id || !account.isVerified} onClick={() => setConfirm({ action: account.archivedAt ? "unarchive" : "archive", account })}>{account.archivedAt ? "Unarchive" : "Archive"}</button><button type="button" className="danger-link" disabled={account._id === user.id} onClick={() => setConfirm({ action: "delete", account })}>Delete</button>{!account.archivedAt && <AccountRecoveryAction account={account} />}</div></td></tr>)}</tbody></table></div> : <State empty={isArchiveView ? "No archived users match these filters." : "No accounts match these filters."} />}
+          <AccountPagination result={result} onPage={setPage} />
+        </Panel>
+        <aside className="av-account-insights" aria-label="Account insights"><Panel icon="chart" title="Role Distribution" description="Accounts by authorized role." className="av-role-distribution">{!summary ? result.status === "loading" ? <SectionSkeleton variant="chart" label="Loading role distribution" /> : <State result={result} variant="chart" /> : <Donut values={summary.roles} centerLabel="Users" labels={auditRoles} />}</Panel><AccountOverview result={result} /></aside>
+      </div> : <div className="av-grid av-account-grid"><Panel icon="shield" title="Verification Overview" description="Unverified registrations expire and are deleted after 12 hours." className="av-main-panel"><div className="av-filters"><select aria-label="Verification status" value={filters.verified} onChange={(event) => update("verified", event.target.value)}><option value="">All accounts</option><option value="false">Awaiting verification</option><option value="true">Verified</option></select></div>{result.status !== "success" ? <State result={result} /> : rows.length ? <div className="av-list">{rows.map((account) => <div key={account._id}><span className="av-initial">{account.firstName?.[0]}</span><span><strong>{account.firstName} {account.lastName}</strong><small>{auditRoles[account.role]} {account.email}</small></span><span className={`av-badge is-${account.isVerified ? "active" : "pending"}`}>{account.isVerified ? "Verified" : "Unverified"}</span></div>)}</div> : <State empty="No accounts match this verification filter." />}<AccountPagination result={result} onPage={setPage} /></Panel><Panel icon="history" title="Verification activity" description="Related account events are available in audit history."><p className="av-panel-copy">Administrator audit history records verification, archive, restore, and deletion events.</p><Link className="av-text-link" to="/admin/audit-logs">Open audit logs <Icon name="arrow" size={16} /></Link></Panel></div>}
+      <RecentAccountActivity user={user} />
+      {confirm && <div className="av-modal-backdrop"><div className="av-modal" role="alertdialog" aria-modal="true" aria-labelledby="av-confirm-title"><h3 id="av-confirm-title">{actionTitle}</h3><p>{confirm.account.firstName} {confirm.account.lastName}. {actionCopy}</p><div><button onClick={() => setConfirm(null)}>Cancel</button><button onClick={manageAccount}>Confirm</button></div></div></div>}
+    </div>
+  </AdminShell>;
 }
 
 function PersonnelPage() {

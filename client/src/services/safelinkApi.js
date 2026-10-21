@@ -80,6 +80,8 @@ export const personnelApi = {
   approve: (id) => apiRequest(`auth/approve-personnel/${encodeURIComponent(id)}`, { method: "PUT" }),
   create: (values) => apiRequest("admin/personnel-accounts", { method: "POST", body: values }),
   setStatus: (id, status) => apiRequest(`auth/users/${encodeURIComponent(id)}/status`, { method: "PATCH", body: { status } }),
+  archive: (id) => apiRequest(`auth/users/${encodeURIComponent(id)}/archive`, { method: "PATCH" }),
+  unarchive: (id) => apiRequest(`auth/users/${encodeURIComponent(id)}/unarchive`, { method: "PATCH" }),
   remove: (id) => apiRequest(`auth/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
 

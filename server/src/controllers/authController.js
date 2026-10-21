@@ -10,6 +10,7 @@ const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 const policies = require('../../../shared/legalPolicies.json');
 const { loginProtection, normalizeLoginEmail } = require('../services/loginProtection');
 const { createPasswordResetUrl, passwordResetEmail } = require('../utils/passwordResetEmail');
+const { UNVERIFIED_ACCOUNT_TTL_MS, removeUserSecurityArtifacts } = require('../services/userRetention');
 // Match the existing bcrypt cost without giving unknown identifiers a cheaper password path.
 const dummyLoginHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
 const MFA_TOKEN_TTL = '5m';
@@ -229,6 +230,7 @@ const registerCitizen = async (req, res) => {
       legalAcceptance: { termsVersion: policies.termsVersion, privacyVersion: policies.privacyVersion, acceptedAt: new Date() },
       status: 'pending',
       isVerified: false,
+      unverifiedAccountExpiresAt: new Date(Date.now() + UNVERIFIED_ACCOUNT_TTL_MS),
       emailVerificationToken: verification.hash,
       emailVerificationExpires: verification.expires
     });
@@ -314,7 +316,7 @@ const verifyEmail = async (req, res) => {
     const { token } = req.params;
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    const user = await User.findOne({ emailVerificationToken: hashedToken });
+    const user = await User.findOne({ emailVerificationToken: hashedToken }).select('+unverifiedAccountExpiresAt');
 
     if (!user) {
       const verifiedUser = await User.findOne({
@@ -368,6 +370,7 @@ const verifyEmail = async (req, res) => {
         status: 'active',
         lastUsedEmailVerificationToken: hashedToken,
         lastUsedEmailVerificationExpires: new Date(Date.now() + 15 * 60 * 1000),
+        unverifiedAccountExpiresAt: null,
         updatedAt: new Date()
       },
       $unset: { emailVerificationToken: '', emailVerificationExpires: '' }
@@ -831,6 +834,9 @@ const updateUserStatus = async (req, res) => {
     if (!targetUser) {
       return res.status(404).json({ message: 'Target user not found.' });
     }
+    if (targetUser.archivedAt) {
+      return res.status(409).json({ message: 'Archived users must be restored through the unarchive action.' });
+    }
 
     if (requester.role === 'admin') {
     }
@@ -912,6 +918,7 @@ const deleteUser = async (req, res) => {
     }
 
     await User.findByIdAndDelete(req.params.id);
+    await removeUserSecurityArtifacts(user);
 
     await recordAuditEvent({
       req,
@@ -928,6 +935,60 @@ const deleteUser = async (req, res) => {
   } catch (err) {
     console.error('User deletion error:', err.message);
     res.status(500).json({ message: 'Server error while deleting user.' });
+  }
+};
+
+const canManageArchivedUser = (requester, user) => {
+  if (user._id.toString() === requester.id) return 'You cannot archive or unarchive your own account.';
+  if (requester.role === 'admin') return null;
+  if (requester.role !== 'lgu_personnel') return 'Access forbidden: You do not have administrative privileges.';
+  const managesCitizen = user.role === 'citizen'
+    && sameCity(requester.jurisdiction?.municipalityOrCity, user.address?.municipalityOrCity);
+  return managesCitizen || canLGUManagePersonnel(requester, user)
+    ? null
+    : 'Access denied: LGU personnel can manage citizens or Barangay personnel only within their municipality or city.';
+};
+
+const archiveUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    const permissionError = canManageArchivedUser(req.user, user);
+    if (permissionError) return res.status(403).json({ message: permissionError });
+    if (!user.isVerified) return res.status(400).json({ message: 'Unverified accounts are deleted automatically after 12 hours and cannot be archived.' });
+    if (user.archivedAt) return res.status(409).json({ message: 'This user is already archived.' });
+
+    const previousStatus = user.status;
+    user.archivedAt = new Date();
+    user.status = 'suspended';
+    await user.save();
+    await removeUserSecurityArtifacts(user);
+    await recordAuditEvent({ req, targetUser: user._id, action: 'USER_ARCHIVED', outcome: 'success', details: { previousStatus, newStatus: 'suspended' } });
+    return res.json({ message: 'User archived and suspended.', user: { id: user._id, status: user.status, archivedAt: user.archivedAt } });
+  } catch (error) {
+    console.error('USER_ARCHIVE_FAILED', error.message);
+    return res.status(500).json({ message: 'Unable to archive the user.' });
+  }
+};
+
+const unarchiveUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    const permissionError = canManageArchivedUser(req.user, user);
+    if (permissionError) return res.status(403).json({ message: permissionError });
+    if (!user.archivedAt) return res.status(409).json({ message: 'This user is not archived.' });
+    if (!user.isVerified) return res.status(400).json({ message: 'Only verified users can be restored.' });
+
+    const archivedAt = user.archivedAt;
+    user.archivedAt = null;
+    user.status = 'active';
+    await user.save();
+    await recordAuditEvent({ req, targetUser: user._id, action: 'USER_UNARCHIVED', outcome: 'success', details: { archivedAt, newStatus: 'active' } });
+    return res.json({ message: 'User restored and activated.', user: { id: user._id, status: user.status, archivedAt: null } });
+  } catch (error) {
+    console.error('USER_UNARCHIVE_FAILED', error.message);
+    return res.status(500).json({ message: 'Unable to restore the user.' });
   }
 };
 
@@ -988,5 +1049,7 @@ module.exports = {
   forgotPassword,
   resetPassword,
   updateUserStatus,
-  deleteUser
+  deleteUser,
+  archiveUser,
+  unarchiveUser
 };
