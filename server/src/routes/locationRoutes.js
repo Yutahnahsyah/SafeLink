@@ -20,7 +20,10 @@ router.post('/incident-address', (req, res, next) => { res.set('Cache-Control', 
       const data = await getIncidentAddress({ latitude, longitude, accuracy });
       return res.json({ data, source: 'OpenStreetMap contributors', sourceUrl: 'https://www.openstreetmap.org/copyright' });
     } catch (error) {
-      if (error.message === 'OUTSIDE_PANGASINAN') return res.status(422).json({ code: 'OUTSIDE_PANGASINAN', message: 'That point is outside Pangasinan. Select the incident location manually.' });
+      if (error.message === 'OUTSIDE_PANGASINAN') {
+        const { OUTSIDE_PANGASINAN_MESSAGE } = await import('../../../shared/incidentProvince.mjs');
+        return res.status(422).json({ code: 'OUTSIDE_PANGASINAN', message: OUTSIDE_PANGASINAN_MESSAGE });
+      }
       res.set('Retry-After', error.message === 'GEOCODER_BUSY' ? '2' : '30');
       return res.status(error.message === 'GEOCODER_BUSY' ? 429 : 503).json({ message: 'Address detection is unavailable. You can enter the address manually or retry shortly.' });
     }

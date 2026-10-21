@@ -1,6 +1,5 @@
 const { PANGASINAN_LOCATIONS, getPangasinanZipCode } = require('../utils/pangasinanLocations');
 const { getMunicipality } = require('../utils/registrationLocations');
-const { isWithinPangasinan } = require('../utils/pangasinanBoundary');
 const { containsUncertainty } = require('./incidentBoundaryConfidence');
 
 const clean = (value) => typeof value === 'string' && value.length <= 255 && !/[<>\p{Cc}\p{Cf}]/u.test(value) ? value.trim() : '';
@@ -29,8 +28,16 @@ function resolveIncidentAddress(result, point) {
   const state = normalize(address.state);
   if ((clean(address.country_code) && address.country_code.toLowerCase() !== 'ph')
     || (clean(address.province) && normalize(address.province) !== 'pangasinan')
-    || (state && !['pangasinan', 'ilocos', 'ilocos region', 'region i', 'region 1'].includes(state))) throw new Error('OUTSIDE_PANGASINAN');
-  const municipalityOrCity = exactMatch([address.city, address.town, address.municipality], PANGASINAN_LOCATIONS.map((item) => item.municipalityOrCity));
+    || (state && !['pangasinan', 'ilocos', 'ilocos region', 'region i', 'region 1'].includes(state))) throw new Error('GEOCODER_ADDRESS_MISMATCH');
+  const candidateMunicipality = exactMatch([address.city, address.town, address.municipality], PANGASINAN_LOCATIONS.map((item) => item.municipalityOrCity));
+  // Reverse lookup returns the nearest mapped object, which may be far away.
+  // A municipality boundary can have a distant centroid, so accept its actual
+  // containing geometry instead of applying the street/POI distance rule to it.
+  const municipalityBoundary = result?.category === 'boundary' && result.type === 'administrative'
+    && ['6', '8'].includes(String(result.extratags?.admin_level))
+    && normalize(result.name) === normalize(candidateMunicipality)
+    && containsUncertainty(result.geojson, { ...point, accuracy: 0 });
+  const municipalityOrCity = candidateMunicipality && (nearby(result, point) || municipalityBoundary) ? candidateMunicipality : '';
   const options = getMunicipality(municipalityOrCity)?.barangays.map((item) => item.name) || [];
   const candidate = exactMatch([address.village, address.suburb, address.quarter, address.city_district, address.district,
     /^(barangay|brgy\.?)[\s]/i.test(clean(address.neighbourhood)) ? address.neighbourhood : ''], options);
@@ -41,7 +48,7 @@ function resolveIncidentAddress(result, point) {
   const street = close ? clean(address.road) || clean(address.pedestrian) : '';
   const landmark = close && ['amenity', 'tourism', 'shop', 'leisure', 'office', 'historic'].includes(result?.category) ? clean(result.name) : '';
   return {
-    municipalityOrCity, barangay, zipCode: getPangasinanZipCode(municipalityOrCity) || '', street,
+    province: 'Pangasinan', municipalityOrCity, barangay, zipCode: getPangasinanZipCode(municipalityOrCity) || '', street,
     location: landmark || (street ? [clean(address.house_number), street].filter(Boolean).join(' ').slice(0, 255) : ''),
   };
 }
@@ -56,7 +63,8 @@ function createIncidentGeocoder({ fetchFn = (...args) => fetch(...args), now = D
     setTimeout(() => { if (cache.get(key)?.until <= now()) cache.delete(key); }, entry.until - now()).unref();
   };
   return async (point) => {
-    if (!isWithinPangasinan(point.longitude, point.latitude)) throw new Error('OUTSIDE_PANGASINAN');
+    const { validateIncidentCoordinates } = await import('../../../shared/incidentProvince.mjs');
+    if (validateIncidentCoordinates(point)) throw new Error('OUTSIDE_PANGASINAN');
     const key = `${point.latitude.toFixed(5)},${point.longitude.toFixed(5)}`;
     const cached = cache.get(key);
     if (cached?.until > now()) {

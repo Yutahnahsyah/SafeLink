@@ -26,10 +26,9 @@ valid edge coordinate does not move outside when saved. Address-provider labels
 cannot override this geometry for manual pins, and coordinates are not restricted
 to individual municipal polygons.
 
-Manual pin selection and incident submission use this province geometry.
-Current Location acquisition and address lookup remain unchanged in this change.
-The separate community/dashboard boundary utility remains unchanged. Submission
-validates every coordinate regardless of origin.
+Current Location, manual pin selection, address lookup and submission all use
+this same province geometry. The separate community/dashboard boundary utility
+remains unchanged. Submission validates every coordinate regardless of origin.
 The existing Leaflet picker has no marker dragging or coordinate-entry controls.
 
 ## Boundary validation and independent reference

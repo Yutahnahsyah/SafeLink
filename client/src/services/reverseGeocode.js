@@ -6,7 +6,8 @@ export async function reverseGeocode({ latitude, longitude, accuracy, signal }) 
   const result = await apiRequest('locations/incident-address', {
     method: 'POST', body: { latitude, longitude, ...(Number.isFinite(accuracy) && accuracy >= 0 ? { accuracy } : {}) }, signal,
   });
-  const fields = ['municipalityOrCity', 'barangay', 'zipCode', 'street', 'location'];
-  if (!result?.data || !fields.every((field) => typeof result.data[field] === 'string')) throw new Error('ADDRESS_NOT_FOUND');
+  const fields = ['province', 'municipalityOrCity', 'barangay', 'zipCode', 'street', 'location'];
+  if (!result?.data || result.data.province !== 'Pangasinan'
+    || !fields.every((field) => typeof result.data[field] === 'string')) throw new Error('ADDRESS_NOT_FOUND');
   return Object.fromEntries(fields.map((field) => [field, result.data[field]]));
 }

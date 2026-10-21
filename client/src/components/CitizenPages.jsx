@@ -652,6 +652,7 @@ export function ReportIncidentPage() {
     barangay: "",
     street: "",
     zipCode: "",
+    province: "",
     latitude: "",
     longitude: "",
     files: [],
@@ -978,7 +979,7 @@ export function ReportIncidentPage() {
               <strong>Selected location</strong>
               <span>
                 {values.latitude && values.longitude
-                  ? "Location pinned"
+                  ? `Location pinned${values.province ? ` · ${values.province}` : ''}`
                   : "No location pinned yet"}
               </span>
               <small>
