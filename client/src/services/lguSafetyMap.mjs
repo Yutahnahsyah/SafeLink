@@ -1,11 +1,19 @@
 import { normalizeMunicipalityName } from '../../../shared/municipalityNames.mjs';
 
-export async function loadLguSafetyMap(jurisdiction, request) {
+const loadBoundaryModule = () => import('../../../shared/lguJurisdiction.mjs');
+export const isLguBoundaryError = (error) => ['LGU_BOUNDARY_NOT_FOUND', 'LGU_BOUNDARY_UNAVAILABLE'].includes(error?.code);
+
+export async function loadLguSafetyMap(jurisdiction, request, loadBoundary = loadBoundaryModule) {
   // Use the jurisdiction from the authenticated account, never local database
   // users or a province-wide response from an older deployed boundary endpoint.
-  const { findMunicipalityBoundary } = await import('../../../shared/lguJurisdiction.mjs');
+  let findMunicipalityBoundary;
+  try {
+    ({ findMunicipalityBoundary } = await loadBoundary());
+  } catch {
+    throw Object.assign(new Error('The municipality boundary could not be loaded. Please retry. Your assigned incidents remain available from Assigned Incidents.'), { code: 'LGU_BOUNDARY_UNAVAILABLE' });
+  }
   const boundary = findMunicipalityBoundary(jurisdiction);
-  if (!boundary) throw new Error('The assigned LGU jurisdiction has no matching boundary. Ask your administrator to check the municipality or city.');
+  if (!boundary) throw Object.assign(new Error('No municipality boundary matches your assigned jurisdiction. Ask your administrator to check the assigned municipality or city.'), { code: 'LGU_BOUNDARY_NOT_FOUND' });
   const payload = await request('incidents/map');
   return { ...payload, boundary };
 }
