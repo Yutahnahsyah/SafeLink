@@ -1729,6 +1729,9 @@
 .settings-card .button {
   margin-top: 15px;
 }
+.settings-card-actions { display:flex; flex-wrap:wrap; gap:9px; }
+.settings-card-actions .button { margin-top:15px; }
+.settings-password-section { scroll-margin-top:24px; }
 .switch-row {
   display: flex !important;
   align-items: center;

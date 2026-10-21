@@ -1326,10 +1326,8 @@ export function SettingsPage() {
       "shield",
       "Security",
       "Account & Password",
-      "Change your password voluntarily below, or request a secure recovery link if needed.",
-      <Link className="button button-muted" to="/forgot-password">
-        Reset password
-      </Link>,
+      "Change your password here, or request a secure recovery link if you no longer know it.",
+      <div className="settings-card-actions"><a className="button button-muted" href="#change-password">Change password</a><Link className="button button-muted" to="/forgot-password">Reset password</Link></div>,
     ],
     [
       "bell",
@@ -1346,7 +1344,6 @@ export function SettingsPage() {
   ];
   return (
     <CitizenShell title="Settings" eyebrow="Account, privacy, and security">
-      <ChangePasswordForm />
       <div className="settings-intro">
         <div>
           <span>Citizen preferences</span>
@@ -1387,6 +1384,9 @@ export function SettingsPage() {
           </div>
         </section>
       </div>
+      <section id="change-password" className="settings-password-section" aria-label="Change password">
+        <ChangePasswordForm />
+      </section>
     </CitizenShell>
   );
 }
