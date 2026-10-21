@@ -9,6 +9,9 @@ export const roleForPath = (path) => {
   const segment = path.split('/')[1];
   return Object.hasOwn(workspaces, segment) ? workspaces[segment] : null;
 };
+export const shouldShowCitizenSessionReminder = (path, user) => (
+  user?.role === 'citizen' && roleForPath(path) === 'citizen'
+);
 // Navigation only: backend middleware remains the authority for all data access.
 export function protectedDestination(path, user, authenticated) {
   const requiredRole = roleForPath(path);

@@ -3,7 +3,7 @@ import { useRouter } from "./routing";
 import { loginAccount, registerCitizenAccount } from "./services/accountApi";
 import { authApi } from "./services/safelinkApi";
 import { clearSession, getAccessToken, markActivity, storeSession } from "./services/apiClient";
-import { isVerifiedAccountShape } from "./services/authPolicy";
+import { isVerifiedAccountShape, shouldShowCitizenSessionReminder } from "./services/authPolicy";
 import CitizenSessionReminder from "./components/CitizenSessionReminder";
 
 import { NotificationProvider } from "./services/NotificationProvider";
@@ -21,7 +21,7 @@ export const lguPreviewArea = isLguPreview
   : "";
 
 export function AuthProvider({ children }) {
-  const { navigate } = useRouter();
+  const { navigate, pathname } = useRouter();
   const [user, setUser] = useState(null);
   const [isRestoring, setIsRestoring] = useState(Boolean(getAccessToken()));
   const [restorationError, setRestorationError] = useState(null);
@@ -99,7 +99,7 @@ export function AuthProvider({ children }) {
   );
   return <AuthContext.Provider value={value}><NotificationProvider user={user}>
     {children}
-    {user?.role === "citizen" && <CitizenSessionReminder userId={user.id} onTimeout={() => {
+    {shouldShowCitizenSessionReminder(pathname, user) && <CitizenSessionReminder userId={user.id} onTimeout={() => {
       value.logout();
       navigate("/login", { replace: true });
     }} />}

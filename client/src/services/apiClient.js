@@ -48,6 +48,10 @@ export class ApiError extends Error {
   }
 }
 
+export function shouldInvalidateSession(status, auth, requestToken, currentToken) {
+  return status === 401 && auth && Boolean(requestToken) && currentToken === requestToken;
+}
+
 function codeFor(status, message) {
   const text = message.toLowerCase();
   if (!status) return "NETWORK_ERROR";
@@ -100,7 +104,7 @@ export async function apiRequest(path, { method = "GET", body, auth = true, resp
   const fieldErrors = Array.isArray(payload?.errors) ? payload.errors.map((item) => ({ field: item.path || item.param || "", message: item.msg || "Invalid value." })) : [];
   const message = String(payload?.message || fieldErrors[0]?.message || "SafeLink could not complete this request.");
   const code = typeof payload?.code === "string" ? payload.code : codeFor(response.status, message);
-  if (response.status === 401 && auth && getAccessToken() === token) {
+  if (shouldInvalidateSession(response.status, auth, token, getAccessToken())) {
     clearSession();
     window.dispatchEvent(new CustomEvent("safelink:session-expired"));
   }
