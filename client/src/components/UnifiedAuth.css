@@ -11,3 +11,12 @@
 @keyframes unified-auth-enter { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 @media(max-width:650px) { .auth-page--unified .auth-card { padding:24px 18px; border-radius:18px; }.auth-page--unified .auth-heading h2 { font-size:27px; } }
 @media(prefers-reduced-motion:reduce) { .auth-page--unified * { animation:none!important; transition:none!important; } }
+
+.mfa-enrollment { display:grid; gap:12px; justify-items:center; margin:0 0 20px; text-align:left; }
+.mfa-enrollment img { width:256px; max-width:100%; height:auto; border:1px solid #dcebed; border-radius:12px; background:#fff; }
+.mfa-enrollment label { width:100%; font-weight:700; font-size:13px; color:#17324d; }
+.mfa-enrollment label input { width:100%; margin-top:6px; font-family:ui-monospace,monospace; font-size:12px; }
+.mfa-enrollment small { color:#587086; font-size:12px; line-height:1.45; }
+.mfa-recovery-codes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:20px 0; padding:0; list-style:none; }
+.mfa-recovery-codes li { padding:9px; border:1px solid #dcebed; border-radius:9px; background:#f7fbfc; text-align:center; }
+.mfa-recovery-codes code { font-size:12px; color:#17324d; }

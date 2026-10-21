@@ -27,6 +27,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.5",
     "multer": "^2.4.0",
+    "otplib": "^13.5.0",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.8.4"
   },
   "devDependencies": {

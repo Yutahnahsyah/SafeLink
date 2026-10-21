@@ -181,8 +181,69 @@ function passwordError(value) {
 // Compatibility export: the old selector now renders the same unified form.
 export function LoginSelectorPage() { return <LoginPage />; }
 
+function MfaLoginStep({ challenge, onAuthenticated, onCancel }) {
+  const enrollment = Boolean(challenge.mfaEnrollmentRequired);
+  const [setup, setSetup] = useState(null);
+  const [code, setCode] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [useRecovery, setUseRecovery] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState(null);
+  const [completedPayload, setCompletedPayload] = useState(null);
+  const [loading, setLoading] = useState(enrollment);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!enrollment) return undefined;
+    let active = true;
+    authApi.mfaSetup(challenge.mfaToken).then((payload) => {
+      if (active) setSetup(payload);
+    }).catch((requestError) => {
+      if (active) setError(requestError?.message || "We couldn't create your authenticator setup.");
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [challenge.mfaToken, enrollment]);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    const value = useRecovery ? recoveryCode.trim() : code.trim();
+    if (!value) { setError(useRecovery ? "Enter one of your recovery codes." : "Enter the six-digit code from your authenticator app."); return; }
+    setLoading(true); setError("");
+    try {
+      const payload = enrollment
+        ? await authApi.confirmMfaEnrollment(challenge.mfaToken, value)
+        : useRecovery
+          ? await authApi.recoverMfa(challenge.mfaToken, value)
+          : await authApi.verifyMfa(challenge.mfaToken, value);
+      if (Array.isArray(payload.recoveryCodes)) {
+        setRecoveryCodes(payload.recoveryCodes);
+        setCompletedPayload(payload);
+      } else onAuthenticated(payload);
+    } catch (requestError) {
+      setError(requestError?.message || "We couldn't verify that code. Try again.");
+    } finally { setLoading(false); }
+  };
+
+  if (recoveryCodes && completedPayload) return <AuthShell title="Save your recovery codes" text="Store these one-time codes somewhere safe. They are the only way to sign in if you lose your authenticator device." footer={<button className="forgot-link" type="button" onClick={() => onAuthenticated(completedPayload)}>I saved them — continue</button>}>
+    <div className="form-success" role="status"><Icon name="shield" size={20} /><div><strong>Authenticator MFA is enabled.</strong><p>Each recovery code works once.</p></div></div>
+    <ul className="mfa-recovery-codes" aria-label="One-time recovery codes">{recoveryCodes.map((item) => <li key={item}><code>{item}</code></li>)}</ul>
+  </AuthShell>;
+
+  const title = enrollment ? "Set up your authenticator" : "Verify your sign-in";
+  const text = enrollment ? "Scan this QR code using an authenticator app, then enter its current six-digit code." : "Enter the current six-digit code from your authenticator app to finish signing in.";
+  return <AuthShell title={title} text={text} footer={<button className="forgot-link" type="button" onClick={onCancel}>Return to sign in</button>}>
+    {loading && <p className="form-success" role="status">Preparing secure authenticator setup…</p>}
+    {enrollment && setup && <div className="mfa-enrollment"><img src={setup.qrCodeDataUrl} width="256" height="256" alt="Scan this QR code in your authenticator app" /><label>Manual setup key<input value={setup.manualEntryKey} readOnly onFocus={(event) => event.target.select()} aria-label="Manual authenticator setup key" /></label><small>Use this key only if you cannot scan the QR code. Treat it like a password.</small></div>}
+    {!loading && <form className="auth-form" onSubmit={submit} noValidate>
+      {!enrollment && <button className="forgot-link" type="button" onClick={() => { setUseRecovery(!useRecovery); setError(""); }}>{useRecovery ? "Use authenticator code instead" : "Use a recovery code instead"}</button>}
+      {useRecovery ? <Field id="mfa-recovery-code" label="Recovery code" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} autoComplete="one-time-code" /> : <Field id="mfa-code" label="Authenticator code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} />}
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <LoadingButton loading={loading} loadingText="Verifying…">{enrollment ? "Enable authenticator MFA" : useRecovery ? "Use recovery code" : "Verify and sign in"}</LoadingButton>
+    </form>}
+  </AuthShell>;
+}
+
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, completeMfaLogin } = useAuth();
   const { navigate } = useRouter();
   const [values, setValues] = useState({ email: "", password: "" });
   const cooldown = useLoginCooldown(values.email);
@@ -192,6 +253,7 @@ export function LoginPage() {
   const [success, setSuccess] = useState("");
   const [resendAvailable, setResendAvailable] = useState(false);
   const [resending, setResending] = useState(false);
+  const [mfaChallenge, setMfaChallenge] = useState(null);
   const errors = {
     email: !values.email.trim() ? "Email is required." : !emailPattern.test(values.email.trim()) ? "Please enter a valid email address." : "",
     password: !values.password ? "Password is required." : "",
@@ -205,6 +267,11 @@ export function LoginPage() {
     setLoading(true);
     try {
       const account = await login(values);
+      if (account?.mfaRequired || account?.mfaEnrollmentRequired) {
+        cooldown.clear(values.email);
+        setMfaChallenge(account);
+        return;
+      }
       cooldown.clear(values.email);
       navigate(dashboardForRole(account.role), { replace: true });
     } catch (requestError) {
@@ -222,6 +289,10 @@ export function LoginPage() {
       setError(requestError?.status === 429 ? requestError.message : messages[requestError?.code] || "We couldn't sign you in. Please try again.");
     } finally { setLoading(false); }
   };
+  if (mfaChallenge) return <MfaLoginStep challenge={mfaChallenge} onCancel={() => { setMfaChallenge(null); setError(""); }} onAuthenticated={(payload) => {
+    const account = completeMfaLogin(payload);
+    navigate(dashboardForRole(account.role), { replace: true });
+  }} />;
   return <AuthShell title="Welcome Back" text="Sign in to your SafeLink account." footer={<>New to SafeLink? <Link to="/register">Create Citizen Account</Link></>}>
     <div className="unified-auth-trust"><Icon name="shield" size={17} /> Secure account access</div>
     <form className="auth-form" onSubmit={submit} noValidate>

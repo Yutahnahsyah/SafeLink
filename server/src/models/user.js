@@ -93,6 +93,14 @@ const UserSchema = new mongoose.Schema({
     default: null,
     select: false
   },
+  // TOTP values are encrypted before storage. They are excluded from normal
+  // queries so account listings and API responses never expose MFA material.
+  mfaEnabled: { type: Boolean, default: false },
+  mfaSecret: { type: String, default: null, select: false },
+  mfaPendingSecret: { type: String, default: null, select: false },
+  mfaPendingExpires: { type: Date, default: null, select: false },
+  mfaRecoveryCodeHashes: { type: [String], default: undefined, select: false },
+  mfaEnabledAt: { type: Date, default: null },
   createdAt: {
     type: Date,
     default: Date.now

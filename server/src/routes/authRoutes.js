@@ -26,6 +26,10 @@ const {
   getCurrentUser,
   getPendingPersonnel,
   approvePersonnel,
+  beginMfaEnrollment,
+  confirmMfaEnrollment,
+  verifyMfaLogin,
+  recoverMfaLogin,
   forgotPassword,
   resetPassword,
   updateUserStatus,
@@ -41,6 +45,9 @@ const {
 const {
   validateCitizenRegistration,
   validateLogin,
+  validateMfaCode,
+  validateMfaSetup,
+  validateMfaRecovery,
   validateForgotPassword,
   validateResetPassword
 } = require('../middleware/validation');
@@ -61,6 +68,12 @@ router.post('/change-password', verifyToken, require('../controllers/authControl
 
 // POST User Login (Citizen, Barangay, LGU, Police, Admin)
 router.post('/login', failedLoginLimiter, validateLogin, loginUser);
+const mfaLimiter = rateLimit({ windowMs: 5 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false,
+  message: { code: 'MFA_RATE_LIMITED', message: 'Too many MFA attempts. Please try again in a few minutes.' } });
+router.post('/mfa/setup', mfaLimiter, validateMfaSetup, beginMfaEnrollment);
+router.post('/mfa/confirm-enrollment', mfaLimiter, validateMfaCode, confirmMfaEnrollment);
+router.post('/mfa/verify', mfaLimiter, validateMfaCode, verifyMfaLogin);
+router.post('/mfa/recover', mfaLimiter, validateMfaRecovery, recoverMfaLogin);
 router.get('/me', verifyToken, getCurrentUser);
 // Records an authenticated sign-out request; JWTs retain their existing expiry semantics.
 router.post('/logout', verifyToken, async (req, res) => {

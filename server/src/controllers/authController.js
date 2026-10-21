@@ -2,6 +2,8 @@ const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { generateSecret, generateURI, verify: verifyTotp } = require('otplib');
+const QRCode = require('qrcode');
 const { hashIdentifier, recordAuditEvent } = require('../utils/auditLog');
 const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
 const policies = require('../../../shared/legalPolicies.json');
@@ -9,6 +11,57 @@ const { loginProtection, normalizeLoginEmail } = require('../services/loginProte
 const { createPasswordResetUrl, passwordResetEmail } = require('../utils/passwordResetEmail');
 // Match the existing bcrypt cost without giving unknown identifiers a cheaper password path.
 const dummyLoginHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
+const MFA_TOKEN_TTL = '5m';
+const MFA_ENROLLMENT_TTL_MS = 10 * 60 * 1000;
+
+function mfaEncryptionKey() {
+  const key = Buffer.from(String(process.env.MFA_ENCRYPTION_KEY || ''), 'base64');
+  if (key.length !== 32) throw Object.assign(new Error('MFA encryption is not configured.'), { code: 'MFA_CONFIGURATION_ERROR' });
+  return key;
+}
+
+function encryptMfaSecret(secret) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', mfaEncryptionKey(), iv);
+  const ciphertext = Buffer.concat([cipher.update(secret, 'utf8'), cipher.final()]);
+  return [iv, cipher.getAuthTag(), ciphertext].map((part) => part.toString('base64url')).join('.');
+}
+
+function decryptMfaSecret(value) {
+  const [ivValue, tagValue, ciphertextValue] = String(value || '').split('.');
+  if (!ivValue || !tagValue || !ciphertextValue) throw Object.assign(new Error('MFA secret is invalid.'), { code: 'MFA_CONFIGURATION_ERROR' });
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', mfaEncryptionKey(), Buffer.from(ivValue, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagValue, 'base64url'));
+    return Buffer.concat([decipher.update(Buffer.from(ciphertextValue, 'base64url')), decipher.final()]).toString('utf8');
+  } catch {
+    throw Object.assign(new Error('MFA secret cannot be read.'), { code: 'MFA_CONFIGURATION_ERROR' });
+  }
+}
+
+const mfaChallenge = (user, purpose) => jwt.sign({ id: user._id, purpose, mfa: true }, process.env.JWT_SECRET, { expiresIn: MFA_TOKEN_TTL });
+function mfaChallengeUser(token, purpose) {
+  const payload = jwt.verify(token, process.env.JWT_SECRET);
+  if (!payload?.mfa || payload.purpose !== purpose || !payload.id) throw new Error('MFA_CHALLENGE_INVALID');
+  return payload.id;
+}
+const normalizeRecoveryCode = (value) => String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+const recoveryHash = (value) => crypto.createHash('sha256').update(normalizeRecoveryCode(value)).digest('hex');
+const createRecoveryCodes = () => Array.from({ length: 8 }, () => {
+  const code = crypto.randomBytes(12).toString('hex').toUpperCase();
+  return `${code.slice(0, 6)}-${code.slice(6, 12)}-${code.slice(12, 18)}-${code.slice(18)}`;
+});
+
+async function loginPayload(user, message = 'Logged in successfully.') {
+  const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+  const loginTime = new Date();
+  await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: loginTime, updatedAt: loginTime } });
+  return { message, token, user: {
+    id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email,
+    role: user.role, status: user.status, isVerified: user.isVerified,
+    address: user.address, jurisdiction: user.jurisdiction, mfaEnabled: true
+  } };
+}
 
 const EMAIL_SEND_TIMEOUT_MS = 15 * 1000;
 const includeErrorDetails = process.env.NODE_ENV === 'development';
@@ -196,7 +249,7 @@ const registerCitizen = async (req, res) => {
 const resendVerification = async (req, res) => {
   try {
     const email = req.body.email.toLowerCase().trim();
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select('+mfaSecret +mfaPendingSecret +mfaRecoveryCodeHashes');
     if (!user || user.role !== 'citizen' || user.isVerified) {
       return res.status(200).json({ message: genericResendMessage });
     }
@@ -397,40 +450,16 @@ const loginUser = async (req, res) => {
       return res.status(403).json({ message: user.status === 'suspended' ? 'Access denied. Your account has been suspended. Contact your account administrator.' : 'Your account is pending administrator approval.' });
     }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    const loginTime = new Date();
-    await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: loginTime, updatedAt: loginTime } });
     // Only a verified, active account with a correct password reaches this reset.
     await attempt.reset();
-
-    await recordAuditEvent({
-      req,
-      actor: user._id,
-      targetUser: user._id,
-      action: 'AUTH_LOGIN',
-      outcome: 'success'
-    });
-
-    res.json({
-      message: 'Logged in successfully.',
-      token,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        isVerified: user.isVerified,
-        address: user.address,
-        jurisdiction: user.jurisdiction
-      }
-    });
+    if (!user.mfaEnabled) {
+      await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_ENROLLMENT_REQUIRED', outcome: 'success' });
+      return res.json({ mfaEnrollmentRequired: true, mfaToken: mfaChallenge(user, 'enroll'), email: user.email,
+        message: 'Set up your authenticator app to finish signing in.' });
+    }
+    await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_REQUIRED', outcome: 'success' });
+    return res.json({ mfaRequired: true, mfaToken: mfaChallenge(user, 'login'), email: user.email,
+      message: 'Enter the code from your authenticator app to finish signing in.' });
   } catch (err) {
     console.error('LOGIN_FAILED', err.code || err.name);
     if (err.code === 'LOGIN_BUSY') {
@@ -443,6 +472,92 @@ const loginUser = async (req, res) => {
     res.status(500).json({ message: 'Server error during login.' });
   } finally {
     if (attempt) await attempt.release().catch(() => console.error('LOGIN_LEASE_RELEASE_FAILED'));
+  }
+};
+
+async function mfaUser(token, purpose, select = '') {
+  const id = mfaChallengeUser(token, purpose);
+  const user = await User.findById(id).select(select);
+  if (!user || !user.isVerified || user.status !== 'active') throw new Error('MFA_CHALLENGE_INVALID');
+  return user;
+}
+
+// The setup challenge is issued only after a correct password. Its short expiry
+// prevents a QR code from becoming an independent long-lived credential.
+const beginMfaEnrollment = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const user = await mfaUser(req.body.mfaToken, 'enroll');
+    if (user.mfaEnabled) return res.status(409).json({ code: 'MFA_ALREADY_ENABLED', message: 'Authenticator MFA is already enabled for this account.' });
+    const secret = generateSecret();
+    const uri = generateURI({ issuer: 'SafeLink', label: user.email, secret });
+    const expires = new Date(Date.now() + MFA_ENROLLMENT_TTL_MS);
+    await User.updateOne({ _id: user._id, mfaEnabled: false }, { $set: { mfaPendingSecret: encryptMfaSecret(secret), mfaPendingExpires: expires, updatedAt: new Date() } });
+    const qrCodeDataUrl = await QRCode.toDataURL(uri, { errorCorrectionLevel: 'M', margin: 1, width: 256 });
+    return res.json({ qrCodeDataUrl, manualEntryKey: secret, expiresAt: expires.toISOString(), issuer: 'SafeLink' });
+  } catch (error) {
+    if (error.code === 'MFA_CONFIGURATION_ERROR') return res.status(503).json({ code: error.code, message: 'Authenticator setup is temporarily unavailable.' });
+    return res.status(401).json({ code: 'MFA_CHALLENGE_INVALID', message: 'Your MFA setup session has expired. Sign in again to continue.' });
+  }
+};
+
+const confirmMfaEnrollment = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const user = await mfaUser(req.body.mfaToken, 'enroll', '+mfaPendingSecret +mfaRecoveryCodeHashes');
+    if (user.mfaEnabled || !user.mfaPendingSecret || !user.mfaPendingExpires || user.mfaPendingExpires <= new Date()) {
+      return res.status(400).json({ code: 'MFA_ENROLLMENT_EXPIRED', message: 'This authenticator setup has expired. Sign in again to create a new QR code.' });
+    }
+    const secret = decryptMfaSecret(user.mfaPendingSecret);
+    const result = await verifyTotp({ secret, token: req.body.code });
+    if (!result.valid) return res.status(400).json({ code: 'MFA_CODE_INVALID', message: 'That authenticator code is incorrect. Try the current code.' });
+    const recoveryCodes = createRecoveryCodes();
+    const updated = await User.findOneAndUpdate({ _id: user._id, mfaEnabled: false, mfaPendingExpires: { $gt: new Date() } }, {
+      $set: { mfaEnabled: true, mfaSecret: user.mfaPendingSecret, mfaRecoveryCodeHashes: recoveryCodes.map(recoveryHash), mfaEnabledAt: new Date(), updatedAt: new Date() },
+      $unset: { mfaPendingSecret: '', mfaPendingExpires: '' }
+    }, { new: true }).select('+mfaSecret +mfaRecoveryCodeHashes');
+    if (!updated) return res.status(409).json({ code: 'MFA_ENROLLMENT_CHANGED', message: 'This MFA setup is no longer available. Sign in again to continue.' });
+    await recordAuditEvent({ req, actor: updated._id, targetUser: updated._id, action: 'AUTH_MFA_ENROLLED', outcome: 'success' });
+    return res.json({ ...(await loginPayload(updated, 'Authenticator MFA is enabled.')), recoveryCodes });
+  } catch (error) {
+    if (error.code === 'MFA_CONFIGURATION_ERROR') return res.status(503).json({ code: error.code, message: 'Authenticator setup is temporarily unavailable.' });
+    return res.status(401).json({ code: 'MFA_CHALLENGE_INVALID', message: 'Your MFA setup session has expired. Sign in again to continue.' });
+  }
+};
+
+const verifyMfaLogin = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const user = await mfaUser(req.body.mfaToken, 'login', '+mfaSecret');
+    if (!user.mfaEnabled || !user.mfaSecret) return res.status(401).json({ code: 'MFA_NOT_ENABLED', message: 'Authenticator MFA is not enabled for this account.' });
+    const result = await verifyTotp({ secret: decryptMfaSecret(user.mfaSecret), token: req.body.code });
+    if (!result.valid) {
+      await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_LOGIN', outcome: 'failure', details: { reason: 'invalid_totp' } });
+      return res.status(400).json({ code: 'MFA_CODE_INVALID', message: 'That authenticator code is incorrect. Try the current code.' });
+    }
+    await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_LOGIN', outcome: 'success' });
+    return res.json(await loginPayload(user));
+  } catch (error) {
+    if (error.code === 'MFA_CONFIGURATION_ERROR') return res.status(503).json({ code: error.code, message: 'Authenticator verification is temporarily unavailable.' });
+    return res.status(401).json({ code: 'MFA_CHALLENGE_INVALID', message: 'Your MFA sign-in session has expired. Sign in again to continue.' });
+  }
+};
+
+const recoverMfaLogin = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const user = await mfaUser(req.body.mfaToken, 'login', '+mfaRecoveryCodeHashes');
+    const codeHash = recoveryHash(req.body.recoveryCode);
+    if (!user.mfaEnabled || !user.mfaRecoveryCodeHashes?.includes(codeHash)) {
+      await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_RECOVERY', outcome: 'failure' });
+      return res.status(400).json({ code: 'MFA_RECOVERY_INVALID', message: 'That recovery code is invalid or has already been used.' });
+    }
+    const consumed = await User.updateOne({ _id: user._id, mfaRecoveryCodeHashes: codeHash }, { $pull: { mfaRecoveryCodeHashes: codeHash }, $set: { updatedAt: new Date() } });
+    if (!consumed.modifiedCount) return res.status(400).json({ code: 'MFA_RECOVERY_INVALID', message: 'That recovery code is invalid or has already been used.' });
+    await recordAuditEvent({ req, actor: user._id, targetUser: user._id, action: 'AUTH_MFA_RECOVERY', outcome: 'success' });
+    return res.json(await loginPayload(user, 'Recovery code accepted. Store your remaining recovery codes safely.'));
+  } catch {
+    return res.status(401).json({ code: 'MFA_CHALLENGE_INVALID', message: 'Your MFA sign-in session has expired. Sign in again to continue.' });
   }
 };
 
@@ -748,6 +863,10 @@ module.exports = {
   registerPersonnel,
   applyPersonnel,
   loginUser,
+  beginMfaEnrollment,
+  confirmMfaEnrollment,
+  verifyMfaLogin,
+  recoverMfaLogin,
   getCurrentUser,
   getPendingPersonnel,
   approvePersonnel,

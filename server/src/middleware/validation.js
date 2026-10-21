@@ -143,6 +143,23 @@ const validateLogin = [
   validate
 ];
 
+const validateMfaCode = [
+  body('mfaToken').isString().isLength({ min: 20, max: 2048 }).withMessage('MFA session is invalid.'),
+  body('code').isString().trim().matches(/^\d{6}$/).withMessage('Enter the six-digit authenticator code.'),
+  validate
+];
+
+const validateMfaSetup = [
+  body('mfaToken').isString().isLength({ min: 20, max: 2048 }).withMessage('MFA session is invalid.'),
+  validate
+];
+
+const validateMfaRecovery = [
+  body('mfaToken').isString().isLength({ min: 20, max: 2048 }).withMessage('MFA session is invalid.'),
+  body('recoveryCode').isString().trim().matches(/^[A-Za-z0-9-]{10,40}$/).withMessage('Enter a valid recovery code.'),
+  validate
+];
+
 const validateIncidentCreation = [
   body('incidentType')
     .notEmpty().withMessage('Incident type is required.')
@@ -274,6 +291,9 @@ module.exports = {
   validateCitizenRegistration,
   validatePersonnelRegistration,
   validateLogin,
+  validateMfaCode,
+  validateMfaSetup,
+  validateMfaRecovery,
   validateIncidentCreation,
   validateIncidentProcessing,
   validateForgotPassword,

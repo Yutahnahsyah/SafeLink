@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "./routing";
-import { loginAccount, registerCitizenAccount } from "./services/accountApi";
+import { loginAccount, registerCitizenAccount, sessionFromLoginPayload } from "./services/accountApi";
 import { authApi } from "./services/safelinkApi";
 import { clearSession, getAccessToken, markActivity, storeSession } from "./services/apiClient";
 import { isVerifiedAccountShape, shouldShowCitizenSessionReminder } from "./services/authPolicy";
@@ -77,8 +77,19 @@ export function AuthProvider({ children }) {
         setRestorationError(null);
         const result = await loginAccount(credentials);
         if (revision.current !== version) throw new Error('Sign-in was cancelled. Please try again.');
+        if (result?.mfaRequired || result?.mfaEnrollmentRequired) return result;
         setUser(result.user);
         setIsRestoring(false);
+        storeSession(result.token, result.user);
+        if (result.user.role === "citizen") markActivity();
+        return result.user;
+      },
+      completeMfaLogin(payload) {
+        const result = sessionFromLoginPayload(payload);
+        revision.current += 1;
+        setUser(result.user);
+        setIsRestoring(false);
+        setRestorationError(null);
         storeSession(result.token, result.user);
         if (result.user.role === "citizen") markActivity();
         return result.user;

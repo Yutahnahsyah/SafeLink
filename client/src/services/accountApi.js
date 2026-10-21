@@ -10,11 +10,16 @@ export const accountApiCapabilities = Object.freeze({
   pendingPersonnel: true, approvePersonnel: true,
 });
 
-export async function loginAccount(credentials) {
-  const payload = await authApi.login({ email: credentials.email.trim().toLowerCase(), password: credentials.password });
+export function sessionFromLoginPayload(payload) {
   const user = mapUserFromApi(payload?.user);
   if (!payload?.token || !isVerifiedAccountShape(user)) throw new ApiError("ROLE_MISMATCH", "This account has no authorized SafeLink workspace.", 403);
   return { token: payload.token, user };
+}
+
+export async function loginAccount(credentials) {
+  const payload = await authApi.login({ email: credentials.email.trim().toLowerCase(), password: credentials.password });
+  if (payload?.mfaRequired || payload?.mfaEnrollmentRequired) return payload;
+  return sessionFromLoginPayload(payload);
 }
 
 export function registerCitizenAccount(values) { return authApi.registerCitizen(values); }
