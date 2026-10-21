@@ -96,8 +96,8 @@ export function scopeLguResult(result, jurisdiction, { detail = false } = {}) {
   return { ...result, data: scopeLguRecords(result.data, jurisdiction), jurisdiction };
 }
 
-// The authenticated boundary endpoint selects the polygon from the shared
-// 48-jurisdiction dataset. A missing/mismatched polygon is never a fallback map.
+// The shared 48-jurisdiction dataset supplies the authenticated account's
+// polygon. A missing/mismatched polygon is never a fallback map.
 export function getLguMapView(jurisdiction, boundary) {
   const name = boundary?.properties?.safelinkName;
   if (!normalizeMunicipalityName(jurisdiction) || normalizeMunicipalityName(jurisdiction) !== normalizeMunicipalityName(name)

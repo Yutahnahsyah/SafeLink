@@ -1,5 +1,15 @@
 import { normalizeMunicipalityName } from '../../../shared/municipalityNames.mjs';
 
+export async function loadLguSafetyMap(jurisdiction, request) {
+  // Use the jurisdiction from the authenticated account, never local database
+  // users or a province-wide response from an older deployed boundary endpoint.
+  const { findMunicipalityBoundary } = await import('../../../shared/lguJurisdiction.mjs');
+  const boundary = findMunicipalityBoundary(jurisdiction);
+  if (!boundary) throw new Error('The assigned LGU jurisdiction has no matching boundary. Ask your administrator to check the municipality or city.');
+  const payload = await request('incidents/map');
+  return { ...payload, boundary };
+}
+
 // Values accepted by the existing incident model/map endpoint. These filters
 // operate on its privacy-limited map response, never the full incident record.
 export const MAP_FILTER_OPTIONS = Object.freeze({
