@@ -190,16 +190,16 @@
   margin-top: 5px;
   border-top: 0;
   border-radius: 8px;
-  color: #b34149;
-  background: #fff5f5;
+  color: #fff;
+  background: #c6414c;
 }
 :is(.citizen-app, .lgu-app, .partner-app) :is(.profile-dropdown, .barangay-account-menu) > button:hover,
 :is(.citizen-app, .lgu-app, .partner-app) :is(.profile-dropdown, .barangay-account-menu) > button:focus-visible,
 .admin-app .admin-profile-dropdown .admin-profile-signout:hover,
 .admin-app .admin-profile-dropdown .admin-profile-signout:focus-visible {
-  color: #a32e3a;
-  background: #fff0f1;
-  box-shadow: inset 0 0 0 2px #e6a6ad;
+  color: #fff;
+  background: #a92f3a;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .3);
 }
 
 /* Police now uses the shared account dropdown instead of separate header links. */
