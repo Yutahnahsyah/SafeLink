@@ -147,7 +147,7 @@ export default function CitizenShell({ title, eyebrow, children, className = "" 
                     <Icon name="shield" /> Settings
                   </Link>
                   <button onClick={requestLogout}>
-                    <Icon name="arrow" /> Sign Out
+                    <Icon name="logout" /> Sign Out
                   </button>
                 </div>
               )}

@@ -82,7 +82,7 @@ function BarangayNavigation({ pathname, user, signOut, title, eyebrow, jurisdict
         <div id="barangay-account-menu" className={`barangay-account-menu${menuOpen ? " is-open" : ""}`} role="menu" aria-label="Account" aria-hidden={!menuOpen}>
           <Link to="/barangay/profile" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="users" size={17} /> My Profile</Link>
           <Link to="/barangay/settings" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="shield" size={17} /> Settings</Link>
-          <button type="button" role="menuitem" tabIndex={menuOpen ? 0 : -1} onClick={() => { setMenuOpen(false); signOut(); }}><Icon name="arrow" size={17} /> Sign Out</button>
+          <button type="button" role="menuitem" tabIndex={menuOpen ? 0 : -1} onClick={() => { setMenuOpen(false); signOut(); }}><Icon name="logout" size={17} /> Sign Out</button>
         </div>
       </div>
     </header>
@@ -109,7 +109,7 @@ function PoliceAccountMenu({ user, signOut }) {
     {open && <div className="profile-dropdown" id="police-account-menu" role="menu" aria-label="Police account">
       <Link to="/police/profile" role="menuitem" onClick={() => setOpen(false)}><Icon name="users" /> My Profile</Link>
       <Link to="/police/settings" role="menuitem" onClick={() => setOpen(false)}><Icon name="shield" /> Settings</Link>
-      <button type="button" role="menuitem" onClick={() => { setOpen(false); signOut(); }}><Icon name="arrow" /> Sign Out</button>
+      <button type="button" role="menuitem" onClick={() => { setOpen(false); signOut(); }}><Icon name="logout" /> Sign Out</button>
     </div>}
   </div>;
 }

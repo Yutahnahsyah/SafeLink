@@ -76,6 +76,13 @@ const paths = {
       <path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
     </>
   ),
+  logout: (
+    <>
+      <path d="M10 17l5-5-5-5" />
+      <path d="M15 12H3" />
+      <path d="M12 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" />
+    </>
+  ),
   arrow: <path d="m9 18 6-6-6-6" />,
   check: <path d="m5 12 4 4L19 6" />,
   menu: (
