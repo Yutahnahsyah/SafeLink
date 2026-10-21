@@ -1,4 +1,20 @@
 const mongoose = require('mongoose');
+const { getPangasinanZipCode } = require('../utils/pangasinanLocations');
+const { getBarangay, validStreet } = require('../utils/registrationLocations');
+
+const isCitizen = function isCitizen() {
+  return this.role === 'citizen';
+};
+
+const isPersonnel = function isPersonnel() {
+  return ['barangay_personnel', 'lgu_personnel', 'police_personnel'].includes(this.role);
+};
+
+const isBarangayPersonnel = function isBarangayPersonnel() {
+  return this.role === 'barangay_personnel';
+};
+
+const validMunicipality = (value) => Boolean(getPangasinanZipCode(value));
 
 // Optional on legacy accounts; registration alone supplies server-generated records.
 const LegalAcceptanceSchema = new mongoose.Schema({
@@ -46,15 +62,79 @@ const UserSchema = new mongoose.Schema({
     required: true
   },
   address: {
-    street: { type: String, default: null },
-    landmark: { type: String, default: null },
-    barangay: { type: String, default: null },
-    municipalityOrCity: { type: String, default: null },
-    zipCode: { type: String, default: null }
+    // A resident address is required only for citizen accounts. Personnel are
+    // scoped by jurisdiction instead; administrators require neither value.
+    street: {
+      type: String,
+      default: null,
+      trim: true,
+      required: isCitizen,
+      validate: {
+        validator(value) { return !isCitizen.call(this) || validStreet(value); },
+        message: 'Citizen street address must contain 2–255 valid characters.'
+      }
+    },
+    landmark: { type: String, default: null, trim: true, maxlength: 255 },
+    barangay: {
+      type: String,
+      default: null,
+      trim: true,
+      required: isCitizen,
+      validate: {
+        validator(value) {
+          return !isCitizen.call(this) || Boolean(getBarangay(this.address?.municipalityOrCity, value));
+        },
+        message: 'Citizen barangay must belong to the selected municipality or city.'
+      }
+    },
+    municipalityOrCity: {
+      type: String,
+      default: null,
+      trim: true,
+      required: isCitizen,
+      validate: {
+        validator(value) { return !isCitizen.call(this) || validMunicipality(value); },
+        message: 'Citizen municipality or city must be in Pangasinan.'
+      }
+    },
+    zipCode: {
+      type: String,
+      default: null,
+      trim: true,
+      required: isCitizen,
+      validate: {
+        validator(value) {
+          return !isCitizen.call(this) || value === getPangasinanZipCode(this.address?.municipalityOrCity);
+        },
+        message: 'Citizen ZIP code must match the selected municipality or city.'
+      }
+    }
   },
   jurisdiction: {
-    barangay: { type: String, default: null },
-    municipalityOrCity: { type: String, default: null }
+    // Personnel require a municipality/city jurisdiction. Only Barangay
+    // personnel additionally require the barangay that they cover.
+    barangay: {
+      type: String,
+      default: null,
+      trim: true,
+      required: isBarangayPersonnel,
+      validate: {
+        validator(value) {
+          return !isBarangayPersonnel.call(this) || Boolean(getBarangay(this.jurisdiction?.municipalityOrCity, value));
+        },
+        message: 'Barangay jurisdiction must belong to the selected municipality or city.'
+      }
+    },
+    municipalityOrCity: {
+      type: String,
+      default: null,
+      trim: true,
+      required: isPersonnel,
+      validate: {
+        validator(value) { return !isPersonnel.call(this) || validMunicipality(value); },
+        message: 'Personnel municipality or city jurisdiction must be in Pangasinan.'
+      }
+    }
   },
   status: {
     type: String,
