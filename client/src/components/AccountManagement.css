@@ -47,8 +47,18 @@
   .av-overview-body { padding:16px; }
 }
 @media (max-width:360px) { .av-page--accounts .av-role-distribution .av-donut-wrap { flex-direction:column; } }
-.av-account-actions { display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
-.av-page--accounts .av-account-actions button { min-height:32px; padding:5px 9px; font-size:11px; white-space:nowrap; }
+.av-account-action-menu { position:relative; width:100%; max-width:120px; }
+.av-account-action-menu > summary { display:flex; align-items:center; justify-content:space-between; gap:6px; min-height:32px; box-sizing:border-box; padding:5px 9px; border:1px solid #b8dce1; border-radius:7px; color:#087e89; background:#fff; font-size:11px; font-weight:700; cursor:pointer; list-style:none; }
+.av-account-action-menu > summary::-webkit-details-marker { display:none; }
+.av-account-action-menu > summary .av-icon { transition:transform 160ms ease; }
+.av-account-action-menu[open] > summary { border-color:#12bcc2; box-shadow:0 0 0 3px rgba(18,188,194,.13); }
+.av-account-action-menu[open] > summary .av-icon { transform:rotate(90deg); }
+.av-account-action-menu__items { position:absolute; z-index:20; top:calc(100% + 6px); right:0; display:grid; min-width:142px; padding:5px; border:1px solid #d8e7eb; border-radius:9px; background:#fff; box-shadow:0 12px 24px rgba(15,51,72,.14); }
+.av-account-action-menu__items button { width:100%; min-height:32px; padding:6px 9px; border:0; border-radius:6px; color:#24476a; background:transparent; font:600 11px/1.25 inherit; text-align:left; cursor:pointer; }
+.av-account-action-menu__items button:not(:disabled):hover,.av-account-action-menu__items button:not(:disabled):focus-visible { color:#087e89; background:#edfafa; outline:0; }
+.av-account-action-menu__items button:disabled { color:#a2b0b8; cursor:not-allowed; }
+.av-account-action-menu__items .danger-link { color:#b33e48; }
+.av-account-action-menu__items .danger-link:not(:disabled):hover,.av-account-action-menu__items .danger-link:not(:disabled):focus-visible { color:#a12f3a; background:#fff0f1; }
 .av-page--accounts .av-main-panel { min-width:0; container-type:inline-size; container-name:account-directory; }
 .av-page--accounts .av-account-table table { width:100%; min-width:0; table-layout:fixed; }
 .av-page--accounts .av-account-table :is(th,td) { padding:12px 8px; vertical-align:top; overflow-wrap:anywhere; }
@@ -61,8 +71,7 @@
 .av-page--accounts .av-account-table th:nth-child(6) { width:20%; }
 .av-page--accounts .av-account-table .av-badge { max-width:100%; box-sizing:border-box; padding:5px 7px; font-size:11px; white-space:normal; }
 .av-page--accounts .av-account-table .av-badge.is-pending { width:max-content; max-width:none; white-space:nowrap; }
-.av-page--accounts .av-account-table .av-account-actions { min-width:0; align-items:stretch; }
-.av-page--accounts .av-account-table .av-account-actions > button { width:100%; max-width:120px; min-width:0; white-space:normal; overflow-wrap:anywhere; }
+.av-page--accounts .av-account-table .av-account-action-menu { min-width:0; }
 @container account-directory (max-width:580px) {
   .av-page--accounts .av-account-table table,.av-page--accounts .av-account-table tbody { display:block; }
   .av-page--accounts .av-account-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); }
@@ -70,8 +79,8 @@
   .av-page--accounts .av-account-table tbody td { display:block; min-width:0; border:0; padding:0; }
   .av-page--accounts .av-account-table tbody td:first-child,.av-page--accounts .av-account-table tbody td:last-child { grid-column:1/-1; }
   .av-page--accounts .av-account-table td::before { content:attr(data-label); display:block; margin-bottom:5px; color:#62809a; font-size:11px; font-weight:600; }
-  .av-page--accounts .av-account-table .av-account-actions { flex-direction:row; flex-wrap:wrap; gap:8px; }
-  .av-page--accounts .av-account-table .av-account-actions > button { width:auto; max-width:100%; min-height:36px; padding:7px 12px; }
+  .av-page--accounts .av-account-table .av-account-action-menu { max-width:152px; }
+  .av-page--accounts .av-account-table .av-account-action-menu > summary { min-height:36px; padding:7px 12px; }
 }
 .av-account-recovery { box-sizing:border-box; border:1px solid #dbe7eb; color:#173e5c; max-width:calc(100vw - 32px); }
 .av-account-recovery::backdrop { background:#061e37a8; }
