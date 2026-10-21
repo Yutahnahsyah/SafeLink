@@ -1,6 +1,12 @@
 const crypto = require('crypto');
 const LoginState = require('../models/loginState');
-const cooldowns = [5, 10, 30].map(minutes => minutes * 60000);
+// Keep enough room for an honest typo during a demonstration, while still
+// slowing repeated password guessing for a single account.
+const cooldowns = [1, 5, 15].map(minutes => minutes * 60000);
+const maxFailedAttempts = Number.isInteger(Number(process.env.LOGIN_MAX_FAILURES)) && Number(process.env.LOGIN_MAX_FAILURES) > 0
+  ? Number(process.env.LOGIN_MAX_FAILURES) : 5;
+const failureWindowMs = (Number.isInteger(Number(process.env.LOGIN_FAILURE_WINDOW_MINUTES)) && Number(process.env.LOGIN_FAILURE_WINDOW_MINUTES) > 0
+  ? Number(process.env.LOGIN_FAILURE_WINDOW_MINUTES) : 15) * 60000;
 const normalizeLoginEmail = value => String(value || '').trim().toLowerCase();
 const stateError = () => Object.assign(new Error('Login security state is unavailable.'), { code: 'LOGIN_STATE_UNAVAILABLE' });
 const writeOptions = { maxTimeMS: 5000, writeConcern: { w: 'majority', wtimeout: 5000 } };
@@ -18,7 +24,7 @@ function createLoginProtection({ store = LoginState, now = Date.now,
       try {
         await store.updateOne({ _id: key }, { $setOnInsert: {
           failedAttempts: 0, lockoutStage: 0, lockedUntil: null, leaseToken: null,
-          leaseUntil: new Date(0), createdAt: created, updatedAt: created,
+          leaseUntil: new Date(0), lastFailureAt: null, createdAt: created, updatedAt: created,
         } }, { ...writeOptions, upsert: true, setDefaultsOnInsert: false });
       } catch (error) { if (error.code !== 11000) throw error; } // Concurrent first use of the same indexed _id.
       token = crypto.randomUUID();
@@ -48,21 +54,27 @@ function createLoginProtection({ store = LoginState, now = Date.now,
         state = updated;
       } catch { throw stateError(); }
     };
+    // Failed attempts only count during the configured window. Without this,
+    // two old typos could make a single later typo start a cooldown.
+    if (!remainingSeconds() && state.lastFailureAt
+      && now() - state.lastFailureAt.getTime() >= failureWindowMs) {
+      await commit({ failedAttempts: 0, lockoutStage: 0, lockedUntil: null, lastFailureAt: null });
+    }
     return {
       remainingSeconds,
       async recordFailure() {
         if (remainingSeconds()) return { locked: true, retryAfterSeconds: remainingSeconds(), started: false };
         const failures = state.failedAttempts + 1;
-        const locked = failures >= 3;
+        const locked = failures >= maxFailedAttempts;
         const stage = locked ? Math.min(3, state.lockoutStage + 1) : state.lockoutStage;
         const duration = locked ? cooldowns[stage - 1] : 0;
         await commit({ failedAttempts: locked ? 0 : failures, lockoutStage: stage,
-          lockedUntil: locked ? new Date(now() + duration) : null });
+          lockedUntil: locked ? new Date(now() + duration) : null, lastFailureAt: new Date(now()) });
         return { locked, retryAfterSeconds: remainingSeconds(), started: locked, cooldownSeconds: duration / 1000 };
       },
       async reset() {
         if (remainingSeconds()) throw stateError();
-        await commit({ failedAttempts: 0, lockoutStage: 0, lockedUntil: null });
+        await commit({ failedAttempts: 0, lockoutStage: 0, lockedUntil: null, lastFailureAt: null });
       },
       async release() {
         await store.updateOne({ _id: key, leaseToken: token },
