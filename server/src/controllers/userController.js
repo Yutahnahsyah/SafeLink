@@ -25,7 +25,7 @@ const getPersonnelList = async (req, res) => {
     }
 
     const personnel = await User.find(query)
-      .select('_id firstName lastName role jurisdiction email')
+      .select('_id firstName lastName role status isVerified jurisdiction email')
       .sort({ lastName: 1, firstName: 1 });
 
     res.status(200).json(personnel);

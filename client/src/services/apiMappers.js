@@ -106,6 +106,9 @@ export function mapNotificationFromApi(notification = {}) {
 }
 
 export function mapPersonnelFromApi(person = {}) {
+  const accountStatus = typeof person.status === "string" && person.status.trim()
+    ? `${person.status.trim().charAt(0).toUpperCase()}${person.status.trim().slice(1)}`
+    : "Unknown";
   return {
     ...person,
     id: String(person._id || person.id || ""),
@@ -114,6 +117,7 @@ export function mapPersonnelFromApi(person = {}) {
     locality: [person.jurisdiction?.barangay, person.jurisdiction?.municipalityOrCity].filter(Boolean).join(", "),
     status: person.status === "pending" ? "Pending" : person.status,
     requestedAt: dateTime(person.createdAt),
-    availability: person.status === "active" ? "Active" : "Unavailable",
+    accountStatus,
+    isAssignable: person.status === "active" && person.isVerified === true,
   };
 }
