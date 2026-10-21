@@ -904,25 +904,37 @@ const deleteUser = async (req, res) => {
 
 async function changePassword(req, res) {
   res.set('Cache-Control', 'no-store');
-  const { currentPassword, newPassword, confirmPassword } = req.body || {};
+  const { currentPassword, newPassword, confirmPassword, mfaCode } = req.body || {};
   const errors = [];
   if (typeof currentPassword !== 'string' || !currentPassword) errors.push({ path: 'currentPassword', msg: 'Enter your current password.' });
   if (typeof newPassword !== 'string' || newPassword.length < 8 || Buffer.byteLength(newPassword) > 72 || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[\W_]/.test(newPassword)) errors.push({ path: 'newPassword', msg: 'Use 8 or more characters, up to 72 bytes, with an uppercase letter, number, and special character.' });
   if (newPassword !== confirmPassword) errors.push({ path: 'confirmPassword', msg: 'Passwords do not match.' });
   if (errors.length) return res.status(400).json({ message: 'Please correct the highlighted fields.', errors });
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select('+mfaSecret');
     if (!user) return res.status(401).json({ message: 'Your session has expired.' });
     if (!await bcrypt.compare(currentPassword, user.password)) return res.status(400).json({ message: 'Current password is incorrect.', errors: [{ path: 'currentPassword', msg: 'Current password is incorrect.' }] });
+    if (user.mfaEnabled) {
+      if (!/^\d{6}$/.test(String(mfaCode || ''))) return res.status(400).json({ message: 'Enter the current six-digit code from your authenticator app.', errors: [{ path: 'mfaCode', msg: 'Enter the current six-digit code from your authenticator app.' }] });
+      if (!user.mfaSecret) return res.status(503).json({ code: 'MFA_CONFIGURATION_ERROR', message: 'Authenticator verification is temporarily unavailable.' });
+      const result = await verifyTotp({ secret: decryptMfaSecret(user.mfaSecret), token: mfaCode });
+      if (!result.valid) {
+        await recordAuditEvent({ req, targetUser: user._id, action: 'AUTH_MFA_PASSWORD_CHANGE', outcome: 'failure', details: { reason: 'invalid_totp' } });
+        return res.status(400).json({ code: 'MFA_CODE_INVALID', message: 'That authenticator code is incorrect. Try the current code.', errors: [{ path: 'mfaCode', msg: 'That authenticator code is incorrect. Try the current code.' }] });
+      }
+    }
     if (await bcrypt.compare(newPassword, user.password)) return res.status(400).json({ message: 'Choose a different new password.', errors: [{ path: 'newPassword', msg: 'Choose a different new password.' }] });
     user.password = await bcrypt.hash(newPassword, 10);
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
     await user.save();
-    await recordAuditEvent({ req, targetUser: user._id, action: user.role === 'lgu_personnel' ? 'LGU_PASSWORD_CHANGED' : 'AUTH_PASSWORD_CHANGED', outcome: 'success' });
+    await recordAuditEvent({ req, targetUser: user._id, action: user.role === 'lgu_personnel' ? 'LGU_PASSWORD_CHANGED' : 'AUTH_PASSWORD_CHANGED', outcome: 'success', details: user.mfaEnabled ? { mfaVerified: true } : undefined });
     // Preserve the application's existing JWT expiration policy.
     return res.json({ message: 'Password changed successfully.' });
-  } catch { return res.status(500).json({ message: 'Unable to update your password.' }); }
+  } catch (error) {
+    if (error.code === 'MFA_CONFIGURATION_ERROR') return res.status(503).json({ code: error.code, message: 'Authenticator verification is temporarily unavailable.' });
+    return res.status(500).json({ message: 'Unable to update your password.' });
+  }
 }
 
 module.exports = {

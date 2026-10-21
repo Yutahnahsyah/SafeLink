@@ -68,12 +68,12 @@ router.post('/register-personnel', verifyAdmin, registerPersonnel);
 // Retired public application endpoint; historical records remain intact.
 router.post('/apply-personnel', applyPersonnel);
 
-router.post('/change-password', verifyToken, require('../controllers/authController').changePassword);
+const mfaLimiter = rateLimit({ windowMs: 5 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false,
+  message: { code: 'MFA_RATE_LIMITED', message: 'Too many MFA attempts. Please try again in a few minutes.' } });
+router.post('/change-password', verifyToken, mfaLimiter, require('../controllers/authController').changePassword);
 
 // POST User Login (Citizen, Barangay, LGU, Police, Admin)
 router.post('/login', failedLoginLimiter, validateLogin, loginUser);
-const mfaLimiter = rateLimit({ windowMs: 5 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false,
-  message: { code: 'MFA_RATE_LIMITED', message: 'Too many MFA attempts. Please try again in a few minutes.' } });
 router.post('/mfa/setup', mfaLimiter, validateMfaSetup, beginMfaEnrollment);
 router.post('/mfa/confirm-enrollment', mfaLimiter, validateMfaCode, confirmMfaEnrollment);
 router.post('/mfa/verify', mfaLimiter, validateMfaCode, verifyMfaLogin);

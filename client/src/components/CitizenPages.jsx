@@ -1,5 +1,5 @@
 import { SectionSkeleton, ResourceError, RefreshNotice } from './PageSkeletons';
-import ChangePasswordForm from "./ChangePasswordForm";
+import { ChangePasswordModal } from "./ChangePasswordForm";
 import MfaSettingsCard from "./MfaSettingsCard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CitizenShell from "./CitizenShell";
@@ -1318,6 +1318,7 @@ export function ProfilePage() {
 export function SettingsPage() {
   const { logout } = useAuth();
   const { navigate } = useRouter();
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const doLogout = () => {
     logout();
     navigate("/login", { replace: true });
@@ -1327,8 +1328,8 @@ export function SettingsPage() {
       "shield",
       "Security",
       "Account & Password",
-      "Change your password here, or request a secure recovery link if you no longer know it.",
-      <div className="settings-card-actions"><a className="button button-muted" href="#change-password">Change password</a><Link className="button button-muted" to="/forgot-password">Reset password</Link></div>,
+      "Update your password securely from this account setting.",
+      <div className="settings-card-actions"><button className="button button-muted" type="button" onClick={() => setPasswordModalOpen(true)}>Change password</button></div>,
     ],
     [
       "bell",
@@ -1385,9 +1386,7 @@ export function SettingsPage() {
           </div>
         </section>
       </div>
-      <section id="change-password" className="settings-password-section" aria-label="Change password">
-        <ChangePasswordForm />
-      </section>
+      <ChangePasswordModal open={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
     </CitizenShell>
   );
 }
