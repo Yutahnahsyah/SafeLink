@@ -31,7 +31,6 @@ export default function AdminShell({ title, eyebrow, children }) {
       <div className="admin-workspace-label"><span>SafeLink</span><small>Administration</small></div>
       <nav aria-label="Administrator navigation">{navigation.map(([href, icon, label]) => <Link key={href} to={href} title={label} data-label={label} className={active(href) ? "active" : ""} aria-current={active(href) ? "page" : undefined}><span className="sidebar-nav-icon"><Icon name={icon} /></span><span>{label}</span></Link>)}</nav>
       <button className="av-collapse-toggle" type="button" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed}><Icon name="arrow" size={18} /><span>{collapsed ? "Expand menu" : "Collapse menu"}</span></button>
-      <div className="sidebar-help admin-sidebar-note"><Icon name="shield" /><div><strong>SafeLink governance</strong><span>Trusted community safety oversight</span></div></div>
     </aside>
     {drawerOpen && <button className="sidebar-scrim" onClick={() => setDrawerOpen(false)} aria-label="Close navigation" />}
     <div className="citizen-main">

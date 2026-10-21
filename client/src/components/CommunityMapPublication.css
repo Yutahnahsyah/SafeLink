@@ -2,11 +2,6 @@
 .community-publication-back, .admin-community-map-link { display: inline-flex; align-items: center; gap: 7px; width: fit-content; color: #007b8b; font-size: 13px; font-weight: 800; text-decoration: none; }
 .community-publication-back svg { transform: rotate(180deg); }
 .community-publication-back:hover, .admin-community-map-link:hover { text-decoration: underline; }
-.community-publication-hero { display: flex; align-items: flex-start; gap: 18px; padding: 25px; border-radius: 18px; color: #fff; background: linear-gradient(120deg, #06263f, #075963); }
-.community-publication-hero > svg { flex: 0 0 auto; color: #65e0e4; }
-.community-publication-hero small { color: #7ce6e8; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-.community-publication-hero h2 { max-width: 700px; margin: 7px 0; color: #fff; font-size: clamp(20px, 2.5vw, 26px); }
-.community-publication-hero p { max-width: 780px; margin: 0; color: #c5e0e5; font-size: 13px; line-height: 1.6; }
 .community-publication-list { display: grid; gap: 10px; }
 .community-publication-list article { display: flex; align-items: center; gap: 15px; min-width: 0; padding: 17px; border: 1px solid #dce9eb; border-radius: 14px; background: #fff; box-shadow: 0 5px 16px rgba(4, 37, 56, .04); }
 .community-publication-list article > div { flex: 1; min-width: 0; }

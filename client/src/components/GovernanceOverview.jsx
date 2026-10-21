@@ -55,17 +55,12 @@ function Empty({ title, children, icon = 'users' }) {
 function Panel({ title, description, children, to, link }) {
   return <section className="gv-panel"><header><div><h2>{title}</h2><p>{description}</p></div>{to && <Link to={to}>{link} <Icon name="arrow" size={15} /></Link>}</header>{children}</section>;
 }
-function SecurityArt() {
-  return <svg className="gv-security-art" viewBox="0 0 300 170" fill="none" aria-hidden="true"><circle cx="170" cy="85" r="68" stroke="#4cdee7" strokeOpacity=".22" /><circle cx="170" cy="85" r="48" stroke="#4cdee7" strokeOpacity=".15" /><rect x="26" y="45" width="94" height="80" rx="15" fill="#ffffff0d" stroke="#66dce750" /><circle cx="73" cy="72" r="10" stroke="#84e7ed" strokeWidth="3" /><path d="M53 106v-8c0-17 40-17 40 0v8" stroke="#84e7ed" strokeWidth="3" /><path d="m171 31 39 16v35c0 27-22 46-39 55-17-9-39-28-39-55V47l39-16Z" fill="#14aabb55" stroke="#a0f1ef" strokeWidth="3" /><path d="m153 81 13 13 25-28" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" /><rect x="220" y="69" width="67" height="43" rx="10" fill="#073951" stroke="#40cedc" /><path d="M230 91h10l6-11 9 19 7-8h14" stroke="#74e7e4" strokeWidth="2.5" strokeLinecap="round" /><circle cx="212" cy="30" r="5" fill="#68e7dd" /><circle cx="114" cy="136" r="4" fill="#51b8ed" /></svg>;
-}
-
 export default function GovernanceOverview() {
   const { user } = useAuth();
   const result = useGovernance(user);
   const data = result.data;
   const unavailable = result.status === 'error' && !data;
   return <AdminShell title="Platform Governance" eyebrow="SafeLink administration"><div className="gv-page">
-    <section className="gv-hero"><div><span className="gv-eyebrow"><Icon name="shield" size={15} /> Platform Governance</span><h2>Manage access. Maintain accountability.</h2><p>Monitor user accounts, authorized personnel, and important system activities across SafeLink.</p></div><SecurityArt /></section>
     <div className="gv-status"><span><i /> Administrator overview</span><span>{data ? `Updated ${auditTime(data.generatedAt)} · Philippine time` : result.status === 'error' ? 'Overview unavailable' : 'Loading verified account information'} · Refreshes every 15 seconds while visible</span></div>
     {result.status === 'error' && <div className="gv-error" role="alert"><div><strong>Overview could not be refreshed.</strong><p>{data ? 'Previously loaded records may be out of date.' : 'Counts and records are unavailable. Please try again.'}</p></div><button type="button" onClick={result.retry}>Retry overview</button></div>}
     <div className="gv-kpis">{[

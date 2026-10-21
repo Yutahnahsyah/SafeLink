@@ -37,7 +37,7 @@ export default function CommunityMapPublicationPage() {
   return <AdminShell title="Community Map Publication" eyebrow="Incident analytics">
     <div className="community-publication">
       <Link className="community-publication-back" to="/admin/incident-analytics"><Icon name="arrow" size={16} /> Back to Incident Analytics</Link>
-      <section className="community-publication-hero"><Icon name="map" size={30} /><div><small>Separate publication status</small><h2>Review what citizens can see on the map.</h2><p>Safely resolved incidents publish automatically. Sensitive or unsafe reports remain hidden. Administrators can revoke publication at any time; the backend checks every attempt to restore it.</p></div></section>
+      <p className="community-publication-note">Safely resolved incidents publish automatically. Sensitive or unsafe reports remain hidden. Administrators can revoke publication at any time; the backend checks every attempt to restore it.</p>
       {error && <p className="community-publication-message is-error" role="alert">{error}</p>}
       {message && <p className="community-publication-message" role="status">{message}</p>}
       <RefreshNotice result={result} />
