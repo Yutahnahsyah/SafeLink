@@ -1,7 +1,5 @@
 import { SectionSkeleton, RefreshNotice } from './PageSkeletons';
 import { useCallback, useEffect, useRef, useState } from "react";
-import ChangePasswordForm from "./ChangePasswordForm";
-import MfaSettingsCard from './MfaSettingsCard';
 import BrandLogo from "./BrandLogo";
 import Icon from "./Icon";
 import NotificationBell from "./NotificationBell";
@@ -15,6 +13,7 @@ import "./PartnerPages.css";
 import { communityIncidentColor } from '../services/communityIncidentMarkers';
 import BarangayIncidents from './BarangayIncidents';
 import LogoutConfirmDialog from './LogoutConfirmDialog';
+import WorkspaceSettings from './WorkspaceSettings';
 
 const workspaces = {
   barangay: {
@@ -82,12 +81,37 @@ function BarangayNavigation({ pathname, user, signOut, title, eyebrow, jurisdict
         <button className="barangay-account-trigger" type="button" aria-haspopup="menu" aria-expanded={menuOpen} aria-controls="barangay-account-menu" onClick={() => setMenuOpen((open) => !open)}><span className="barangay-avatar">{initials}</span><span className="barangay-account-copy"><strong>{name}</strong><small>Barangay Personnel</small></span><Icon name="arrow" size={15} /></button>
         <div id="barangay-account-menu" className={`barangay-account-menu${menuOpen ? " is-open" : ""}`} role="menu" aria-label="Account" aria-hidden={!menuOpen}>
           <Link to="/barangay/profile" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="users" size={17} /> My Profile</Link>
-          <Link to="/barangay/settings" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="shield" size={17} /> Account Settings</Link>
+          <Link to="/barangay/settings" role="menuitem" tabIndex={menuOpen ? 0 : -1}><Icon name="shield" size={17} /> Settings</Link>
           <button type="button" role="menuitem" tabIndex={menuOpen ? 0 : -1} onClick={() => { setMenuOpen(false); signOut(); }}><Icon name="arrow" size={17} /> Sign Out</button>
         </div>
       </div>
     </header>
   </>;
+}
+
+function PoliceAccountMenu({ user, signOut }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+  const name = user?.name || user?.fullName || "Police Personnel";
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (event) => { if (!menuRef.current?.contains(event.target)) setOpen(false); };
+    const escape = (event) => { if (event.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", escape); };
+  }, [open]);
+  return <div className="profile-menu partner-profile-menu" ref={menuRef}>
+    <button type="button" aria-haspopup="menu" aria-expanded={open} aria-controls="police-account-menu" onClick={() => setOpen((current) => !current)}>
+      <span className="user-avatar">{initials}</span><span><strong>{name}</strong><small>Police Personnel</small></span><Icon name="arrow" size={15} />
+    </button>
+    {open && <div className="profile-dropdown" id="police-account-menu" role="menu" aria-label="Police account">
+      <Link to="/police/profile" role="menuitem" onClick={() => setOpen(false)}><Icon name="users" /> Profile</Link>
+      <Link to="/police/settings" role="menuitem" onClick={() => setOpen(false)}><Icon name="shield" /> Settings</Link>
+      <button type="button" role="menuitem" onClick={() => { setOpen(false); signOut(); }}><Icon name="arrow" /> Logout</button>
+    </div>}
+  </div>;
 }
 
 function Breakdown({ title, values = {}, description }) {
@@ -154,7 +178,7 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
     label: jurisdiction || "Barangay jurisdiction",
   } : undefined;
   return <div className={`partner-app partner-app--${portal}${isBarangay && ["dashboard", "incidents", "details"].includes(view) ? " partner-app--readable" : ""}`}>
-    {isBarangay ? <BarangayNavigation pathname={pathname} user={user} signOut={requestSignOut} title={pageInfo[0]} eyebrow={jurisdiction || "Assigned Barangay workspace"} jurisdiction={jurisdiction} /> : <header className="partner-topbar"><BrandLogo href={`/${portal}/dashboard`} variant="dashboard" /><div><span>{config.eyebrow}</span><strong>{user?.name || user?.fullName || config.title}</strong></div><NotificationBell /><Link to="/police/settings">Account Settings</Link><button onClick={requestSignOut}><Icon name="arrow" size={15} /> Sign out</button></header>}
+    {isBarangay ? <BarangayNavigation pathname={pathname} user={user} signOut={requestSignOut} title={pageInfo[0]} eyebrow={jurisdiction || "Assigned Barangay workspace"} jurisdiction={jurisdiction} /> : <header className="partner-topbar"><BrandLogo href={`/${portal}/dashboard`} variant="dashboard" /><div><span>{config.eyebrow}</span><strong>{user?.name || user?.fullName || config.title}</strong></div><NotificationBell /><PoliceAccountMenu user={user} signOut={requestSignOut} /></header>}
     <main className="partner-content"><RefreshNotice result={incidentsResult} /><RefreshNotice result={notificationsResult} /><RefreshNotice result={analyticsResult} />
       {processError && <p className="form-error" role="alert">{processError}</p>}
       <section className={`partner-hero${isBarangay ? " barangay-workspace-heading" : ""}`}><span><Icon name={isBarangay ? pageInfo[2] : "shield"} size={24} /></span><div><small>{isBarangay ? jurisdiction || "Assigned Barangay workspace" : config.eyebrow}</small><h1>{pageInfo[0]}</h1><p>{isBarangay ? pageInfo[1] : config.copy}</p></div></section>
@@ -166,9 +190,7 @@ export default function PartnerDashboardPage({ portal, view = "dashboard", id })
         {incidentsResult.status === 'loading' ? <p>Loading resolution history...</p> : incidentsResult.status === 'error' ? <button onClick={incidentsResult.retry}>Retry resolution history</button> : <Breakdown title="Resolution submissions by month" values={resolutionMonths(incidentsResult.data)} />}
       </> : <p>No analytics are available yet.</p>}</section>}
       {view === "profile" && <section className="barangay-view-card"><h2>Personnel information</h2><dl className="barangay-account-details">{[["Name", user?.name || user?.fullName], ["Email", user?.email], ["Role", isBarangay ? "Barangay Personnel" : "Police Personnel"], ["Jurisdiction", jurisdiction], ["Account status", user?.accountStatus]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "Not available"}</dd></div>)}</dl></section>}
-      {view === "settings" && <ChangePasswordForm />}
-      {view === "settings" && <MfaSettingsCard />}
-      {view === "settings" && <section className="barangay-view-card"><h2>Account settings</h2><p>Your account details and permissions are managed by SafeLink administrators. Profile changes are not available from this workspace.</p><div className="barangay-settings-action"><div><strong>Current session</strong><p>End your session on this device.</p></div><button type="button" onClick={requestSignOut}>Sign Out</button></div></section>}
+      {view === "settings" && <WorkspaceSettings scope={isBarangay ? "Barangay workspace" : "Police workspace"} heading="Keep your account secure and your information protected." privacy={isBarangay ? "Incident information is limited to your Barangay jurisdiction. Citizen contact details and confidential evidence are protected." : "Incident information is limited to authorized police assignments. Citizen contact details and confidential evidence are protected."} onSignOut={signOut} />}
       {isBarangay && ['dashboard', 'incidents', 'details'].includes(view) && <BarangayIncidents key={id || view} view={view} id={id} result={incidentsResult} user={user} notifications={notificationsResult} />}
       {!isBarangay && (view === "dashboard" || view === "incidents") && <div className={`partner-grid${view === "incidents" ? " partner-grid--incidents" : ""}`}>
         <section><span><Icon name="report" /></span><div><small>Authorized queue</small><h2>Assigned incidents</h2><p>{config.note}</p>{incidentsResult.status === "loading" ? <SectionSkeleton variant="table" rows={4} columns={4} label="Loading authorized incidents" /> : incidentsResult.status === "error" ? <button onClick={incidentsResult.retry}>Retry</button> : incidentsResult.data.length ? (view === "incidents" ? incidentsResult.data : incidentsResult.data.slice(0, 5)).map((incident) => {

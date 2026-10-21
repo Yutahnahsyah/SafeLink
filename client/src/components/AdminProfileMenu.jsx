@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { UserRound, KeyRound, LogOut, ChevronDown } from 'lucide-react';
+import { UserRound, ShieldCheck, LogOut, ChevronDown } from 'lucide-react';
 import { Link, useRouter } from '../routing';
 import { useAuth } from '../auth';
 import { auditRoles } from './auditPresentation';
@@ -44,7 +44,7 @@ export default function AdminProfileMenu() {
     </button>
     {open && <div className="admin-profile-dropdown" id="admin-account-menu" role="menu" aria-label="Administrator account" ref={menu} onKeyDown={onMenuKey}>
       <Link to="/admin/profile" role="menuitem" tabIndex={-1} onClick={() => close()}><UserRound size={18} aria-hidden="true" />My Profile</Link>
-      <Link to="/admin/change-password" role="menuitem" tabIndex={-1} onClick={() => close()}><KeyRound size={18} aria-hidden="true" />Change Password</Link>
+      <Link to="/admin/settings" role="menuitem" tabIndex={-1} onClick={() => close()}><ShieldCheck size={18} aria-hidden="true" />Settings</Link>
       <button type="button" role="menuitem" tabIndex={-1} className="admin-profile-signout" onClick={() => { close(); setLogoutConfirmOpen(true); }}><LogOut size={18} aria-hidden="true" />Sign Out</button>
     </div>}
     <LogoutConfirmDialog open={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={() => { setLogoutConfirmOpen(false); logout(); navigate('/login', { replace:true }); }} />

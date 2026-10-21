@@ -93,7 +93,7 @@ export default function LguShell({ title, eyebrow, children }) {
               </button>
               {profileOpen && <div className="profile-dropdown" id="lgu-account-menu">
                 <Link to="/lgu/profile"><Icon name="users" /> Profile</Link>
-                <Link to="/lgu/settings"><Icon name="shield" /> Account Settings / Change Password</Link>
+                <Link to="/lgu/settings"><Icon name="shield" /> Settings</Link>
                 <button onClick={requestLogout}><Icon name="arrow" /> Logout</button>
               </div>}
             </div>
