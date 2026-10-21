@@ -110,6 +110,15 @@
 .citizen-report-tracking .privacy-card { display:grid; align-content:start; gap:8px; padding:20px 22px !important; border-color:#d8e7e8; background:linear-gradient(145deg,#fbfefe,#f3fafa); }
 .citizen-report-tracking .privacy-card h2 { padding:0 !important; border:0 !important; font-size:17px !important; }
 .citizen-report-tracking .privacy-card p { margin:0; }
+.citizen-report-tracking .citizen-case-layout > :is(section,aside) > header h2 { margin:0; font-size:19px; }
+.citizen-report-tracking .lgu-case-overview .report-details { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:0; padding:18px; }
+.citizen-report-tracking .lgu-case-overview .report-details > div { padding:12px; border:1px solid #e4ecee; border-radius:10px; background:#fafcfc; }
+.citizen-report-tracking .lgu-case-overview .report-details dt { color:#536b77; font-size:12px; font-weight:500; text-transform:uppercase; }
+.citizen-report-tracking .lgu-case-overview .report-details dd { margin:4px 0 0; color:#29485b; font-size:14px; line-height:1.55; }
+.citizen-report-tracking .citizen-evidence-empty,.citizen-report-tracking .citizen-updates-empty { margin:0; padding:22px; color:#657b84; font-size:13px; }
+.citizen-report-tracking .citizen-resolution-panel { margin-bottom:17px; overflow:hidden; }
+.citizen-report-tracking .citizen-resolution-panel > p { margin:0; padding:18px 22px 5px; }
+.citizen-report-tracking .citizen-resolution-panel > time { display:block; padding:0 22px 18px; }
 @container report-content (min-width: 600px) {
   .citizen-report-tracking .report-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .citizen-report-tracking .report-details > div:last-child { grid-column: 1 / -1; }
@@ -134,4 +143,7 @@
   .partner-app--readable .partner-grid > section { grid-template-columns: minmax(0, 1fr); }
   .partner-app--readable .partner-grid article { padding: 16px; }
   .partner-app--readable .barangay-menu-toggle { width: 44px; height: 44px; }
+}
+@media (max-width: 600px) {
+  .citizen-report-tracking .lgu-case-overview .report-details { grid-template-columns:1fr; }
 }

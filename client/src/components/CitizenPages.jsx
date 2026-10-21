@@ -26,6 +26,7 @@ import { incidentApi } from "../services/safelinkApi";
 import { useApiResource } from "../services/useApiResource";
 import "./CitizenMap.css";
 import "./CitizenDashboard.css";
+import "./LguModule.css";
 
 const statuses = [
   "Submitted",
@@ -512,7 +513,7 @@ export function TrackReportPage({ id }) {
   const current = statuses.indexOf(report.status);
   return (
     <CitizenShell title={report.title || report.type || "Incident"} eyebrow={report.id} className="citizen-report-tracking">
-      <div className="tracking-heading">
+      <div className="lgu-case-header citizen-case-header">
         <div>
           <span className={statusClass(report.status)}>{report.status}</span>
           <h2>{report.title || report.type}</h2>
@@ -537,23 +538,43 @@ export function TrackReportPage({ id }) {
           </div>
         </div>
       )}
-      {['Resolved', 'Closed'].includes(report.status) && <section className="citizen-card tracking-card resolution-outcome">
-        <h2>Resolution outcome</h2><p>{report.resolution?.message || 'No resolution remarks were recorded for this older report.'}</p>
+      {['Resolved', 'Closed'].includes(report.status) && <section className="citizen-card citizen-resolution-panel resolution-outcome">
+        <header><h2>Resolution outcome</h2></header><p>{report.resolution?.message || 'No resolution remarks were recorded for this older report.'}</p>
         {report.resolution?.timestamp && <time>{report.resolution.timestamp}</time>}
       </section>}
-      <section className="citizen-card tracking-card">
-        <header><h2>Response Timeline</h2></header>
-        <div className="tracking-timeline">
+      <div className="lgu-case-layout citizen-case-layout">
+        <section className="citizen-card lgu-case-overview citizen-report-overview">
+          <header><h2>Incident Overview</h2></header>
+          <dl className="report-details">
+            <div><dt>Reference ID</dt><dd>{report.id}</dd></div>
+            <div><dt>Incident type</dt><dd>{report.type}</dd></div>
+            <div><dt>Suggested urgency</dt><dd>{report.citizenUrgency || "Not recorded"}</dd></div>
+            <div><dt>Official priority</dt><dd>{report.priority}{report.priorityConfirmed ? " — confirmed by Barangay" : " — awaiting Barangay confirmation"}</dd></div>
+            <div><dt>Date and time</dt><dd>{report.incidentAt || report.submittedAt}</dd></div>
+            <div><dt>Location</dt><dd>{report.location}</dd></div>
+            {report.agency && <div><dt>Assigned office / agency</dt><dd>{report.agency}</dd></div>}
+            <div><dt>Description</dt><dd>{report.description}</dd></div>
+          </dl>
+        </section>
+        <aside className="citizen-card lgu-assignment-card citizen-report-privacy">
+          <header><h2>Report visibility</h2></header>
+          <dl><div><dt>Current status</dt><dd>{report.status}</dd></div><div><dt>Assigned office / agency</dt><dd>{report.agency || "Awaiting assignment"}</dd></div></dl>
+          <p className="lgu-assignment-note"><Icon name="shield" size={14} /> Only citizen-visible response updates are displayed. Internal records and confidential information remain restricted.</p>
+        </aside>
+        <section className="citizen-card lgu-timeline-card">
+          <header><h2>Response Timeline</h2></header>
+          <div className="lgu-timeline">
           {statuses.map((stage, index) => {
             const history = report.statusHistory?.findLast((entry) => entry.status === stage && ['submitted', 'status_changed'].includes(entry.eventType))
               || report.statusHistory?.findLast((entry) => entry.status === stage);
+            const complete = index < current || Boolean(history);
             return (
               <div
-                className={`${index < current ? "complete" : ""} ${index === current ? "current" : ""}`}
+                className={`${complete ? "is-complete" : ""} ${index === current ? "is-current" : ""}`}
                 key={stage}
               >
                 <span>
-                  {index < current ? (
+                  {complete ? (
                     <Icon name="check" size={15} />
                   ) : (
                     index + 1
@@ -564,78 +585,20 @@ export function TrackReportPage({ id }) {
                   <small>
                     {history?.timestamp ||
                       (index === current
-                        ? "Current status"
-                        : index < current
+                        ? "Current stage"
+                        : complete
                           ? "Completed"
-                          : "Awaiting update")}
+                          : "Pending")}
                   </small>
                   {history?.message && <p>{history.message}</p>}
                 </div>
               </div>
             );
           })}
-        </div>
-      </section>
-      <section className="citizen-card tracking-card">
-        <header><div><h2>Response Updates</h2><p>Progress updates for your report.</p></div></header>
-        <ol className="report-response-history">{report.statusHistory?.map((entry, index) => <li key={entry.id || index}>
-          <strong>{entry.status}</strong><time>{entry.timestamp || 'Time not recorded'}</time><p>{entry.message}</p>
-        </li>)}</ol>
-        {!report.statusHistory?.length && <p>No response updates recorded.</p>}
-      </section>
-      <div className="tracking-grid">
-        <section className="citizen-card">
-          <h2>Report details</h2>
-          <dl className="report-details">
-            <div>
-              <dt>Reference ID</dt>
-              <dd>{report.id}</dd>
-            </div>
-            <div>
-              <dt>Incident type</dt>
-              <dd>{report.type}</dd>
-            </div>
-            <div>
-              <dt>Suggested urgency</dt>
-              <dd>{report.citizenUrgency || "Not recorded"}</dd>
-            </div>
-            <div>
-              <dt>Official priority</dt>
-              <dd>{report.priority}{report.priorityConfirmed ? " — confirmed by Barangay" : " — awaiting Barangay confirmation"}</dd>
-            </div>
-            <div>
-              <dt>Date and time</dt>
-              <dd>{report.incidentAt || report.submittedAt}</dd>
-            </div>
-            <div>
-              <dt>Location</dt>
-              <dd>{report.location}</dd>
-            </div>
-            {report.agency && (
-              <div>
-                <dt>Assigned office / agency</dt>
-                <dd>{report.agency}</dd>
-              </div>
-            )}
-            <div>
-              <dt>Description</dt>
-              <dd>{report.description}</dd>
-            </div>
-          </dl>
-          {report.evidence?.length > 0 && (
-            <div className="evidence-gallery">
-              {report.evidence.map((item) => <ProtectedEvidence incidentId={report.id} item={item} key={item.id} />)}
-            </div>
-          )}
+          </div>
         </section>
-        <aside className="citizen-card privacy-card">
-          <Icon name="shield" />
-          <h2>Privacy protected</h2>
-          <p>
-            Only citizen-visible response updates are displayed. Internal
-            records and confidential information remain restricted.
-          </p>
-        </aside>
+        <section className="citizen-card lgu-evidence-card citizen-evidence-card"><header><h2>Evidence</h2></header>{report.evidence?.length ? <div className="lgu-evidence-grid">{report.evidence.map((item) => <ProtectedEvidence incidentId={report.id} item={item} key={item.id} />)}</div> : <p className="citizen-evidence-empty">No evidence files were attached to this report.</p>}</section>
+        <section className="citizen-card lgu-updates-card"><header><div><h2>Response Updates</h2><p>Progress updates for your report.</p></div></header>{report.statusHistory?.length ? <div className="lgu-update-list">{report.statusHistory.map((entry, index) => <article key={entry.id || index}><span><Icon name="check" size={14} /></span><div><strong>{entry.status}</strong>{entry.message && <p>{entry.message}</p>}<small>{entry.timestamp || 'Time not recorded'}</small></div></article>)}</div> : <p className="citizen-updates-empty">No response updates recorded.</p>}</section>
       </div>
     </CitizenShell>
   );
