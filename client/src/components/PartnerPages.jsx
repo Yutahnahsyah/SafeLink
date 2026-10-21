@@ -69,8 +69,9 @@ function BarangayNavigation({ pathname, user, signOut, title, eyebrow, jurisdict
       <div className="barangay-sidebar-brand"><BrandLogo href="/barangay/dashboard" variant="dashboard" /></div>
       <div className="barangay-workspace-label"><span>Barangay Operations</span><small>{jurisdiction || "Assigned jurisdiction"}</small></div>
       <nav aria-label="Barangay workspace">
-        {barangayNavigation.map(([label, path, icon]) => <Link key={path} to={path} className={`barangay-nav-link${pathname === path || (path.endsWith("incidents") && pathname.startsWith(path + "/")) || (path.endsWith("dashboard") && pathname === "/barangay") ? " is-active" : ""}`} aria-current={pathname === path ? "page" : undefined} onClick={() => setDrawerOpen(false)}><Icon name={icon} size={20} /><span>{label}</span></Link>)}
+        {barangayNavigation.map(([label, path, icon]) => <Link key={path} to={path} className={`barangay-nav-link${pathname === path || (path.endsWith("incidents") && pathname.startsWith(path + "/")) || (path.endsWith("dashboard") && pathname === "/barangay") ? " is-active" : ""}`} aria-current={pathname === path ? "page" : undefined} onClick={() => setDrawerOpen(false)}><span className="barangay-nav-icon"><Icon name={icon} size={20} /></span><span>{label}</span></Link>)}
       </nav>
+      <div className="barangay-sidebar-note"><Icon name="shield" size={18} /><div><strong>Local response authority</strong><span>Review and coordinate reports within your assigned jurisdiction.</span></div></div>
     </aside>
     {drawerOpen && <button className="barangay-drawer-backdrop" type="button" aria-label="Close navigation" onClick={() => setDrawerOpen(false)} />}
     <header className="barangay-header">

@@ -727,3 +727,91 @@
 }
 .partner-app--barangay .barangay-account-menu :is(a, button):hover { background: #f1f7f7; transform: translateX(2px); }
 .partner-app--barangay .barangay-account-menu button { color: #b34149; }
+
+/* Full LGU-style operations shell for Barangay personnel. */
+.partner-app--barangay .barangay-sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  box-sizing: border-box;
+  box-shadow: 12px 0 35px rgba(5, 24, 38, .1);
+}
+.partner-app--barangay .barangay-sidebar-brand .safelink-brand__name { color: #fff; }
+.partner-app--barangay .barangay-sidebar nav { padding: 13px 0; }
+.partner-app--barangay .barangay-nav-link {
+  gap: 10px;
+  overflow: hidden;
+  color: #d2e2ec;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+.partner-app--barangay .barangay-nav-link::before {
+  inset: 9px auto 9px 0;
+  background: #6fe4e4;
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+.partner-app--barangay .barangay-nav-link:hover { color: #fff; background: rgba(255, 255, 255, .065); transform: none; }
+.partner-app--barangay .barangay-nav-link.is-active { color: #fff; background: #096b7c; transform: none; }
+.partner-app--barangay .barangay-nav-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 10px;
+  color: #91abb8;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+.partner-app--barangay .barangay-nav-link:hover .barangay-nav-icon { color: #cce9ed; background: rgba(101, 213, 217, .06); }
+.partner-app--barangay .barangay-nav-link.is-active .barangay-nav-icon { color: #8be4e7; background: rgba(101, 213, 217, .1); }
+.partner-app--barangay .barangay-sidebar-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: auto;
+  padding: 15px;
+  border: 1px solid rgba(101, 213, 217, .18);
+  border-radius: 12px;
+  background: rgba(3, 177, 184, .075);
+}
+.partner-app--barangay .barangay-sidebar-note > svg { flex: 0 0 auto; color: #65d5d9; }
+.partner-app--barangay .barangay-sidebar-note > div { display: grid; gap: 2px; }
+.partner-app--barangay .barangay-sidebar-note strong { color: #edf8fa; font-size: 14px; }
+.partner-app--barangay .barangay-sidebar-note span { color: #bbd2dd; font-size: 13px; line-height: 1.65; }
+.partner-app--barangay .barangay-header {
+  position: sticky;
+  z-index: 900;
+  top: 0;
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+.partner-app--barangay .barangay-header .notification-bell { margin-left: auto; }
+.partner-app--barangay .partner-content { animation: lgu-page-in 190ms ease both; }
+.partner-app--barangay .barangay-management,
+.partner-app--barangay .barangay-incident-details { margin-top: 20px; }
+.partner-app--barangay .barangay-queue-filters { gap: 10px; margin-bottom: 18px; }
+.partner-app--barangay .barangay-queue-filters :is(button, a) {
+  min-height: 44px;
+  border-color: #d3e1e3;
+  border-radius: 10px;
+  color: #314e5e;
+  background: #fff;
+  box-shadow: none;
+}
+.partner-app--barangay .barangay-queue-filters :is(button, a):hover { border-color: #9dcdd0; background: #f4fbfb; }
+.partner-app--barangay .barangay-queue-filters [aria-pressed="true"] { border-color: #087d85; color: #fff; background: #087d85; }
+.partner-app--barangay .barangay-incident-panel,
+.partner-app--barangay .barangay-view-card { margin-top: 0; margin-bottom: 17px; }
+.partner-app--barangay .barangay-incident-card {
+  padding: 16px;
+  border-color: #e0e9ea;
+  border-radius: 12px;
+  background: #fbfdfd;
+}
+.partner-app--barangay .barangay-incident-heading h3 { font-size: 14px; }
+.partner-app--barangay .barangay-incident-panel p,
+.partner-app--barangay .barangay-view-card p { color: #536b77; font-size: 14px; }
+
+@media (max-width: 760px) {
+  .partner-app--barangay .barangay-sidebar-note { margin-top: 22px; }
+  .partner-app--barangay .barangay-header { position: sticky; }
+}
