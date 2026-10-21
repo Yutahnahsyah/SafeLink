@@ -225,18 +225,18 @@ function MfaLoginStep({ challenge, onAuthenticated, onCancel }) {
     } finally { setLoading(false); }
   };
 
-  if (recoveryCodes && completedPayload) return <AuthShell title="Save your recovery codes" text="Store these one-time codes somewhere safe. They are the only way to sign in if you lose your authenticator device." footer={<button className="forgot-link" type="button" onClick={() => onAuthenticated(completedPayload)}>I saved them — continue</button>}>
+  if (recoveryCodes && completedPayload) return <AuthShell title="Save your recovery codes" text="Store these one-time codes somewhere safe. They are the only way to sign in if you lose your authenticator device." footer={<button className="mfa-return-action mfa-complete-action" type="button" onClick={() => onAuthenticated(completedPayload)}>I saved my codes — continue <span aria-hidden="true">→</span></button>}>
     <div className="form-success" role="status"><Icon name="shield" size={20} /><div><strong>Authenticator MFA is enabled.</strong><p>Each recovery code works once.</p></div></div>
     <ul className="mfa-recovery-codes" aria-label="One-time recovery codes">{recoveryCodes.map((item) => <li key={item}><code>{item}</code></li>)}</ul>
   </AuthShell>;
 
   const title = enrollment ? "Set up your authenticator" : "Verify your sign-in";
   const text = enrollment ? "Scan this QR code using an authenticator app, then enter its current six-digit code." : "Enter the current six-digit code from your authenticator app to finish signing in.";
-  return <AuthShell title={title} text={text} footer={<button className="forgot-link" type="button" onClick={onCancel}>Return to sign in</button>}>
+  return <AuthShell title={title} text={text} footer={<button className="mfa-return-action" type="button" onClick={onCancel}><span aria-hidden="true">←</span> Back to sign in</button>}>
     {loading && <p className="form-success" role="status">Preparing secure authenticator setup…</p>}
     {enrollment && setup && <div className="mfa-enrollment"><img src={setup.qrCodeDataUrl} width="256" height="256" alt="Scan this QR code in your authenticator app" /><label><span className="field-label-row">Manual setup key<FieldRequirement>Copy if needed</FieldRequirement></span><input value={setup.manualEntryKey} readOnly onFocus={(event) => event.target.select()} aria-label="Manual authenticator setup key" /></label><small>Use this key only if you cannot scan the QR code. Treat it like a password.</small></div>}
     {!loading && <form className="auth-form" onSubmit={submit} noValidate>
-      {!enrollment && <button className="forgot-link" type="button" onClick={() => { setUseRecovery(!useRecovery); setError(""); }}>{useRecovery ? "Use authenticator code instead" : "Use a recovery code instead"}</button>}
+      {!enrollment && <div className="mfa-method-switch"><span>{useRecovery ? "Have your authenticator?" : "Can't access your authenticator?"}</span><button type="button" onClick={() => { setUseRecovery(!useRecovery); setError(""); }}>{useRecovery ? "Use authenticator code" : "Use recovery code"} <span aria-hidden="true">→</span></button></div>}
       {useRecovery ? <Field id="mfa-recovery-code" label="Recovery code" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} autoComplete="one-time-code" /> : <Field id="mfa-code" label="Authenticator code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} />}
       {!enrollment && <label className="mfa-trust-device"><input type="checkbox" checked={trustDevice} onChange={(event) => setTrustDevice(event.target.checked)} /><span><strong>Trust this device for 15 days</strong><small>Only choose this on a private device you control.</small></span></label>}
       {error && <p className="form-error" role="alert">{error}</p>}
