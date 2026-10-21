@@ -38,6 +38,8 @@ const timelineStages = [
 
 const statusClass = (status = "") => `lgu-status status-${status.toLowerCase().replaceAll(" ", "-")}`;
 const priorityClass = (priority = "") => `lgu-priority priority-${priority.toLowerCase()}`;
+const isPendingLguEscalation = (incident) => incident?.escalation?.agency === "LGU" && !incident.escalation?.acknowledgedAt;
+const isLguResponseCase = (incident) => incident?.status === "In Progress" || isPendingLguEscalation(incident);
 
 function OperationalState({ result, icon = "shield", unavailable, empty, error, variant = "list", errorTitle = "Unable to load data" }) {
   if (result?.status === "loading") return <SectionSkeleton variant={variant} label="Loading operational records" />;
@@ -111,7 +113,7 @@ function IncidentList({ result, jurisdiction, mode = "assigned" }) {
     const queryMatches = text.includes(query.trim().toLowerCase());
     const statusMatches = status === "all" || incident.status === status;
     const modeMatches = mode === "active"
-      ? incident.status === "In Progress"
+      ? isLguResponseCase(incident)
       : mode === "resolved" ? ["Resolved", "Closed"].includes(incident.status) : true;
     return queryMatches && statusMatches && modeMatches;
   }), [incidents, mode, query, status]);
@@ -141,11 +143,11 @@ export function LguDashboardPage() {
   const jurisdiction = getLguJurisdiction(user);
   const incidents = scopeLguRecords(incidentsResult.data || [], jurisdiction);
   const coordinationQueue = incidents.filter((incident) => {
-    const awaitingCoordination = incident.escalation?.agency === "LGU" && !incident.escalation?.acknowledgedAt;
+    const awaitingCoordination = isPendingLguEscalation(incident);
     return !["Resolved", "Closed"].includes(incident.status)
       && (incident.assignedAgency === "LGU" || awaitingCoordination);
   });
-  const activeResponses = incidents.filter((incident) => incident.status === "In Progress");
+  const activeResponses = incidents.filter(isLguResponseCase);
   const safetyMapResult = useLguSafetyMap(user, jurisdiction);
   const { items: mapItems } = buildLguSafetyMap(safetyMapResult.data, jurisdiction);
   const mapView = useMemo(() => getLguMapView(jurisdiction, safetyMapResult.data?.boundary), [jurisdiction, safetyMapResult.data?.boundary]);
@@ -185,7 +187,7 @@ export function LguActiveResponsePage() {
   const { user } = useAuth();
   const result = useLguIncidents(user);
   const jurisdiction = getLguJurisdiction(user);
-  return <LguShell title="Active Response" eyebrow={`${jurisdiction} jurisdiction`}><PageHeading eyebrow="Live operations" title={`Active response in ${jurisdiction}`}>Focus on acknowledged assignments and incidents with a response in progress.</PageHeading><JurisdictionLabel area={jurisdiction} /><IncidentList result={result} jurisdiction={jurisdiction} mode="active" /></LguShell>;
+  return <LguShell title="Active Response" eyebrow={`${jurisdiction} jurisdiction`}><PageHeading eyebrow="Live operations" title={`Active response in ${jurisdiction}`}>Review pending LGU coordination requests and incidents with a response in progress.</PageHeading><JurisdictionLabel area={jurisdiction} /><IncidentList result={result} jurisdiction={jurisdiction} mode="active" /></LguShell>;
 }
 
 export function LguResolvedPage() {
